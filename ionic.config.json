@@ -1,0 +1,10 @@
+{
+  "projects": {
+    "orderly": {
+      "name": "orderly",
+      "integrations": {},
+      "type": "react",
+      "root": "apps/orderly"
+    }
+  }
+}

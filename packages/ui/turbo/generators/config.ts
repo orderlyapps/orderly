@@ -1,9 +1,6 @@
-import type { PlopTypes } from "@turbo/gen";
-
-// Learn more about Turborepo Generators at https://turbo.build/repo/docs/core-concepts/monorepos/code-generation
+import { PlopTypes } from "@turbo/gen";
 
 export default function generator(plop: PlopTypes.NodePlopAPI): void {
-  // A simple generator to add a new React component to the internal UI library
   plop.setGenerator("react-component", {
     description: "Adds a new react component",
     prompts: [
@@ -12,18 +9,25 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
         name: "name",
         message: "What is the name of the component?",
       },
+      {
+        type: "list",
+        name: "folder",
+        message: "Which folder would you like to put the component in?",
+        choices: ["ionic", "base"],
+      },
     ],
     actions: [
       {
         type: "add",
-        path: "src/{{kebabCase name}}.tsx",
+        path: "src/{{kebabCase folder}}/{{kebabCase name}}/{{pascalCase name}}.tsx",
         templateFile: "templates/component.hbs",
       },
       {
         type: "append",
-        path: "package.json",
-        pattern: /"exports": {(?<insertion>)/g,
-        template: '    "./{{kebabCase name}}": "./src/{{kebabCase name}}.tsx",',
+        path: "src/index.ts",
+        // pattern: /^/,
+        template:
+          'export { {{pascalCase name}} } from "./{{kebabCase folder}}/{{kebabCase name}}/{{pascalCase name}}";',
       },
     ],
   });

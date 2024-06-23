@@ -1,0 +1,102 @@
+{
+  // Place your Latest workspace snippets here. Each snippet is defined under a snippet name and has a scope, prefix, body and
+  // description. Add comma separated ids of the languages where the snippet is applicable in the scope field. If scope
+  // is left empty or omitted, the snippet gets applied to all languages. The prefix is what is
+  // used to trigger the snippet and the body will be expanded and inserted. Possible variables are:
+  // $1, $2 for tab stops, $0 for the final cursor position, and ${1:label}, ${2:another} for placeholders.
+  // Placeholders with the same ids are connected.
+  // Example:
+
+  "-Ionic Page": {
+    "isFileTemplate": true,
+    "prefix": "ionic",
+    "body": [
+      "import {",
+      "  IonBackButton,",
+      "  IonButtons,",
+      "  IonContent,",
+      "  IonHeader,",
+      "  IonPage,",
+      "  IonTitle,",
+      "  IonToolbar,",
+      "} from '@ionic/react';",
+      "import { Spinner } from '@ui';",
+      "import { Suspense } from 'react';",
+      "",
+      "export const ${TM_FILENAME_BASE} = () => {",
+      "  return (",
+      "    <IonPage>",
+      "      <IonHeader>",
+      "        <IonToolbar>",
+      "          <IonButtons slot='start'>",
+      "            <IonBackButton></IonBackButton>",
+      "          </IonButtons>",
+      "          <IonTitle>${TM_FILENAME_BASE}</IonTitle>",
+      "        </IonToolbar>",
+      "      </IonHeader>",
+      "      <IonContent>",
+      "        <Suspense fallback={<Spinner></Spinner>}>",
+      "         <div className='full centered'>${TM_FILENAME_BASE}</div>",
+      "        </Suspense>",
+      "      </IonContent>",
+      "    </IonPage>",
+      "  );",
+      "};",
+      "",
+      "export default ${TM_FILENAME_BASE};"
+    ],
+    "description": "description",
+    "scope": "typescriptreact,javascriptreact"
+  },
+  "-Import Iconic Icon": {
+    "prefix": "ionic",
+    "body": ["import { ${CLIPBOARD} } from 'ionicons/icons';"],
+    "description": "description",
+    "scope": "typescript,typescriptreact,javascript,javascriptreact"
+  },
+  "-Ionic Modal": {
+    "prefix": "ionic",
+    "body": [
+      "import {",
+      "  IonButton,",
+      "  IonButtons,",
+      "  IonContent,",
+      "  IonHeader,",
+      "  IonModal,",
+      "  IonTitle,",
+      "  IonToolbar,",
+      "} from '@ionic/react';",
+      "import { useState } from 'react';",
+      "",
+      "export const ${TM_FILENAME_BASE} = () => {",
+      "  const [isOpen, setIsOpen] = useState(false);",
+      "",
+      "  return (",
+      "    <>",
+      "      <IonButton onClick={() => setIsOpen(true)}>",
+      "        <strong>Edit</strong>",
+      "      </IonButton>",
+      "      <IonModal isOpen={isOpen}>",
+      "        <IonHeader>",
+      "          <IonToolbar>",
+      "            <IonTitle>${TM_FILENAME_BASE}</IonTitle>",
+      "            <IonButtons slot='end'>",
+      "              <IonButton onClick={() => setIsOpen(false)}>Close</IonButton>",
+      "            </IonButtons>",
+      "          </IonToolbar>",
+      "        </IonHeader>",
+      "        <IonContent>",
+      "         ${TM_FILENAME_BASE}$1",
+      "        </IonContent>",
+      "      </IonModal>",
+      "    </>",
+      "  );",
+      "};",
+      "",
+      "export default ${TM_FILENAME_BASE};",
+      ""
+    ],
+    "description": "description",
+    "scope": "typescript,typescriptreact,javascript,javascriptreact,handlebars"
+  }
+}

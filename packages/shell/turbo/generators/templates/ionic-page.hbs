@@ -1,0 +1,42 @@
+import {
+  IonBackButton,
+  IonButtons,
+  IonContent,
+  IonHeader,
+  IonPage,
+  IonTitle,
+  IonToolbar,
+} from '@ionic/react';
+import { settingsOutline, homeOutline } from "ionicons/icons";
+import { Spinner } from '../../../shell-components/ionic/spinner';
+import { Suspense } from 'react';
+
+export const {{ pascalCase name}}Page = () => {
+  return (
+    <IonPage>
+      <IonHeader>
+        <IonToolbar>
+          <IonButtons slot='start'>
+            <IonBackButton></IonBackButton>
+          </IonButtons>
+          <IonTitle>{{ pascalCase name}}</IonTitle>
+        </IonToolbar>
+      </IonHeader>
+      <IonContent>
+        <Suspense fallback={<Spinner></Spinner>}>
+         <div className='full centered'>{{ pascalCase name}} Page</div>
+        </Suspense>
+      </IonContent>
+    </IonPage>
+  );
+};
+
+export const {{ pascalCase name }}PageContent = 
+   {
+    label: "{{ pascalCase name }}",
+    component: {{ pascalCase name }}Page,
+    //isTab: true,
+    //icon: homeOutline,
+    path: "home/{{ kebabCase name }}",
+    redirect: true,
+  }

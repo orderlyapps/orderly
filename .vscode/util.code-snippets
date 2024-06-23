@@ -1,0 +1,14 @@
+{
+  "-Wrap in <></>": {
+    "prefix": "util",
+    "body": ["<>", "  ${TM_SELECTED_TEXT}", "</>"],
+    "description": "Creates a React Arrow Function Component with ES7 module system and TypeScript interface",
+    "scope": "typescript,typescriptreact,javascript,javascriptreact",
+  },
+  "-Make Lazy": {
+    "prefix": "util",
+    "body": ["<>", "  ${TM_SELECTED_TEXT}", "</>"],
+    "description": "Creates a React Arrow Function Component with ES7 module system and TypeScript interface",
+    "scope": "typescript,typescriptreact,javascript,javascriptreact",
+  },
+}
