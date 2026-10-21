@@ -20,5 +20,9 @@
   "editor.codeActionsOnSave": {
     "source.fixAll.oxc": "explicit"
   },
-  "editor.minimap.enabled": false
+  "editor.minimap.enabled": false,
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/dist": true
+  }
 }
