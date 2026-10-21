@@ -21,6 +21,8 @@
     "source.fixAll.oxc": "explicit"
   },
   "editor.minimap.enabled": false,
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 1000,
   "files.exclude": {
     "**/node_modules": true,
     "**/dist": true
