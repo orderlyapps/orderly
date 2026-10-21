@@ -1,5 +1,7 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
+import { ColorSchemeScript, MantineProvider, mantineHtmlProps } from "@mantine/core";
 
+import mantineCss from "@mantine/core/styles.css?url";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({
@@ -19,6 +21,10 @@ export const Route = createRootRoute({
     links: [
       {
         rel: "stylesheet",
+        href: mantineCss,
+      },
+      {
+        rel: "stylesheet",
         href: appCss,
       },
     ],
@@ -28,12 +34,13 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" {...mantineHtmlProps}>
       <head>
+        <ColorSchemeScript />
         <HeadContent />
       </head>
       <body>
-        {children}
+        <MantineProvider>{children}</MantineProvider>
 
         <Scripts />
       </body>

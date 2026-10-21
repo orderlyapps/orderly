@@ -12,6 +12,8 @@
     "preview": "vp preview"
   },
   "dependencies": {
+    "@mantine/core": "catalog:",
+    "@mantine/hooks": "catalog:",
     "@tanstack/react-router": "1.170.45",
     "@tanstack/react-start": "1.169.3",
     "react": "^19.2.0",
