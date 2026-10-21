@@ -30,5 +30,8 @@
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.patterns": {
     "package.json": "*"
-  }
+  },
+  "window.autoDetectColorScheme": true,
+  "workbench.preferredLightColorTheme": "Devin Light",
+  "workbench.preferredDarkColorTheme": "Devin Dark"
 }
