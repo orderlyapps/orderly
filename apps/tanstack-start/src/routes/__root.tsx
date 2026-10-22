@@ -62,6 +62,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             <Anchor component={Link} to="/posts" activeProps={{ style: { fontWeight: 700 } }}>
               Posts
             </Anchor>
+            <Anchor component={Link} to="/calculator" activeProps={{ style: { fontWeight: 700 } }}>
+              Calculator
+            </Anchor>
           </Group>
           {children}
         </MantineProvider>
