@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import {
   Badge,
   Button,
@@ -29,7 +29,9 @@ function Home() {
           Edit <code>src/routes/index.tsx</code> to get started.
         </Text>
         <Group>
-          <Button>Get started</Button>
+          <Button component={Link} to="/posts">
+            Get started
+          </Button>
           <Button variant="default" onClick={toggleColorScheme}>
             Switch to {computedColorScheme === "dark" ? "light" : "dark"} mode
           </Button>

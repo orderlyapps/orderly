@@ -1,5 +1,5 @@
-import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
-import { ColorSchemeScript, MantineProvider, mantineHtmlProps } from "@mantine/core";
+import { HeadContent, Link, Scripts, createRootRoute } from "@tanstack/react-router";
+import { Anchor, ColorSchemeScript, Group, MantineProvider, mantineHtmlProps } from "@mantine/core";
 
 import mantineCss from "@mantine/core/styles.css?url";
 import appCss from "../styles.css?url";
@@ -40,7 +40,31 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <MantineProvider>{children}</MantineProvider>
+        <MantineProvider>
+          <Group
+            component="nav"
+            gap="lg"
+            px="md"
+            py="sm"
+            style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}
+          >
+            <Anchor
+              component={Link}
+              to="/"
+              activeOptions={{ exact: true }}
+              activeProps={{ style: { fontWeight: 700 } }}
+            >
+              Home
+            </Anchor>
+            <Anchor component={Link} to="/about" activeProps={{ style: { fontWeight: 700 } }}>
+              About
+            </Anchor>
+            <Anchor component={Link} to="/posts" activeProps={{ style: { fontWeight: 700 } }}>
+              Posts
+            </Anchor>
+          </Group>
+          {children}
+        </MantineProvider>
 
         <Scripts />
       </body>
