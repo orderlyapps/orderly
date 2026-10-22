@@ -1,9 +1,19 @@
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "vite-plus";
 
 import viteReact from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
-const config = defineConfig({
+const config = defineConfig(({ command }) => ({
+  resolve:
+    command === "serve"
+      ? {
+          alias: {
+            games: fileURLToPath(new URL("../../packages/games/src/index.ts", import.meta.url)),
+          },
+        }
+      : undefined,
   plugins: [
     viteReact(),
     VitePWA({
@@ -48,6 +58,6 @@ const config = defineConfig({
       },
     }),
   ],
-});
+}));
 
 export default config;
