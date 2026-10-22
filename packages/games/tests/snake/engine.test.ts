@@ -1,5 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import { SnakeEngine } from "../src/index.ts";
+import { SnakeEngine } from "../../src/index.ts";
 
 test("moves the snake forward", () => {
   const engine = new SnakeEngine({ cols: 10, rows: 10 });

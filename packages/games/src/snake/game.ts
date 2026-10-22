@@ -1,36 +1,23 @@
-import { SnakeEngine, type Direction } from "./engine.ts";
+import { fitCanvasToDisplaySize } from "../shared/canvas.ts";
+import { DirectionalInput } from "../shared/input.ts";
+import { SnakeEngine, type SnakeEngineOptions } from "./engine.ts";
 
-export interface SnakeGameOptions {
-  cols?: number;
-  rows?: number;
+export interface SnakeGameOptions extends SnakeEngineOptions {
   /** Base milliseconds per tick. The game speeds up as the score grows. */
   tickMs?: number;
   onScore?: (score: number) => void;
   onGameOver?: (score: number) => void;
 }
 
-const KEY_DIRECTIONS: Record<string, Direction> = {
-  ArrowUp: "up",
-  ArrowDown: "down",
-  ArrowLeft: "left",
-  ArrowRight: "right",
-  w: "up",
-  s: "down",
-  a: "left",
-  d: "right",
-};
-
-const SWIPE_THRESHOLD = 24;
-
 export class SnakeGame {
   readonly engine: SnakeEngine;
   private readonly canvas: HTMLCanvasElement;
   private readonly ctx: CanvasRenderingContext2D;
+  private readonly input: DirectionalInput;
   private readonly tickMs: number;
   private readonly onScore?: (score: number) => void;
   private readonly onGameOver?: (score: number) => void;
   private timer: ReturnType<typeof setTimeout> | null = null;
-  private touchStart: { x: number; y: number } | null = null;
   private readonly resizeObserver: ResizeObserver;
   private destroyed = false;
 
@@ -43,12 +30,9 @@ export class SnakeGame {
     this.onScore = options.onScore;
     this.onGameOver = options.onGameOver;
     this.engine = new SnakeEngine(options);
-
-    window.addEventListener("keydown", this.handleKeyDown);
-    canvas.addEventListener("touchstart", this.handleTouchStart, { passive: false });
-    canvas.addEventListener("touchmove", this.handleTouchMove, { passive: false });
-    canvas.addEventListener("touchend", this.handleTouchEnd);
-    canvas.addEventListener("touchcancel", this.handleTouchEnd);
+    this.input = new DirectionalInput(canvas, {
+      onDirection: (direction) => this.engine.setDirection(direction),
+    });
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(canvas);
     this.resize();
@@ -76,11 +60,7 @@ export class SnakeGame {
   destroy(): void {
     this.destroyed = true;
     this.stop();
-    window.removeEventListener("keydown", this.handleKeyDown);
-    this.canvas.removeEventListener("touchstart", this.handleTouchStart);
-    this.canvas.removeEventListener("touchmove", this.handleTouchMove);
-    this.canvas.removeEventListener("touchend", this.handleTouchEnd);
-    this.canvas.removeEventListener("touchcancel", this.handleTouchEnd);
+    this.input.destroy();
     this.resizeObserver.disconnect();
   }
 
@@ -103,54 +83,9 @@ export class SnakeGame {
   };
 
   private resize(): void {
-    const { clientWidth, clientHeight } = this.canvas;
-    if (clientWidth === 0 || clientHeight === 0) return;
-    const dpr = window.devicePixelRatio || 1;
-    this.canvas.width = Math.round(clientWidth * dpr);
-    this.canvas.height = Math.round(clientHeight * dpr);
+    if (!fitCanvasToDisplaySize(this.canvas)) return;
     this.draw();
   }
-
-  private handleKeyDown = (event: KeyboardEvent): void => {
-    const direction = KEY_DIRECTIONS[event.key];
-    if (!direction) return;
-    const target = event.target;
-    if (
-      target instanceof HTMLInputElement ||
-      target instanceof HTMLTextAreaElement ||
-      target instanceof HTMLSelectElement ||
-      (target instanceof HTMLElement && target.isContentEditable)
-    ) {
-      return;
-    }
-    if (this.canvas.getClientRects().length === 0) return;
-    event.preventDefault();
-    this.engine.setDirection(direction);
-  };
-
-  private handleTouchStart = (event: TouchEvent): void => {
-    event.preventDefault();
-    const touch = event.touches[0];
-    if (touch) this.touchStart = { x: touch.clientX, y: touch.clientY };
-  };
-
-  private handleTouchMove = (event: TouchEvent): void => {
-    event.preventDefault();
-    if (!this.touchStart) return;
-    const touch = event.touches[0];
-    if (!touch) return;
-    const dx = touch.clientX - this.touchStart.x;
-    const dy = touch.clientY - this.touchStart.y;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_THRESHOLD) return;
-    this.engine.setDirection(
-      Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : dy > 0 ? "down" : "up",
-    );
-    this.touchStart = { x: touch.clientX, y: touch.clientY };
-  };
-
-  private handleTouchEnd = (): void => {
-    this.touchStart = null;
-  };
 
   private draw(): void {
     const { width, height } = this.canvas;

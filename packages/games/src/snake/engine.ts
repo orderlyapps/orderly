@@ -1,29 +1,16 @@
-export type Direction = "up" | "down" | "left" | "right";
-
-export interface Cell {
-  x: number;
-  y: number;
-}
+import {
+  cellsEqual,
+  DIRECTION_DELTAS,
+  OPPOSITE_DIRECTIONS,
+  type Cell,
+  type Direction,
+} from "../shared/grid.ts";
 
 export interface SnakeEngineOptions {
   cols?: number;
   rows?: number;
   random?: () => number;
 }
-
-const DELTAS: Record<Direction, Cell> = {
-  up: { x: 0, y: -1 },
-  down: { x: 0, y: 1 },
-  left: { x: -1, y: 0 },
-  right: { x: 1, y: 0 },
-};
-
-const OPPOSITES: Record<Direction, Direction> = {
-  up: "down",
-  down: "up",
-  left: "right",
-  right: "left",
-};
 
 /** Smallest board that can hold the starting snake plus one food cell. */
 const MIN_BOARD_SIZE = 4;
@@ -65,21 +52,21 @@ export class SnakeEngine {
 
   setDirection(direction: Direction): void {
     const last = this.directionQueue.at(-1) ?? this.direction;
-    if (direction === last || direction === OPPOSITES[last]) return;
+    if (direction === last || direction === OPPOSITE_DIRECTIONS[last]) return;
     if (this.directionQueue.length < MAX_QUEUED_TURNS) this.directionQueue.push(direction);
   }
 
   step(): void {
     if (this.gameOver) return;
     this.direction = this.directionQueue.shift() ?? this.direction;
-    const delta = DELTAS[this.direction];
+    const delta = DIRECTION_DELTAS[this.direction];
     const head = this.snake[0]!;
     const next = { x: head.x + delta.x, y: head.y + delta.y };
 
-    const eating = next.x === this.food.x && next.y === this.food.y;
+    const eating = cellsEqual(next, this.food);
     const body = eating ? this.snake : this.snake.slice(0, -1);
     const hitsWall = next.x < 0 || next.y < 0 || next.x >= this.cols || next.y >= this.rows;
-    const hitsSelf = body.some((cell) => cell.x === next.x && cell.y === next.y);
+    const hitsSelf = body.some((cell) => cellsEqual(cell, next));
     if (hitsWall || hitsSelf) {
       this.gameOver = true;
       return;
