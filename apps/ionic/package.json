@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vp dev --port 4220 --open",
     "build": "tsc && vp build",
-    "preview": "vp preview"
+    "preview": "vp preview",
+    "deploy": "pnpm run build && wrangler deploy"
   },
   "dependencies": {
     "@ionic/react": "^9.0.9",
@@ -24,6 +25,7 @@
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plugin-pwa": "catalog:",
-    "vite-plus": "catalog:"
+    "vite-plus": "catalog:",
+    "wrangler": "catalog:"
   }
 }
