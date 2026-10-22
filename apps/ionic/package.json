@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vp dev --port 4220 --open",
-    "build": "tsc && vp build",
+    "dev": "vp run games#build && vp dev --port 4220 --open",
+    "build": "vp run games#build && tsc && vp build",
     "preview": "vp preview",
     "deploy": "pnpm run build && wrangler deploy"
   },
@@ -13,6 +13,7 @@
     "@ionic/react": "^9.0.9",
     "@ionic/react-router": "^9.0.9",
     "@rdlabo/ionic-theme-ios27": "catalog:",
+    "games": "workspace:*",
     "ionicons": "^8.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

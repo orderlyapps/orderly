@@ -16,8 +16,9 @@ import {
   popoverEnterAnimation,
   popoverLeaveAnimation,
 } from "@rdlabo/ionic-theme-ios27";
-import { ellipse, square, triangle } from "ionicons/icons";
+import { ellipse, gameController, square, triangle } from "ionicons/icons";
 
+import Snake from "./pages/Snake";
 import Tab1 from "./pages/Tab1";
 import Tab2 from "./pages/Tab2";
 import Tab3 from "./pages/Tab3";
@@ -62,12 +63,17 @@ const App = () => (
     <IonReactRouter>
       <IonTabs>
         <IonRouterOutlet>
+          <Route path="/snake" element={<Snake />} />
           <Route path="/tab1" element={<Tab1 />} />
           <Route path="/tab2" element={<Tab2 />} />
           <Route path="/tab3" element={<Tab3 />} />
           <Route path="/" element={<Navigate to="/tab1" replace />} />
         </IonRouterOutlet>
         <IonTabBar slot="bottom">
+          <IonTabButton tab="snake" href="/snake">
+            <IonIcon aria-hidden="true" icon={gameController} />
+            <IonLabel>Snake</IonLabel>
+          </IonTabButton>
           <IonTabButton tab="tab1" href="/tab1">
             <IonIcon aria-hidden="true" icon={triangle} />
             <IonLabel>Tab 1</IonLabel>

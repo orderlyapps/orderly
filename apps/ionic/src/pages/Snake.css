@@ -1,0 +1,46 @@
+.snake-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+}
+
+.snake-score {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.snake-board {
+  position: relative;
+  width: min(90vw, 420px);
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.snake-board canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.snake-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.snake-overlay-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.snake-hint {
+  font-size: 0.875rem;
+}

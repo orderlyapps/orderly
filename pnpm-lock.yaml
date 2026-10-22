@@ -220,6 +220,9 @@ importers:
       '@rdlabo/ionic-theme-ios27':
         specifier: 'catalog:'
         version: 1.2.1(@ionic/core@9.0.9)
+      games:
+        specifier: workspace:*
+        version: link:../../packages/games
       ionicons:
         specifier: ^8.1.0
         version: 8.1.0
@@ -330,6 +333,21 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 0.3.2(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(typescript@7.0.2)(yaml@2.9.1)
+
+  packages/games:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vite:
+        specifier: 'catalog:'
+        version: '@voidzero-dev/vite-plus-core@0.3.2(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(typescript@7.0.2)(yaml@2.9.1)'
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.3.2(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(typescript@7.0.2)(yaml@2.9.1)
 
   packages/utils:
     devDependencies:
