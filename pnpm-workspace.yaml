@@ -8,6 +8,7 @@ catalogMode: prefer
 catalog:
   "@mantine/core": ^9.7.2
   "@mantine/hooks": ^9.7.2
+  "@rdlabo/ionic-theme-ios27": ^1.2.1
   "@types/node": ^24
   typescript: ^7.0.2
   vite: npm:@voidzero-dev/vite-plus-core@0.3.2

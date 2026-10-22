@@ -11,6 +11,11 @@ import {
   setupIonicReact,
 } from "@ionic/react";
 import { IonReactRouter } from "@ionic/react-router";
+import {
+  iosTransitionAnimation,
+  popoverEnterAnimation,
+  popoverLeaveAnimation,
+} from "@rdlabo/ionic-theme-ios27";
 import { ellipse, square, triangle } from "ionicons/icons";
 
 import Tab1 from "./pages/Tab1";
@@ -36,10 +41,21 @@ import "@ionic/react/css/display.css";
 /* Dark palette, applied based on the system color scheme */
 import "@ionic/react/css/palettes/dark.system.css";
 
+/* iOS 27 theme */
+import "@rdlabo/ionic-theme-ios27/dist/css/default-variables.css";
+import "@rdlabo/ionic-theme-ios27/dist/css/ionic-theme-ios27.css";
+import "@rdlabo/ionic-theme-ios27/dist/css/md-remove-ios-class-effect.css";
+import "@rdlabo/ionic-theme-ios27/dist/css/ionic-theme-ios27-dark-system.css";
+
 /* Theme variables */
 import "./theme/variables.css";
 
-setupIonicReact();
+setupIonicReact({
+  mode: "ios",
+  navAnimation: iosTransitionAnimation,
+  popoverEnter: popoverEnterAnimation,
+  popoverLeave: popoverLeaveAnimation,
+});
 
 const App = () => (
   <IonApp>
