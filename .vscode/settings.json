@@ -25,7 +25,9 @@
   "files.autoSaveDelay": 1000,
   "files.exclude": {
     "**/node_modules": true,
-    "**/dist": true
+    "**/dist": true,
+    "**/dev-dist": true,
+    "**/.wrangler": true
   },
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.patterns": {
