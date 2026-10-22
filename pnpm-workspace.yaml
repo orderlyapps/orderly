@@ -23,3 +23,8 @@ peerDependencyRules:
     - vite
   allowedVersions:
     vite: "*"
+minimumReleaseAge: 10080
+minimumReleaseAgeExclude:
+  - "@ionic/core@9.0.9"
+  - "@ionic/react-router@9.0.9"
+  - "@ionic/react@9.0.9"
