@@ -3,6 +3,7 @@ import {
   Badge,
   Button,
   Group,
+  SegmentedControl,
   Stack,
   Text,
   Title,
@@ -13,7 +14,7 @@ import {
 export const Route = createFileRoute("/")({ component: Home });
 
 function Home() {
-  const { toggleColorScheme } = useMantineColorScheme();
+  const { colorScheme, setColorScheme } = useMantineColorScheme();
   const computedColorScheme = useComputedColorScheme();
 
   return (
@@ -32,9 +33,15 @@ function Home() {
           <Button component={Link} to="/posts">
             Get started
           </Button>
-          <Button variant="default" onClick={toggleColorScheme}>
-            Switch to {computedColorScheme === "dark" ? "light" : "dark"} mode
-          </Button>
+          <SegmentedControl
+            value={colorScheme}
+            onChange={(value) => setColorScheme(value as "light" | "dark" | "auto")}
+            data={[
+              { label: "Light", value: "light" },
+              { label: "Dark", value: "dark" },
+              { label: `System (${computedColorScheme})`, value: "auto" },
+            ]}
+          />
         </Group>
       </Stack>
     </main>
