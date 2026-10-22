@@ -1,0 +1,83 @@
+import { Navigate, Route } from "react-router-dom";
+
+import {
+  IonApp,
+  IonIcon,
+  IonLabel,
+  IonRouterOutlet,
+  IonTabBar,
+  IonTabButton,
+  IonTabs,
+  setupIonicReact,
+} from "@ionic/react";
+import { IonReactRouter } from "@ionic/react-router";
+import {
+  iosTransitionAnimation,
+  popoverEnterAnimation,
+  popoverLeaveAnimation,
+} from "@rdlabo/ionic-theme-ios27";
+import { receipt, settings } from "ionicons/icons";
+
+import Invoices from "./pages/Invoices";
+import Settings from "./pages/Settings";
+
+/* Core CSS required for Ionic components to work properly */
+import "@ionic/react/css/core.css";
+
+/* Basic CSS for apps built with Ionic */
+import "@ionic/react/css/normalize.css";
+import "@ionic/react/css/structure.css";
+import "@ionic/react/css/typography.css";
+
+/* Optional CSS utils that can be commented out */
+import "@ionic/react/css/padding.css";
+import "@ionic/react/css/float-elements.css";
+import "@ionic/react/css/text-alignment.css";
+import "@ionic/react/css/text-transformation.css";
+import "@ionic/react/css/flex-utils.css";
+import "@ionic/react/css/display.css";
+
+/* Dark palette, applied based on the system color scheme */
+import "@ionic/react/css/palettes/dark.system.css";
+
+/* iOS 27 theme */
+import "@rdlabo/ionic-theme-ios27/dist/css/default-variables.css";
+import "@rdlabo/ionic-theme-ios27/dist/css/ionic-theme-ios27.css";
+import "@rdlabo/ionic-theme-ios27/dist/css/md-remove-ios-class-effect.css";
+import "@rdlabo/ionic-theme-ios27/dist/css/ionic-theme-ios27-dark-system.css";
+
+/* Theme variables */
+import "./theme/variables.css";
+
+setupIonicReact({
+  mode: "ios",
+  navAnimation: iosTransitionAnimation,
+  popoverEnter: popoverEnterAnimation,
+  popoverLeave: popoverLeaveAnimation,
+});
+
+const App = () => (
+  <IonApp>
+    <IonReactRouter>
+      <IonTabs>
+        <IonRouterOutlet>
+          <Route path="/invoices" element={<Invoices />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/" element={<Navigate to="/invoices" replace />} />
+        </IonRouterOutlet>
+        <IonTabBar slot="bottom">
+          <IonTabButton tab="invoices" href="/invoices">
+            <IonIcon aria-hidden="true" icon={receipt} />
+            <IonLabel>Invoices</IonLabel>
+          </IonTabButton>
+          <IonTabButton tab="settings" href="/settings">
+            <IonIcon aria-hidden="true" icon={settings} />
+            <IonLabel>Settings</IonLabel>
+          </IonTabButton>
+        </IonTabBar>
+      </IonTabs>
+    </IonReactRouter>
+  </IonApp>
+);
+
+export default App;
