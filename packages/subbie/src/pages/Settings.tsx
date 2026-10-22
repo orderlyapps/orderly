@@ -13,7 +13,7 @@ import {
   IonToolbar,
 } from "@ionic/react";
 
-const Settings = () => {
+export const Settings = () => {
   return (
     <IonPage>
       <IonHeader>
@@ -59,5 +59,3 @@ const Settings = () => {
     </IonPage>
   );
 };
-
-export default Settings;

@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vp dev --port 4230 --open",
-    "build": "tsc && vp build",
+    "dev": "vp run subbie-core#build && vp dev --port 4230 --open",
+    "build": "vp run subbie-core#build && tsc && vp build",
     "preview": "vp preview",
     "deploy": "pnpm run build && wrangler deploy"
   },
@@ -17,9 +17,11 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router": "^6.30.0",
-    "react-router-dom": "^6.30.0"
+    "react-router-dom": "^6.30.0",
+    "subbie-core": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.0.1",

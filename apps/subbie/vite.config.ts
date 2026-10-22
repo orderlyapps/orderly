@@ -1,10 +1,42 @@
-import { defineConfig } from "vite-plus";
+import { spawn, type ChildProcess } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+import { defineConfig, type Plugin } from "vite-plus";
 
 import viteReact from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
+const subbieCoreDir = fileURLToPath(new URL("../../packages/subbie", import.meta.url));
+
+// Rebuild subbie-core into dist/ whenever its sources change during `vp dev`,
+// so the dev server never serves stale package output.
+function subbieCoreWatch(): Plugin {
+  let child: ChildProcess | undefined;
+  return {
+    name: "subbie-core-watch",
+    apply: "serve",
+    configureServer(server) {
+      child = spawn("vp", ["pack", "--watch"], {
+        cwd: subbieCoreDir,
+        stdio: "inherit",
+        shell: process.platform === "win32",
+      });
+      child.on("error", (err) =>
+        server.config.logger.warn(`subbie-core watch failed: ${err.message}`),
+      );
+      const stop = () => {
+        child?.kill();
+        process.off("exit", stop);
+      };
+      server.httpServer?.once("close", stop);
+      process.once("exit", stop);
+    },
+  };
+}
+
 const config = defineConfig({
   plugins: [
+    subbieCoreWatch(),
     viteReact(),
     VitePWA({
       registerType: "autoUpdate",
