@@ -1,5 +1,7 @@
 import {
+  IonBackButton,
   IonButton,
+  IonButtons,
   IonContent,
   IonHeader,
   IonPage,
@@ -62,6 +64,9 @@ const Snake = () => {
     <IonPage>
       <IonHeader>
         <IonToolbar>
+          <IonButtons slot="start">
+            <IonBackButton defaultHref="/games" text="" />
+          </IonButtons>
           <IonTitle>Snake</IonTitle>
         </IonToolbar>
       </IonHeader>
