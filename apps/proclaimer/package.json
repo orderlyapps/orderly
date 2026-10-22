@@ -1,0 +1,32 @@
+{
+  "name": "proclaimer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev --port 4240 --open",
+    "build": "tsc && vp build",
+    "preview": "vp preview",
+    "deploy": "pnpm run build && wrangler deploy"
+  },
+  "dependencies": {
+    "@ionic/react": "^9.0.9",
+    "@ionic/react-router": "^9.0.9",
+    "@rdlabo/ionic-theme-ios27": "catalog:",
+    "ionicons": "^8.1.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router": "^6.30.0",
+    "react-router-dom": "^6.30.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.1",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-pwa": "catalog:",
+    "vite-plus": "catalog:",
+    "wrangler": "catalog:"
+  }
+}
