@@ -10,4 +10,40 @@ body {
 main {
   width: min(42rem, calc(100% - 2rem));
   margin: 4rem auto;
+  view-transition-name: page;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(page) {
+  animation: 150ms ease-in page-out both;
+}
+
+::view-transition-new(page) {
+  animation: 200ms ease-out page-in both;
+}
+
+@keyframes page-out {
+  to {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(page),
+  ::view-transition-new(page) {
+    animation: none;
+  }
 }
