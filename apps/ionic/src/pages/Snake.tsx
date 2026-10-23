@@ -4,15 +4,16 @@ import {
   IonButtons,
   IonContent,
   IonHeader,
+  IonIcon,
   IonPage,
   IonText,
-  IonTitle,
   IonToolbar,
   useIonViewDidEnter,
   useIonViewWillLeave,
 } from "@ionic/react";
+import { chevronBack, chevronDown, chevronForward, chevronUp } from "ionicons/icons";
 import { useEffect, useRef, useState } from "react";
-import { SnakeGame } from "games";
+import { SnakeGame, type Direction } from "games";
 
 import "./Snake.css";
 
@@ -60,6 +61,10 @@ const Snake = () => {
     gameRef.current?.restart();
   };
 
+  const turn = (direction: Direction) => {
+    gameRef.current?.setDirection(direction);
+  };
+
   return (
     <IonPage>
       <IonHeader>
@@ -67,19 +72,10 @@ const Snake = () => {
           <IonButtons slot="start">
             <IonBackButton defaultHref="/games" text="" />
           </IonButtons>
-          <IonTitle>Snake</IonTitle>
         </IonToolbar>
       </IonHeader>
       <IonContent fullscreen>
-        <IonHeader collapse="condense">
-          <IonToolbar>
-            <IonTitle size="large">Snake</IonTitle>
-          </IonToolbar>
-        </IonHeader>
         <div className="snake-page">
-          <IonText className="snake-score">
-            Score: {score} · Best: {highScore}
-          </IonText>
           <div className="snake-board">
             <canvas ref={canvasRef} />
             {gameOver && (
@@ -89,8 +85,41 @@ const Snake = () => {
               </div>
             )}
           </div>
+          <div className="snake-controls">
+            <IonButton
+              className="snake-control snake-control-up"
+              aria-label="Move up"
+              onPointerDown={() => turn("up")}
+            >
+              <IonIcon icon={chevronUp} />
+            </IonButton>
+            <IonButton
+              className="snake-control snake-control-left"
+              aria-label="Move left"
+              onPointerDown={() => turn("left")}
+            >
+              <IonIcon icon={chevronBack} />
+            </IonButton>
+            <IonButton
+              className="snake-control snake-control-down"
+              aria-label="Move down"
+              onPointerDown={() => turn("down")}
+            >
+              <IonIcon icon={chevronDown} />
+            </IonButton>
+            <IonButton
+              className="snake-control snake-control-right"
+              aria-label="Move right"
+              onPointerDown={() => turn("right")}
+            >
+              <IonIcon icon={chevronForward} />
+            </IonButton>
+          </div>
           <IonText color="medium" className="snake-hint">
-            Arrow keys or swipe to move
+            Arrow keys, swipe, or buttons to move
+          </IonText>
+          <IonText className="snake-score">
+            Score: {score} · Best: {highScore}
           </IonText>
         </div>
       </IonContent>

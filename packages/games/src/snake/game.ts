@@ -1,4 +1,5 @@
 import { fitCanvasToDisplaySize } from "../shared/canvas.ts";
+import type { Direction } from "../shared/grid.ts";
 import { DirectionalInput } from "../shared/input.ts";
 import { SnakeEngine, type SnakeEngineOptions } from "./engine.ts";
 
@@ -47,6 +48,10 @@ export class SnakeGame {
     if (this.timer === null) return;
     clearTimeout(this.timer);
     this.timer = null;
+  }
+
+  setDirection(direction: Direction): void {
+    this.engine.setDirection(direction);
   }
 
   restart(): void {
