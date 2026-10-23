@@ -6,5 +6,3 @@ export {
   invoiceStatusLabel,
   listInvoices,
 } from "./lib/invoices.ts";
-export { Invoices } from "./pages/Invoices.tsx";
-export { Settings } from "./pages/Settings.tsx";

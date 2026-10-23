@@ -17,7 +17,9 @@ import {
   popoverLeaveAnimation,
 } from "@rdlabo/ionic-theme-ios27";
 import { receipt, settings } from "ionicons/icons";
-import { Invoices, Settings } from "subbie-core";
+
+import Invoices from "./pages/Invoices";
+import Settings from "./pages/Settings";
 
 /* Core CSS required for Ionic components to work properly */
 import "@ionic/react/css/core.css";

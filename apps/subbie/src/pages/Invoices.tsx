@@ -1,9 +1,7 @@
 import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from "@ionic/react";
+import { InvoiceList, listInvoices } from "subbie-core";
 
-import { InvoiceList } from "../components/InvoiceList.tsx";
-import { listInvoices } from "../lib/invoices.ts";
-
-export const Invoices = () => {
+const Invoices = () => {
   const invoices = listInvoices();
 
   return (
@@ -24,3 +22,5 @@ export const Invoices = () => {
     </IonPage>
   );
 };
+
+export default Invoices;
