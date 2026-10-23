@@ -10,6 +10,14 @@ export {
   SETTINGS_BINARY_FILENAME,
 } from "./binary.ts";
 export {
+  AppearanceSettingsSection,
+  DataSettingsSection,
+  SettingsSection,
+  type AppearanceSettingsSectionProps,
+  type DataSettingsSectionProps,
+  type SettingsSectionProps,
+} from "./components/index.ts";
+export {
   createSettingsStore,
   getSettingsStore,
   resetDefaultSettingsStoreForTesting,
@@ -21,13 +29,22 @@ export {
 } from "./db.ts";
 export { useSettings, useThemeEffect, type UseSettingsResult } from "./hooks.ts";
 export {
+  areSettingsEqual,
   DEFAULT_SETTINGS,
   DEFAULT_SETTINGS_ID,
   isSettingsDocument,
+  isSettingValue,
   isThemeMode,
+  isValidSettingsId,
+  normalizeSettingsDocument,
+  SETTINGS_ID_MAX_LENGTH,
+  SETTINGS_KEYS,
   settingsRxSchema,
   THEME_MODES,
+  toSettingsPatch,
   type SettingsDocument,
+  type SettingsKey,
+  type SettingsPatch,
   type ThemeMode,
 } from "./schema.ts";
 export { SettingsView, type SettingsViewProps } from "./SettingsView.tsx";
@@ -37,5 +54,7 @@ export {
   getCachedTheme,
   resolveIsDarkTheme,
   setCachedTheme,
+  THEME_LABELS,
+  THEME_OPTIONS,
   THEME_STORAGE_KEY,
 } from "./theme.ts";

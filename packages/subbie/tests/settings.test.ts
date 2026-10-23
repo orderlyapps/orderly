@@ -1,9 +1,12 @@
 import { expect, test } from "vite-plus/test";
 import {
+  AppearanceSettingsSection,
   applyTheme,
+  areSettingsEqual,
   createSettingsBinaryFilename,
   createSettingsStore,
   DARK_PALETTE_CLASS,
+  DataSettingsSection,
   decodeSettingsBinary,
   DEFAULT_SETTINGS_ID,
   downloadSettingsBinary,
@@ -13,13 +16,24 @@ import {
   getSettingsStore,
   importSettingsBinary,
   importSettingsBinaryFile,
+  isSettingsDocument,
   isThemeMode,
+  isValidSettingsId,
+  normalizeSettingsDocument,
   resetDefaultSettingsStoreForTesting,
   setCachedTheme,
   SETTINGS_BINARY_EXTENSION,
   SETTINGS_BINARY_FILENAME,
+  SETTINGS_ID_MAX_LENGTH,
+  SETTINGS_KEYS,
+  SettingsSection,
+  SettingsView,
+  THEME_LABELS,
   THEME_MODES,
+  THEME_OPTIONS,
   THEME_STORAGE_KEY,
+  toSettingsPatch,
+  type SettingsPatch,
 } from "../src/feature/settings/index.ts";
 
 let dbCounter = 0;
@@ -28,21 +42,65 @@ function nextDbName() {
   return `subbie_test_${Date.now()}_${dbCounter}`;
 }
 
-test("validates theme modes and binary filename formatting", () => {
+test("validates theme modes, schema helpers, and binary filename formatting", () => {
   expect(SETTINGS_BINARY_EXTENSION).toBe(".sub");
   expect(SETTINGS_BINARY_FILENAME).toBe("settings.sub");
   expect(createSettingsBinaryFilename(new Date("2026-10-23T14:05:09.000Z"))).toBe(
     "settings-2026-10-23_14-05-09.sub",
   );
   expect(THEME_MODES).toEqual(["light", "dark", "system"]);
+  expect(SETTINGS_KEYS).toEqual(["theme"]);
+  expect(THEME_LABELS).toEqual({ light: "Light", dark: "Dark", system: "System" });
+  expect(THEME_OPTIONS).toEqual([
+    { value: "light", label: "Light" },
+    { value: "dark", label: "Dark" },
+    { value: "system", label: "System" },
+  ]);
   expect(isThemeMode("light")).toBe(true);
   expect(isThemeMode("dark")).toBe(true);
   expect(isThemeMode("system")).toBe(true);
   expect(isThemeMode("solarized")).toBe(false);
   expect(isThemeMode(null)).toBe(false);
+
+  expect(normalizeSettingsDocument(undefined)).toEqual({
+    id: DEFAULT_SETTINGS_ID,
+    theme: "system",
+  });
+  expect(normalizeSettingsDocument({ id: "", theme: "dark" })).toEqual({
+    id: DEFAULT_SETTINGS_ID,
+    theme: "dark",
+  });
+  const overlongId = "a".repeat(SETTINGS_ID_MAX_LENGTH + 1);
+  expect(isValidSettingsId(DEFAULT_SETTINGS_ID)).toBe(true);
+  expect(isValidSettingsId("")).toBe(false);
+  expect(isValidSettingsId(overlongId)).toBe(false);
+  expect(isSettingsDocument({ id: DEFAULT_SETTINGS_ID, theme: "dark" })).toBe(true);
+  expect(isSettingsDocument({ id: overlongId, theme: "dark" })).toBe(false);
+  expect(normalizeSettingsDocument({ id: overlongId, theme: "dark" })).toEqual({
+    id: DEFAULT_SETTINGS_ID,
+    theme: "dark",
+  });
+  expect(toSettingsPatch({ id: "custom", theme: "light" })).toEqual({ theme: "light" });
+  expect(
+    areSettingsEqual(
+      { id: DEFAULT_SETTINGS_ID, theme: "dark" },
+      { id: DEFAULT_SETTINGS_ID, theme: "dark" },
+    ),
+  ).toBe(true);
+  expect(
+    areSettingsEqual(
+      { id: DEFAULT_SETTINGS_ID, theme: "dark" },
+      { id: DEFAULT_SETTINGS_ID, theme: "light" },
+    ),
+  ).toBe(false);
+
+  expect(typeof SettingsView).toBe("function");
+  expect(typeof SettingsSection).toBe("function");
+  expect(typeof AppearanceSettingsSection).toBe("function");
+  expect(typeof DataSettingsSection).toBe("function");
 });
 
-test("initializes RxDB and TanStack DB store with default system theme and updates theme", async () => {
+test("initializes RxDB and TanStack DB store with default system theme and updates settings", async () => {
   const store = await createSettingsStore({ name: nextDbName() });
   try {
     const initial = await store.getSettings();
@@ -56,9 +114,16 @@ test("initializes RxDB and TanStack DB store with default system theme and updat
     const rxDoc = await store.rxCollection.findOne(DEFAULT_SETTINGS_ID).exec();
     expect(rxDoc?.theme).toBe("dark");
 
-    const updatedLight = await store.setTheme("light");
+    const updatedLight = await store.setSetting("theme", "light");
     expect(updatedLight.theme).toBe("light");
     expect(store.collection.get(DEFAULT_SETTINGS_ID)?.theme).toBe("light");
+
+    await expect(store.updateSettings({})).rejects.toThrow(
+      "Invalid settings patch: at least one valid setting is required",
+    );
+    await expect(
+      store.updateSettings({ theme: "bogus" } as unknown as SettingsPatch),
+    ).rejects.toThrow('Invalid settings value for "theme"');
   } finally {
     await store.close();
   }
@@ -113,6 +178,27 @@ test("rejects invalid binary payloads", () => {
   expect(() => decodeSettingsBinary(corrupted)).toThrow(
     "Invalid settings binary: corrupted payload",
   );
+
+  const magic = valid.subarray(0, 7);
+  const makeBinaryPayload = (payload: unknown) => {
+    const body = new TextEncoder().encode(JSON.stringify(payload));
+    const out = new Uint8Array(magic.length + body.length);
+    out.set(magic, 0);
+    out.set(body, magic.length);
+    return out;
+  };
+
+  expect(() => decodeSettingsBinary(makeBinaryPayload({ theme: "invalid" }))).toThrow(
+    "Invalid settings binary: invalid theme value",
+  );
+  expect(() => decodeSettingsBinary(makeBinaryPayload({}))).toThrow(
+    "Invalid settings binary: no valid settings found",
+  );
+  expect(
+    decodeSettingsBinary(
+      makeBinaryPayload({ id: "x".repeat(SETTINGS_ID_MAX_LENGTH + 5), theme: "dark" }),
+    ),
+  ).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "dark" });
 });
 
 test("applies dark class to target element based on theme", () => {

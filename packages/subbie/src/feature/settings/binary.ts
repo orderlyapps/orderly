@@ -2,8 +2,13 @@ import { getSettingsStore, type SettingsStore } from "./db.ts";
 import {
   DEFAULT_SETTINGS_ID,
   isSettingsDocument,
-  isThemeMode,
+  isSettingValue,
+  isValidSettingsId,
+  normalizeSettingsDocument,
+  SETTINGS_KEYS,
+  toSettingsPatch,
   type SettingsDocument,
+  type SettingsPatch,
 } from "./schema.ts";
 
 const BINARY_MAGIC = new Uint8Array([0x53, 0x55, 0x42, 0x42, 0x49, 0x45, 0x01]);
@@ -30,10 +35,7 @@ export function encodeSettingsBinary(settings: SettingsDocument): Uint8Array<Arr
   if (!isSettingsDocument(settings)) {
     throw new Error("Invalid settings document");
   }
-  const payload = JSON.stringify({
-    id: settings.id,
-    theme: settings.theme,
-  });
+  const payload = JSON.stringify(normalizeSettingsDocument(settings));
   const payloadBytes = new TextEncoder().encode(payload);
   const output = new Uint8Array(BINARY_MAGIC.length + payloadBytes.length);
   output.set(BINARY_MAGIC, 0);
@@ -41,7 +43,10 @@ export function encodeSettingsBinary(settings: SettingsDocument): Uint8Array<Arr
   return output;
 }
 
-export function decodeSettingsBinary(input: Uint8Array | ArrayBuffer): SettingsDocument {
+function parseSettingsBinaryRecord(input: Uint8Array | ArrayBuffer): {
+  id: string;
+  patch: SettingsPatch;
+} {
   const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
   if (bytes.byteLength <= BINARY_MAGIC.length) {
     throw new Error("Invalid settings binary: file is too short");
@@ -60,19 +65,29 @@ export function decodeSettingsBinary(input: Uint8Array | ArrayBuffer): SettingsD
     throw new Error("Invalid settings binary: corrupted payload");
   }
 
-  if (typeof parsed !== "object" || parsed === null) {
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new Error("Invalid settings binary: expected an object");
   }
 
   const record = parsed as Record<string, unknown>;
-  if (!isThemeMode(record.theme)) {
-    throw new Error("Invalid settings binary: invalid theme value");
+  for (const key of SETTINGS_KEYS) {
+    if (record[key] !== undefined && !isSettingValue(key, record[key])) {
+      throw new Error(`Invalid settings binary: invalid ${key} value`);
+    }
   }
 
-  return {
-    id: typeof record.id === "string" && record.id.length > 0 ? record.id : DEFAULT_SETTINGS_ID,
-    theme: record.theme,
-  };
+  const patch = toSettingsPatch(record as Partial<SettingsDocument>);
+  if (Object.keys(patch).length === 0) {
+    throw new Error("Invalid settings binary: no valid settings found");
+  }
+
+  const id = isValidSettingsId(record.id) ? record.id : DEFAULT_SETTINGS_ID;
+  return { id, patch };
+}
+
+export function decodeSettingsBinary(input: Uint8Array | ArrayBuffer): SettingsDocument {
+  const { id, patch } = parseSettingsBinaryRecord(input);
+  return normalizeSettingsDocument({ id, ...patch });
 }
 
 export async function exportSettingsBinary(
@@ -87,9 +102,9 @@ export async function importSettingsBinary(
   input: Uint8Array | ArrayBuffer,
   store?: SettingsStore,
 ): Promise<SettingsDocument> {
-  const decoded = decodeSettingsBinary(input);
+  const { patch } = parseSettingsBinaryRecord(input);
   const resolvedStore = store ?? (await getSettingsStore());
-  return resolvedStore.updateSettings({ theme: decoded.theme });
+  return resolvedStore.updateSettings(patch);
 }
 
 export async function downloadSettingsBinary(

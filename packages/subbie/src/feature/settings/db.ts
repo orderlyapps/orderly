@@ -12,8 +12,14 @@ import { getRxStorageMemory } from "rxdb/plugins/storage-memory";
 import {
   DEFAULT_SETTINGS,
   DEFAULT_SETTINGS_ID,
+  isSettingValue,
+  normalizeSettingsDocument,
+  SETTINGS_KEYS,
   settingsRxSchema,
+  toSettingsPatch,
   type SettingsDocument,
+  type SettingsKey,
+  type SettingsPatch,
   type ThemeMode,
 } from "./schema.ts";
 import { setCachedTheme } from "./theme.ts";
@@ -29,7 +35,7 @@ export type SubbieDatabase = RxDatabase<SettingsDatabaseCollections>;
 export interface CreateSettingsStoreOptions {
   name?: string;
   storage?: RxStorage<unknown, unknown>;
-  initialSettings?: Partial<Omit<SettingsDocument, "id">>;
+  initialSettings?: SettingsPatch;
 }
 
 function getDefaultStorage(): RxStorage<unknown, unknown> {
@@ -58,11 +64,13 @@ export async function createSettingsStore(options: CreateSettingsStoreOptions = 
   const existing = await db.settings.findOne(DEFAULT_SETTINGS_ID).exec();
   if (!existing) {
     try {
-      await db.settings.insert({
-        ...DEFAULT_SETTINGS,
-        ...options.initialSettings,
-        id: DEFAULT_SETTINGS_ID,
-      });
+      await db.settings.insert(
+        normalizeSettingsDocument({
+          ...DEFAULT_SETTINGS,
+          ...options.initialSettings,
+          id: DEFAULT_SETTINGS_ID,
+        }),
+      );
     } catch (error) {
       const afterConflict = await db.settings.findOne(DEFAULT_SETTINGS_ID).exec();
       if (!afterConflict) {
@@ -84,50 +92,53 @@ export async function createSettingsStore(options: CreateSettingsStoreOptions = 
   async function getSettings(): Promise<SettingsDocument> {
     const cached = collection.get(DEFAULT_SETTINGS_ID);
     if (cached) {
-      return { id: cached.id, theme: cached.theme };
+      return normalizeSettingsDocument(cached);
     }
     const doc = await db.settings.findOne(DEFAULT_SETTINGS_ID).exec();
     if (doc) {
-      return { id: doc.id, theme: doc.theme };
+      return normalizeSettingsDocument(doc);
     }
     return { ...DEFAULT_SETTINGS };
   }
 
-  async function applyCollectionUpdate(
-    patch: Partial<Omit<SettingsDocument, "id">>,
-  ): Promise<void> {
+  async function applyCollectionUpdate(sanitized: SettingsPatch): Promise<void> {
     const tx = collection.update(DEFAULT_SETTINGS_ID, (draft) => {
-      if (patch.theme !== undefined) {
-        draft.theme = patch.theme;
-      }
+      Object.assign(draft, sanitized);
     });
     await tx.isPersisted.promise;
   }
 
-  async function updateSettings(
-    patch: Partial<Omit<SettingsDocument, "id">>,
-  ): Promise<SettingsDocument> {
+  async function updateSettings(patch: SettingsPatch): Promise<SettingsDocument> {
+    for (const key of SETTINGS_KEYS) {
+      if (patch[key] !== undefined && !isSettingValue(key, patch[key])) {
+        throw new Error(`Invalid settings value for "${key}"`);
+      }
+    }
+    const sanitized = toSettingsPatch(patch);
+    if (Object.keys(sanitized).length === 0) {
+      throw new Error("Invalid settings patch: at least one valid setting is required");
+    }
     if (collection.has(DEFAULT_SETTINGS_ID)) {
-      await applyCollectionUpdate(patch);
+      await applyCollectionUpdate(sanitized);
     } else {
-      const next: SettingsDocument = {
+      const next = normalizeSettingsDocument({
         ...DEFAULT_SETTINGS,
-        ...patch,
+        ...sanitized,
         id: DEFAULT_SETTINGS_ID,
-      };
+      });
       try {
         const tx = collection.insert(next);
         await tx.isPersisted.promise;
       } catch (error) {
         await collection.preload();
         if (collection.has(DEFAULT_SETTINGS_ID)) {
-          await applyCollectionUpdate(patch);
+          await applyCollectionUpdate(sanitized);
         } else {
           const existingDoc = await db.settings.findOne(DEFAULT_SETTINGS_ID).exec();
           if (!existingDoc) {
             throw error;
           }
-          await existingDoc.patch(patch);
+          await existingDoc.patch(sanitized);
         }
       }
     }
@@ -136,8 +147,15 @@ export async function createSettingsStore(options: CreateSettingsStoreOptions = 
     return updated;
   }
 
+  async function setSetting<K extends SettingsKey>(
+    key: K,
+    value: SettingsDocument[K],
+  ): Promise<SettingsDocument> {
+    return updateSettings({ [key]: value } as SettingsPatch);
+  }
+
   async function setTheme(theme: ThemeMode): Promise<SettingsDocument> {
-    return updateSettings({ theme });
+    return setSetting("theme", theme);
   }
 
   let isClosed = false;
@@ -161,6 +179,7 @@ export async function createSettingsStore(options: CreateSettingsStoreOptions = 
     collection,
     getSettings,
     updateSettings,
+    setSetting,
     setTheme,
     close,
   };

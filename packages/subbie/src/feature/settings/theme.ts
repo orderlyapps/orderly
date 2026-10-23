@@ -1,7 +1,20 @@
-import { isThemeMode, type ThemeMode } from "./schema.ts";
+import { isThemeMode, THEME_MODES, type ThemeMode } from "./schema.ts";
 
 export const DARK_PALETTE_CLASS = "ion-palette-dark";
 export const THEME_STORAGE_KEY = "subbie:theme";
+
+export const THEME_LABELS: Record<ThemeMode, string> = {
+  light: "Light",
+  dark: "Dark",
+  system: "System",
+};
+
+export const THEME_OPTIONS: ReadonlyArray<{ value: ThemeMode; label: string }> = THEME_MODES.map(
+  (value) => ({
+    value,
+    label: THEME_LABELS[value],
+  }),
+);
 
 export function getCachedTheme(): ThemeMode | null {
   try {
