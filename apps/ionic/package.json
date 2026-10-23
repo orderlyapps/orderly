@@ -7,7 +7,7 @@
     "dev": "vp dev --port 4220 --open",
     "build": "vp run games#build && tsc && vp build",
     "preview": "vp preview",
-    "deploy": "pnpm run build && wrangler deploy"
+    "deploy": "vp run games#build && tsc && vp build && wrangler deploy"
   },
   "dependencies": {
     "@ionic/react": "^9.0.9",

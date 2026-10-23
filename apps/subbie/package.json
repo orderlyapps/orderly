@@ -7,7 +7,7 @@
     "dev": "vp run subbie-core#build && vp dev --port 4230 --open",
     "build": "vp run subbie-core#build && tsc && vp build",
     "preview": "vp preview",
-    "deploy": "pnpm run build && wrangler deploy"
+    "deploy": "vp run subbie-core#build && tsc && vp build && wrangler deploy"
   },
   "dependencies": {
     "@ionic/react": "^9.0.9",
