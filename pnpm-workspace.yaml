@@ -9,7 +9,12 @@ catalog:
   "@mantine/core": ^9.7.2
   "@mantine/hooks": ^9.7.2
   "@rdlabo/ionic-theme-ios27": ^1.2.1
+  "@tanstack/db": ^0.15.0
+  "@tanstack/react-db": ^0.5.10
+  "@tanstack/rxdb-db-collection": ^0.1.109
   "@types/node": ^24
+  rxdb: ^17.6.0
+  rxjs: ^7.8.2
   typescript: ^7.0.2
   vite: npm:@voidzero-dev/vite-plus-core@0.3.2
   vite-plugin-pwa: ^2.0.0

@@ -17,6 +17,7 @@ import {
   popoverLeaveAnimation,
 } from "@rdlabo/ionic-theme-ios27";
 import { receipt, settings } from "ionicons/icons";
+import { useThemeEffect } from "subbie-core";
 
 import Invoices from "./pages/Invoices";
 import Settings from "./pages/Settings";
@@ -37,14 +38,14 @@ import "@ionic/react/css/text-transformation.css";
 import "@ionic/react/css/flex-utils.css";
 import "@ionic/react/css/display.css";
 
-/* Dark palette, applied based on the system color scheme */
-import "@ionic/react/css/palettes/dark.system.css";
+/* Dark palette, controlled via the .ion-palette-dark class */
+import "@ionic/react/css/palettes/dark.class.css";
 
 /* iOS 27 theme */
 import "@rdlabo/ionic-theme-ios27/dist/css/default-variables.css";
 import "@rdlabo/ionic-theme-ios27/dist/css/ionic-theme-ios27.css";
 import "@rdlabo/ionic-theme-ios27/dist/css/md-remove-ios-class-effect.css";
-import "@rdlabo/ionic-theme-ios27/dist/css/ionic-theme-ios27-dark-system.css";
+import "@rdlabo/ionic-theme-ios27/dist/css/ionic-theme-ios27-dark-class.css";
 
 /* Theme variables */
 import "./theme/variables.css";
@@ -56,28 +57,32 @@ setupIonicReact({
   popoverLeave: popoverLeaveAnimation,
 });
 
-const App = () => (
-  <IonApp>
-    <IonReactRouter>
-      <IonTabs>
-        <IonRouterOutlet>
-          <Route path="/invoices" element={<Invoices />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/" element={<Navigate to="/invoices" replace />} />
-        </IonRouterOutlet>
-        <IonTabBar slot="bottom">
-          <IonTabButton tab="invoices" href="/invoices">
-            <IonIcon aria-hidden="true" icon={receipt} />
-            <IonLabel>Invoices</IonLabel>
-          </IonTabButton>
-          <IonTabButton tab="settings" href="/settings">
-            <IonIcon aria-hidden="true" icon={settings} />
-            <IonLabel>Settings</IonLabel>
-          </IonTabButton>
-        </IonTabBar>
-      </IonTabs>
-    </IonReactRouter>
-  </IonApp>
-);
+const App = () => {
+  useThemeEffect();
+
+  return (
+    <IonApp>
+      <IonReactRouter>
+        <IonTabs>
+          <IonRouterOutlet>
+            <Route path="/invoices" element={<Invoices />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/" element={<Navigate to="/invoices" replace />} />
+          </IonRouterOutlet>
+          <IonTabBar slot="bottom">
+            <IonTabButton tab="invoices" href="/invoices">
+              <IonIcon aria-hidden="true" icon={receipt} />
+              <IonLabel>Invoices</IonLabel>
+            </IonTabButton>
+            <IonTabButton tab="settings" href="/settings">
+              <IonIcon aria-hidden="true" icon={settings} />
+              <IonLabel>Settings</IonLabel>
+            </IonTabButton>
+          </IonTabBar>
+        </IonTabs>
+      </IonReactRouter>
+    </IonApp>
+  );
+};
 
 export default App;

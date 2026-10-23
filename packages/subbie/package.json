@@ -19,6 +19,13 @@
     "test": "vp test",
     "check": "vp check"
   },
+  "dependencies": {
+    "@tanstack/db": "catalog:",
+    "@tanstack/react-db": "catalog:",
+    "@tanstack/rxdb-db-collection": "catalog:",
+    "rxdb": "catalog:",
+    "rxjs": "catalog:"
+  },
   "devDependencies": {
     "@ionic/react": "^9.0.9",
     "@types/node": "catalog:",

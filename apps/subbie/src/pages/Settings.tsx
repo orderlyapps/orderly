@@ -1,17 +1,5 @@
-import {
-  IonContent,
-  IonHeader,
-  IonItem,
-  IonItemGroup,
-  IonLabel,
-  IonList,
-  IonListHeader,
-  IonNote,
-  IonPage,
-  IonTitle,
-  IonToggle,
-  IonToolbar,
-} from "@ionic/react";
+import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from "@ionic/react";
+import { SettingsView } from "subbie-core";
 
 const Settings = () => {
   return (
@@ -27,34 +15,7 @@ const Settings = () => {
             <IonTitle size="large">Settings</IonTitle>
           </IonToolbar>
         </IonHeader>
-        <IonList inset>
-          <IonItemGroup>
-            <IonListHeader>
-              <IonLabel>Preferences</IonLabel>
-            </IonListHeader>
-            <IonItem>
-              <IonToggle>Notifications</IonToggle>
-            </IonItem>
-            <IonItem>
-              <IonToggle>Dark Mode</IonToggle>
-            </IonItem>
-          </IonItemGroup>
-          <IonItemGroup>
-            <IonListHeader>
-              <IonLabel>Business</IonLabel>
-            </IonListHeader>
-            <IonItem button detail>
-              <IonLabel>Company Profile</IonLabel>
-            </IonItem>
-            <IonItem button detail>
-              <IonLabel>Payment Methods</IonLabel>
-            </IonItem>
-            <IonItem button detail>
-              <IonLabel>Tax Rates</IonLabel>
-              <IonNote slot="end">0%</IonNote>
-            </IonItem>
-          </IonItemGroup>
-        </IonList>
+        <SettingsView />
       </IonContent>
     </IonPage>
   );
