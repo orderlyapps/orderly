@@ -77,7 +77,7 @@ function resolveStorageApi(candidate: unknown): StorageApi | null {
   return storageLike as StorageApi;
 }
 
-function getDefaultStorage(): StorageApi {
+export function getDefaultStorage(): StorageApi {
   try {
     if (typeof localStorage !== "undefined") {
       const resolved = resolveStorageApi(localStorage);

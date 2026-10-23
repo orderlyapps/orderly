@@ -15,7 +15,7 @@ export const SettingsView = ({ store: customStore, children }: SettingsViewProps
   const { theme, setTheme, store } = useSettings(customStore);
   const [appearanceStatus, setAppearanceStatus] = useState<string | null>(null);
   const [dataStatus, setDataStatus] = useState<string | null>(null);
-  const resolvedStore = store ?? customStore;
+  const resolvedStore = customStore ?? store ?? undefined;
 
   return (
     <IonList inset>

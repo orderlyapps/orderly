@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 
-import { getSettingsStore, SETTINGS_STORAGE_KEY, type SettingsStore } from "./db.ts";
+import {
+  getDefaultStorage,
+  getSettingsStore,
+  SETTINGS_STORAGE_KEY,
+  type SettingsStore,
+} from "./db.ts";
 import {
   areSettingsEqual,
   DEFAULT_SETTINGS,
@@ -35,16 +40,18 @@ function getInitialSettings(customStore?: SettingsStore): SettingsDocument {
   try {
     const raw = customStore
       ? customStore.storage.getItem(customStore.storageKey)
-      : typeof localStorage !== "undefined" && typeof localStorage.getItem === "function"
-        ? localStorage.getItem(SETTINGS_STORAGE_KEY)
-        : null;
+      : getDefaultStorage().getItem(SETTINGS_STORAGE_KEY);
     if (raw) {
       const parsed: unknown = JSON.parse(raw);
       if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
         const entry = (parsed as Record<string, unknown>)[`s:${DEFAULT_SETTINGS_ID}`];
         if (typeof entry === "object" && entry !== null) {
           const data = (entry as { data?: unknown }).data;
-          if (typeof data === "object" && data !== null) {
+          if (
+            typeof data === "object" &&
+            data !== null &&
+            (data as Partial<SettingsDocument>).id === DEFAULT_SETTINGS_ID
+          ) {
             return normalizeSettingsDocument(data as Partial<SettingsDocument>);
           }
         }
@@ -53,7 +60,7 @@ function getInitialSettings(customStore?: SettingsStore): SettingsDocument {
   } catch {
     // Fall back to default settings when storage cannot be read or parsed
   }
-  return DEFAULT_SETTINGS;
+  return { ...DEFAULT_SETTINGS };
 }
 
 export function useSettings(customStore?: SettingsStore): UseSettingsResult {
@@ -76,11 +83,12 @@ export function useSettings(customStore?: SettingsStore): UseSettingsResult {
       setStore(resolvedStore);
 
       const subscription = resolvedStore.collection.subscribeChanges(() => {
-        const current = resolvedStore.collection.get(DEFAULT_SETTINGS_ID);
-        if (current && active) {
-          const normalized = normalizeSettingsDocument(current);
-          setSettings((prev) => (areSettingsEqual(prev, normalized) ? prev : normalized));
+        if (!active) {
+          return;
         }
+        const current = resolvedStore.collection.get(DEFAULT_SETTINGS_ID);
+        const normalized = current ? normalizeSettingsDocument(current) : { ...DEFAULT_SETTINGS };
+        setSettings((prev) => (areSettingsEqual(prev, normalized) ? prev : normalized));
       });
       unsubscribeCollection = () => subscription.unsubscribe();
 
@@ -107,7 +115,7 @@ export function useSettings(customStore?: SettingsStore): UseSettingsResult {
   }, [customStore]);
 
   const handleUpdateSettings = async (patch: SettingsPatch): Promise<SettingsDocument> => {
-    const resolvedStore = store ?? customStore ?? (await getSettingsStore());
+    const resolvedStore = customStore ?? store ?? (await getSettingsStore());
     const updated = await resolvedStore.updateSettings(patch);
     setSettings(updated);
     return updated;

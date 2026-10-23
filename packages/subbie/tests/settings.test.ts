@@ -280,6 +280,68 @@ test("persists settings in localStorage when available and resets default store 
   }
 });
 
+test("ignores persisted entries whose data id does not match the storage key", () => {
+  const storageMap = new Map<string, string>();
+  const previousLocalStorage = globalThis.localStorage;
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (key: string) => storageMap.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storageMap.set(key, value);
+      },
+      removeItem: (key: string) => {
+        storageMap.delete(key);
+      },
+    },
+  });
+  storageMap.set(
+    SETTINGS_STORAGE_KEY,
+    JSON.stringify({
+      "s:default": { versionKey: "v1", data: { id: "other", theme: "dark" } },
+    }),
+  );
+
+  try {
+    function Probe() {
+      const { theme } = useSettings();
+      return createElement("span", null, theme);
+    }
+    expect(renderToStaticMarkup(createElement(Probe))).toBe("<span>system</span>");
+  } finally {
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: previousLocalStorage,
+    });
+  }
+});
+
+test("preloads persisted settings from the in-memory fallback when localStorage is unavailable", async () => {
+  const previousLocalStorage = globalThis.localStorage;
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: undefined,
+  });
+
+  try {
+    const store = await getSettingsStore();
+    await store.setTheme("dark");
+    await store.close();
+
+    function Probe() {
+      const { theme } = useSettings();
+      return createElement("span", null, theme);
+    }
+    expect(renderToStaticMarkup(createElement(Probe))).toBe("<span>dark</span>");
+  } finally {
+    await resetDefaultSettingsStoreForTesting();
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: previousLocalStorage,
+    });
+  }
+});
+
 test("recovers from malformed or corrupt data in storage and falls back to defaults", async () => {
   const corruptValues = [
     "not-valid-json{",
