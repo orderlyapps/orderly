@@ -1,3 +1,5 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vite-plus/test";
 import {
   AppearanceSettingsSection,
@@ -12,7 +14,6 @@ import {
   downloadSettingsBinary,
   encodeSettingsBinary,
   exportSettingsBinary,
-  getCachedTheme,
   getSettingsStore,
   importSettingsBinary,
   importSettingsBinaryFile,
@@ -21,25 +22,26 @@ import {
   isValidSettingsId,
   normalizeSettingsDocument,
   resetDefaultSettingsStoreForTesting,
-  setCachedTheme,
   SETTINGS_BINARY_EXTENSION,
   SETTINGS_BINARY_FILENAME,
   SETTINGS_ID_MAX_LENGTH,
   SETTINGS_KEYS,
+  SETTINGS_STORAGE_KEY,
   SettingsSection,
   SettingsView,
   THEME_LABELS,
   THEME_MODES,
   THEME_OPTIONS,
-  THEME_STORAGE_KEY,
   toSettingsPatch,
+  useSettings,
   type SettingsPatch,
+  type StorageApi,
 } from "../src/feature/settings/index.ts";
 
-let dbCounter = 0;
-function nextDbName() {
-  dbCounter += 1;
-  return `subbie_test_${Date.now()}_${dbCounter}`;
+let storeCounter = 0;
+function nextStoreName() {
+  storeCounter += 1;
+  return `subbie_test_${Date.now()}_${storeCounter}`;
 }
 
 test("validates theme modes, schema helpers, and binary filename formatting", () => {
@@ -100,8 +102,9 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
   expect(typeof DataSettingsSection).toBe("function");
 });
 
-test("initializes RxDB and TanStack DB store with default system theme and updates settings", async () => {
-  const store = await createSettingsStore({ name: nextDbName() });
+test("initializes LocalStorage Collection store with default system theme and updates settings", async () => {
+  const storeName = nextStoreName();
+  const store = await createSettingsStore({ name: storeName });
   try {
     const initial = await store.getSettings();
     expect(initial).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "system" });
@@ -111,8 +114,16 @@ test("initializes RxDB and TanStack DB store with default system theme and updat
     expect(updatedDark.theme).toBe("dark");
     expect(store.collection.get(DEFAULT_SETTINGS_ID)?.theme).toBe("dark");
 
-    const rxDoc = await store.rxCollection.findOne(DEFAULT_SETTINGS_ID).exec();
-    expect(rxDoc?.theme).toBe("dark");
+    const rawStored = store.storage.getItem(store.storageKey);
+    expect(rawStored).toBeTruthy();
+    expect(store.collection.utils.getStorageSize()).toBeGreaterThan(0);
+
+    const peerStore = await createSettingsStore({ name: storeName, storage: store.storage });
+    try {
+      expect((await peerStore.getSettings()).theme).toBe("dark");
+    } finally {
+      await peerStore.close();
+    }
 
     const updatedLight = await store.setSetting("theme", "light");
     expect(updatedLight.theme).toBe("light");
@@ -130,8 +141,8 @@ test("initializes RxDB and TanStack DB store with default system theme and updat
 });
 
 test("exports settings to a binary Uint8Array and imports into another store", async () => {
-  const sourceStore = await createSettingsStore({ name: nextDbName() });
-  const targetStore = await createSettingsStore({ name: nextDbName() });
+  const sourceStore = await createSettingsStore({ name: nextStoreName() });
+  const targetStore = await createSettingsStore({ name: nextStoreName() });
 
   try {
     await sourceStore.setTheme("dark");
@@ -226,7 +237,7 @@ test("applies dark class to target element based on theme", () => {
   expect(fakeElement.dataset.theme).toBe("light");
 });
 
-test("caches theme in localStorage when available and resets default store cleanly", async () => {
+test("persists settings in localStorage when available and resets default store cleanly", async () => {
   const storageMap = new Map<string, string>();
   const previousLocalStorage = globalThis.localStorage;
   Object.defineProperty(globalThis, "localStorage", {
@@ -236,27 +247,125 @@ test("caches theme in localStorage when available and resets default store clean
       setItem: (key: string, value: string) => {
         storageMap.set(key, value);
       },
+      removeItem: (key: string) => {
+        storageMap.delete(key);
+      },
     },
   });
 
   try {
-    expect(getCachedTheme()).toBeNull();
-    setCachedTheme("dark");
-    expect(storageMap.get(THEME_STORAGE_KEY)).toBe("dark");
-    expect(getCachedTheme()).toBe("dark");
-
     const store = await getSettingsStore();
+    expect(store.storageKey).toBe(SETTINGS_STORAGE_KEY);
     await store.setTheme("light");
-    expect(getCachedTheme()).toBe("light");
+    expect(storageMap.get(SETTINGS_STORAGE_KEY)).toBeTruthy();
+    expect(Array.from(storageMap.keys())).toEqual([SETTINGS_STORAGE_KEY]);
 
     await store.close();
+
+    function Probe() {
+      const { theme } = useSettings();
+      return createElement("span", null, theme);
+    }
+    expect(renderToStaticMarkup(createElement(Probe))).toBe("<span>light</span>");
+
     const reopened = await getSettingsStore();
     expect(reopened).not.toBe(store);
+    expect((await reopened.getSettings()).theme).toBe("light");
     await resetDefaultSettingsStoreForTesting();
   } finally {
     Object.defineProperty(globalThis, "localStorage", {
       configurable: true,
       value: previousLocalStorage,
     });
+  }
+});
+
+test("recovers from malformed or corrupt data in storage and falls back to defaults", async () => {
+  const corruptValues = [
+    "not-valid-json{",
+    "null",
+    JSON.stringify({ theme: "dark" }),
+    JSON.stringify({ "s:default": { version: 1, data: null } }),
+    JSON.stringify({ "s:default": { versionKey: "v1", data: { id: "", theme: "dark" } } }),
+    JSON.stringify({
+      "s:default": { versionKey: "v1", data: { id: DEFAULT_SETTINGS_ID, theme: "bogus" } },
+    }),
+  ];
+
+  for (const corruptValue of corruptValues) {
+    const storageMap = new Map<string, string>();
+    const storage: StorageApi = {
+      getItem: (key) => storageMap.get(key) ?? null,
+      setItem: (key, value) => {
+        storageMap.set(key, value);
+      },
+      removeItem: (key) => {
+        storageMap.delete(key);
+      },
+    };
+    const storeName = nextStoreName();
+    const storageKey = `${storeName}:settings`;
+    storage.setItem(storageKey, corruptValue);
+
+    const store = await createSettingsStore({
+      name: storeName,
+      storageKey,
+      storage,
+      initialSettings: { theme: "dark" },
+    });
+    try {
+      const settings = await store.getSettings();
+      expect(settings).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "dark" });
+    } finally {
+      await store.close();
+    }
+  }
+});
+
+test("does not wipe storage when init fails with a non-format storage error", async () => {
+  let removed = false;
+  const storage: StorageApi = {
+    getItem: () => {
+      throw new Error("Transient storage read failure");
+    },
+    setItem: () => {},
+    removeItem: () => {
+      removed = true;
+    },
+  };
+
+  await expect(createSettingsStore({ name: nextStoreName(), storage })).rejects.toThrow(
+    "Transient storage read failure",
+  );
+  expect(removed).toBe(false);
+});
+
+test("surfaces underlying storage error when insert fails and key is missing", async () => {
+  const storageMap = new Map<string, string>();
+  let failWrites = false;
+  const storage: StorageApi = {
+    getItem: (key) => storageMap.get(key) ?? null,
+    setItem: (key, value) => {
+      if (failWrites) {
+        throw new Error("QuotaExceededError: storage full");
+      }
+      storageMap.set(key, value);
+    },
+    removeItem: (key) => {
+      storageMap.delete(key);
+    },
+  };
+
+  const store = await createSettingsStore({ name: nextStoreName(), storage });
+  try {
+    const deleteTx = store.collection.delete(DEFAULT_SETTINGS_ID);
+    await deleteTx.isPersisted.promise;
+    expect(store.collection.has(DEFAULT_SETTINGS_ID)).toBe(false);
+
+    failWrites = true;
+    await expect(store.setTheme("dark")).rejects.toThrow("QuotaExceededError: storage full");
+  } finally {
+    failWrites = false;
+    await store.close();
   }
 });

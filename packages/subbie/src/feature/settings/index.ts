@@ -21,11 +21,12 @@ export {
   createSettingsStore,
   getSettingsStore,
   resetDefaultSettingsStoreForTesting,
+  SETTINGS_STORAGE_KEY,
   type CreateSettingsStoreOptions,
-  type SettingsDatabaseCollections,
-  type SettingsRxCollection,
+  type SettingsCollection,
   type SettingsStore,
-  type SubbieDatabase,
+  type StorageApi,
+  type StorageEventApi,
 } from "./db.ts";
 export { useSettings, useThemeEffect, type UseSettingsResult } from "./hooks.ts";
 export {
@@ -39,7 +40,6 @@ export {
   normalizeSettingsDocument,
   SETTINGS_ID_MAX_LENGTH,
   SETTINGS_KEYS,
-  settingsRxSchema,
   THEME_MODES,
   toSettingsPatch,
   type SettingsDocument,
@@ -51,10 +51,7 @@ export { SettingsView, type SettingsViewProps } from "./SettingsView.tsx";
 export {
   applyTheme,
   DARK_PALETTE_CLASS,
-  getCachedTheme,
   resolveIsDarkTheme,
-  setCachedTheme,
   THEME_LABELS,
   THEME_OPTIONS,
-  THEME_STORAGE_KEY,
 } from "./theme.ts";

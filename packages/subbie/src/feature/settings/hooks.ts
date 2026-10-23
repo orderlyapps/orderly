@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { getSettingsStore, type SettingsStore } from "./db.ts";
+import { getSettingsStore, SETTINGS_STORAGE_KEY, type SettingsStore } from "./db.ts";
 import {
   areSettingsEqual,
   DEFAULT_SETTINGS,
@@ -11,7 +11,7 @@ import {
   type SettingsPatch,
   type ThemeMode,
 } from "./schema.ts";
-import { applyTheme, getCachedTheme, setCachedTheme } from "./theme.ts";
+import { applyTheme } from "./theme.ts";
 
 export interface UseSettingsResult {
   settings: SettingsDocument;
@@ -27,12 +27,38 @@ export interface UseSettingsResult {
   store: SettingsStore | null;
 }
 
+function getInitialSettings(customStore?: SettingsStore): SettingsDocument {
+  const existing = customStore?.collection.get(DEFAULT_SETTINGS_ID);
+  if (existing) {
+    return normalizeSettingsDocument(existing);
+  }
+  try {
+    const raw = customStore
+      ? customStore.storage.getItem(customStore.storageKey)
+      : typeof localStorage !== "undefined" && typeof localStorage.getItem === "function"
+        ? localStorage.getItem(SETTINGS_STORAGE_KEY)
+        : null;
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw);
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+        const entry = (parsed as Record<string, unknown>)[`s:${DEFAULT_SETTINGS_ID}`];
+        if (typeof entry === "object" && entry !== null) {
+          const data = (entry as { data?: unknown }).data;
+          if (typeof data === "object" && data !== null) {
+            return normalizeSettingsDocument(data as Partial<SettingsDocument>);
+          }
+        }
+      }
+    }
+  } catch {
+    // Fall back to default settings when storage cannot be read or parsed
+  }
+  return DEFAULT_SETTINGS;
+}
+
 export function useSettings(customStore?: SettingsStore): UseSettingsResult {
   const [store, setStore] = useState<SettingsStore | null>(customStore ?? null);
-  const [settings, setSettings] = useState<SettingsDocument>(() => {
-    const cachedTheme = getCachedTheme();
-    return cachedTheme ? { ...DEFAULT_SETTINGS, theme: cachedTheme } : DEFAULT_SETTINGS;
-  });
+  const [settings, setSettings] = useState<SettingsDocument>(() => getInitialSettings(customStore));
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -53,7 +79,6 @@ export function useSettings(customStore?: SettingsStore): UseSettingsResult {
         const current = resolvedStore.collection.get(DEFAULT_SETTINGS_ID);
         if (current && active) {
           const normalized = normalizeSettingsDocument(current);
-          setCachedTheme(normalized.theme);
           setSettings((prev) => (areSettingsEqual(prev, normalized) ? prev : normalized));
         }
       });
@@ -63,7 +88,6 @@ export function useSettings(customStore?: SettingsStore): UseSettingsResult {
       if (!active) {
         return;
       }
-      setCachedTheme(initial.theme);
       setSettings((prev) => (areSettingsEqual(prev, initial) ? prev : initial));
       setIsLoading(false);
     };
@@ -85,7 +109,6 @@ export function useSettings(customStore?: SettingsStore): UseSettingsResult {
   const handleUpdateSettings = async (patch: SettingsPatch): Promise<SettingsDocument> => {
     const resolvedStore = store ?? customStore ?? (await getSettingsStore());
     const updated = await resolvedStore.updateSettings(patch);
-    setCachedTheme(updated.theme);
     setSettings(updated);
     return updated;
   };

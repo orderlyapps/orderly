@@ -1,5 +1,3 @@
-import type { RxJsonSchema } from "rxdb/plugins/core";
-
 export const THEME_MODES = ["light", "dark", "system"] as const;
 
 export type ThemeMode = (typeof THEME_MODES)[number];
@@ -100,21 +98,3 @@ export function areSettingsEqual(a: SettingsDocument, b: SettingsDocument): bool
   }
   return SETTINGS_KEYS.every((key) => a[key] === b[key]);
 }
-
-export const settingsRxSchema: RxJsonSchema<SettingsDocument> = {
-  title: "settings",
-  version: 0,
-  primaryKey: "id",
-  type: "object",
-  properties: {
-    id: {
-      type: "string",
-      maxLength: SETTINGS_ID_MAX_LENGTH,
-    },
-    theme: {
-      type: "string",
-      enum: [...THEME_MODES],
-    },
-  },
-  required: ["id", ...SETTINGS_KEYS],
-};

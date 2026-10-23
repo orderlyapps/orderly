@@ -1,102 +1,183 @@
-import { createCollection } from "@tanstack/react-db";
-import { rxdbCollectionOptions } from "@tanstack/rxdb-db-collection";
 import {
-  createRxDatabase,
-  type RxCollection,
-  type RxDatabase,
-  type RxStorage,
-} from "rxdb/plugins/core";
-import { getRxStorageDexie } from "rxdb/plugins/storage-dexie";
-import { getRxStorageMemory } from "rxdb/plugins/storage-memory";
+  createCollection,
+  InvalidStorageDataFormatError,
+  InvalidStorageObjectFormatError,
+  localStorageCollectionOptions,
+  SerializationError,
+  type Collection,
+  type LocalStorageCollectionUtils,
+  type StorageApi,
+  type StorageEventApi,
+} from "@tanstack/react-db";
 
 import {
   DEFAULT_SETTINGS,
   DEFAULT_SETTINGS_ID,
+  isSettingsDocument,
   isSettingValue,
+  isValidSettingsId,
   normalizeSettingsDocument,
   SETTINGS_KEYS,
-  settingsRxSchema,
   toSettingsPatch,
   type SettingsDocument,
   type SettingsKey,
   type SettingsPatch,
   type ThemeMode,
 } from "./schema.ts";
-import { setCachedTheme } from "./theme.ts";
 
-export type SettingsRxCollection = RxCollection<SettingsDocument>;
+export const SETTINGS_STORAGE_KEY = "subbie:settings";
 
-export type SettingsDatabaseCollections = {
-  settings: SettingsRxCollection;
-};
+export type { StorageApi, StorageEventApi };
 
-export type SubbieDatabase = RxDatabase<SettingsDatabaseCollections>;
+export type SettingsCollection = Collection<
+  SettingsDocument,
+  string,
+  LocalStorageCollectionUtils,
+  never,
+  SettingsDocument
+>;
 
 export interface CreateSettingsStoreOptions {
   name?: string;
-  storage?: RxStorage<unknown, unknown>;
+  storageKey?: string;
+  storage?: StorageApi;
+  storageEventApi?: StorageEventApi;
   initialSettings?: SettingsPatch;
 }
 
-function getDefaultStorage(): RxStorage<unknown, unknown> {
-  if (typeof indexedDB !== "undefined") {
-    return getRxStorageDexie();
+function createMemoryStorage(): StorageApi {
+  const map = new Map<string, string>();
+  return {
+    getItem(key: string): string | null {
+      return map.get(key) ?? null;
+    },
+    setItem(key: string, value: string): void {
+      map.set(key, value);
+    },
+    removeItem(key: string): void {
+      map.delete(key);
+    },
+  };
+}
+
+const fallbackMemoryStorage = createMemoryStorage();
+
+function resolveStorageApi(candidate: unknown): StorageApi | null {
+  if (typeof candidate !== "object" || candidate === null) {
+    return null;
   }
-  return getRxStorageMemory();
+  const storageLike = candidate as Partial<StorageApi>;
+  if (
+    typeof storageLike.getItem !== "function" ||
+    typeof storageLike.setItem !== "function" ||
+    typeof storageLike.removeItem !== "function"
+  ) {
+    return null;
+  }
+  return storageLike as StorageApi;
+}
+
+function getDefaultStorage(): StorageApi {
+  try {
+    if (typeof localStorage !== "undefined") {
+      const resolved = resolveStorageApi(localStorage);
+      if (resolved) {
+        return resolved;
+      }
+    }
+  } catch {
+    // Fall back to in-memory storage when localStorage is unavailable or restricted
+  }
+  return fallbackMemoryStorage;
+}
+
+function isStorageFormatError(error: unknown): boolean {
+  return (
+    error instanceof SyntaxError ||
+    error instanceof InvalidStorageDataFormatError ||
+    error instanceof InvalidStorageObjectFormatError ||
+    error instanceof SerializationError
+  );
 }
 
 export async function createSettingsStore(options: CreateSettingsStoreOptions = {}) {
-  const dbName = options.name ?? "subbie";
+  const storeName = options.name ?? "subbie";
+  const storageKey =
+    options.storageKey ?? (options.name ? `${options.name}:settings` : SETTINGS_STORAGE_KEY);
   const storage = options.storage ?? getDefaultStorage();
 
-  const db = await createRxDatabase<SettingsDatabaseCollections>({
-    name: dbName,
-    storage,
-    multiInstance: typeof BroadcastChannel !== "undefined" && typeof indexedDB !== "undefined",
-  });
-
-  await db.addCollections({
-    settings: {
-      schema: settingsRxSchema,
-    },
-  });
-
-  const existing = await db.settings.findOne(DEFAULT_SETTINGS_ID).exec();
-  if (!existing) {
+  const initCollection = async (): Promise<SettingsCollection> => {
+    const instance = createCollection(
+      localStorageCollectionOptions<SettingsDocument, string>({
+        id: `${storeName}-settings`,
+        storageKey,
+        storage,
+        storageEventApi: options.storageEventApi,
+        getKey: (item) => {
+          if (
+            typeof item !== "object" ||
+            item === null ||
+            !isValidSettingsId((item as Partial<SettingsDocument>).id)
+          ) {
+            throw new InvalidStorageDataFormatError(
+              storageKey,
+              String((item as Partial<SettingsDocument> | null)?.id ?? ""),
+            );
+          }
+          return item.id;
+        },
+        startSync: true,
+      }),
+    );
     try {
-      await db.settings.insert(
-        normalizeSettingsDocument({
-          ...DEFAULT_SETTINGS,
-          ...options.initialSettings,
-          id: DEFAULT_SETTINGS_ID,
-        }),
-      );
+      await instance.preload();
+      return instance;
     } catch (error) {
-      const afterConflict = await db.settings.findOne(DEFAULT_SETTINGS_ID).exec();
-      if (!afterConflict) {
-        throw error;
-      }
+      await instance.cleanup().catch(() => {});
+      throw error;
     }
+  };
+
+  let collection: SettingsCollection;
+  try {
+    collection = await initCollection();
+  } catch (error) {
+    if (!isStorageFormatError(error)) {
+      throw error;
+    }
+    try {
+      storage.removeItem(storageKey);
+    } catch {
+      // Ignore storage removal errors and allow retry to surface any persistent failure
+    }
+    collection = await initCollection();
   }
 
-  const collection = createCollection(
-    rxdbCollectionOptions<SettingsDocument>({
-      id: `${dbName}-settings`,
-      rxCollection: db.settings,
-      startSync: true,
-    }),
-  );
-
-  await collection.preload();
+  const existing = collection.get(DEFAULT_SETTINGS_ID);
+  if (!existing) {
+    const initialDoc = normalizeSettingsDocument({
+      ...DEFAULT_SETTINGS,
+      ...options.initialSettings,
+      id: DEFAULT_SETTINGS_ID,
+    });
+    const tx = collection.insert(initialDoc);
+    await tx.isPersisted.promise;
+  } else if (!isSettingsDocument(existing)) {
+    const normalized = normalizeSettingsDocument({
+      ...options.initialSettings,
+      ...toSettingsPatch(existing),
+      id: DEFAULT_SETTINGS_ID,
+    });
+    const tx = collection.update(DEFAULT_SETTINGS_ID, (draft) => {
+      Object.assign(draft, normalized);
+    });
+    await tx.isPersisted.promise;
+  }
 
   async function getSettings(): Promise<SettingsDocument> {
     const cached = collection.get(DEFAULT_SETTINGS_ID);
     if (cached) {
       return normalizeSettingsDocument(cached);
-    }
-    const doc = await db.settings.findOne(DEFAULT_SETTINGS_ID).exec();
-    if (doc) {
-      return normalizeSettingsDocument(doc);
     }
     return { ...DEFAULT_SETTINGS };
   }
@@ -130,21 +211,13 @@ export async function createSettingsStore(options: CreateSettingsStoreOptions = 
         const tx = collection.insert(next);
         await tx.isPersisted.promise;
       } catch (error) {
-        await collection.preload();
-        if (collection.has(DEFAULT_SETTINGS_ID)) {
-          await applyCollectionUpdate(sanitized);
-        } else {
-          const existingDoc = await db.settings.findOne(DEFAULT_SETTINGS_ID).exec();
-          if (!existingDoc) {
-            throw error;
-          }
-          await existingDoc.patch(sanitized);
+        if (!collection.has(DEFAULT_SETTINGS_ID)) {
+          throw error;
         }
+        await applyCollectionUpdate(sanitized);
       }
     }
-    const updated = await getSettings();
-    setCachedTheme(updated.theme);
-    return updated;
+    return getSettings();
   }
 
   async function setSetting<K extends SettingsKey>(
@@ -170,12 +243,11 @@ export async function createSettingsStore(options: CreateSettingsStoreOptions = 
       defaultStorePromise = null;
     }
     await collection.cleanup();
-    await db.close();
   }
 
   const store = {
-    db,
-    rxCollection: db.settings,
+    storageKey,
+    storage,
     collection,
     getSettings,
     updateSettings,
@@ -220,4 +292,5 @@ export async function resetDefaultSettingsStoreForTesting(): Promise<void> {
       // Ignore errors from a failed initialization during test reset
     }
   }
+  fallbackMemoryStorage.removeItem(SETTINGS_STORAGE_KEY);
 }
