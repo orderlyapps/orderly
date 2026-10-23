@@ -47,7 +47,7 @@ function nextStoreName() {
 test("validates theme modes, schema helpers, and binary filename formatting", () => {
   expect(SETTINGS_BINARY_EXTENSION).toBe(".sub");
   expect(SETTINGS_BINARY_FILENAME).toBe("settings.sub");
-  expect(createSettingsBinaryFilename(new Date("2026-10-23T14:05:09.000Z"))).toBe(
+  expect(createSettingsBinaryFilename(new Date(2026, 9, 23, 14, 5, 9))).toBe(
     "settings-2026-10-23_14-05-09.sub",
   );
   expect(THEME_MODES).toEqual(["light", "dark", "system"]);

@@ -22,12 +22,12 @@ function pad2(value: number): string {
 }
 
 export function createSettingsBinaryFilename(date: Date = new Date()): string {
-  const year = date.getUTCFullYear();
-  const month = pad2(date.getUTCMonth() + 1);
-  const day = pad2(date.getUTCDate());
-  const hours = pad2(date.getUTCHours());
-  const minutes = pad2(date.getUTCMinutes());
-  const seconds = pad2(date.getUTCSeconds());
+  const year = date.getFullYear();
+  const month = pad2(date.getMonth() + 1);
+  const day = pad2(date.getDate());
+  const hours = pad2(date.getHours());
+  const minutes = pad2(date.getMinutes());
+  const seconds = pad2(date.getSeconds());
   return `${SETTINGS_BINARY_BASENAME}-${year}-${month}-${day}_${hours}-${minutes}-${seconds}${SETTINGS_BINARY_EXTENSION}`;
 }
 
