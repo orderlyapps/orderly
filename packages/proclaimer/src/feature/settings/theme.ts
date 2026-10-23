@@ -35,5 +35,11 @@ export function applyTheme(theme: ThemeMode, rootElement?: HTMLElement | null): 
     target.classList.toggle(DARK_PALETTE_CLASS, isDark);
     target.dataset.theme = theme;
   }
+  if (typeof document !== "undefined") {
+    const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (themeColor) {
+      themeColor.content = isDark ? "#000000" : "#ffffff";
+    }
+  }
   return isDark;
 }

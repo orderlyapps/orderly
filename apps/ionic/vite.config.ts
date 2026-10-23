@@ -53,7 +53,7 @@ const config = defineConfig(({ command }) => ({
         name: "Ionic",
         short_name: "Ionic",
         description: "Ionic React app",
-        theme_color: "#3880ff",
+        theme_color: "#ffffff",
         background_color: "#ffffff",
         display: "standalone",
         orientation: "portrait",

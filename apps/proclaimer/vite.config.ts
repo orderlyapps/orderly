@@ -45,7 +45,7 @@ const config = defineConfig({
         name: "Proclaimer",
         short_name: "Proclaimer",
         description: "Proclaimer app",
-        theme_color: "#3880ff",
+        theme_color: "#ffffff",
         background_color: "#ffffff",
         display: "standalone",
         orientation: "portrait",
