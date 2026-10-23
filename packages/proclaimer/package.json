@@ -1,0 +1,41 @@
+{
+  "name": "proclaimer-core",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "dev": "vp pack --watch",
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "dependencies": {
+    "@tanstack/db": "catalog:",
+    "@tanstack/react-db": "catalog:"
+  },
+  "devDependencies": {
+    "@ionic/react": "^9.0.9",
+    "@types/node": "catalog:",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "react": "^19.2.0",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "peerDependencies": {
+    "@ionic/react": ">=9",
+    "react": ">=19",
+    "react-dom": ">=19"
+  }
+}

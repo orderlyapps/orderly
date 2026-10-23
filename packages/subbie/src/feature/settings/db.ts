@@ -91,6 +91,43 @@ export function getDefaultStorage(): StorageApi {
   return fallbackMemoryStorage;
 }
 
+const SETTINGS_SNAPSHOT_SUFFIX = ":snapshot";
+
+export function settingsSnapshotStorageKey(storageKey: string): string {
+  return `${storageKey}${SETTINGS_SNAPSHOT_SUFFIX}`;
+}
+
+function writeSettingsSnapshot(
+  storage: StorageApi,
+  storageKey: string,
+  settings: SettingsDocument,
+): void {
+  try {
+    storage.setItem(settingsSnapshotStorageKey(storageKey), JSON.stringify(settings));
+  } catch {
+    // Snapshot persistence is best-effort; storage write failures are non-fatal
+  }
+}
+
+export function readSettingsSnapshot(
+  storage: StorageApi,
+  storageKey: string,
+): SettingsDocument | null {
+  try {
+    const raw = storage.getItem(settingsSnapshotStorageKey(storageKey));
+    if (!raw) {
+      return null;
+    }
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return null;
+    }
+    return normalizeSettingsDocument(parsed as Partial<SettingsDocument>);
+  } catch {
+    return null;
+  }
+}
+
 function isStorageFormatError(error: unknown): boolean {
   return (
     error instanceof SyntaxError ||
@@ -174,6 +211,17 @@ export async function createSettingsStore(options: CreateSettingsStoreOptions = 
     await tx.isPersisted.promise;
   }
 
+  const syncSettingsSnapshot = () => {
+    const current = collection.get(DEFAULT_SETTINGS_ID);
+    writeSettingsSnapshot(
+      storage,
+      storageKey,
+      current ? normalizeSettingsDocument(current) : { ...DEFAULT_SETTINGS },
+    );
+  };
+  syncSettingsSnapshot();
+  const snapshotSubscription = collection.subscribeChanges(syncSettingsSnapshot);
+
   async function getSettings(): Promise<SettingsDocument> {
     const cached = collection.get(DEFAULT_SETTINGS_ID);
     if (cached) {
@@ -217,7 +265,9 @@ export async function createSettingsStore(options: CreateSettingsStoreOptions = 
         await applyCollectionUpdate(sanitized);
       }
     }
-    return getSettings();
+    const updated = await getSettings();
+    writeSettingsSnapshot(storage, storageKey, updated);
+    return updated;
   }
 
   async function setSetting<K extends SettingsKey>(
@@ -238,6 +288,7 @@ export async function createSettingsStore(options: CreateSettingsStoreOptions = 
       return;
     }
     isClosed = true;
+    snapshotSubscription.unsubscribe();
     if (defaultStoreInstance === store) {
       defaultStoreInstance = null;
       defaultStorePromise = null;
@@ -293,4 +344,5 @@ export async function resetDefaultSettingsStoreForTesting(): Promise<void> {
     }
   }
   fallbackMemoryStorage.removeItem(SETTINGS_STORAGE_KEY);
+  fallbackMemoryStorage.removeItem(settingsSnapshotStorageKey(SETTINGS_STORAGE_KEY));
 }

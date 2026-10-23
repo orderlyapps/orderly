@@ -28,6 +28,7 @@ import {
   SETTINGS_KEYS,
   SETTINGS_STORAGE_KEY,
   SettingsSection,
+  settingsSnapshotStorageKey,
   SettingsView,
   THEME_LABELS,
   THEME_MODES,
@@ -258,7 +259,10 @@ test("persists settings in localStorage when available and resets default store 
     expect(store.storageKey).toBe(SETTINGS_STORAGE_KEY);
     await store.setTheme("light");
     expect(storageMap.get(SETTINGS_STORAGE_KEY)).toBeTruthy();
-    expect(Array.from(storageMap.keys())).toEqual([SETTINGS_STORAGE_KEY]);
+    expect(Array.from(storageMap.keys())).toEqual([
+      SETTINGS_STORAGE_KEY,
+      settingsSnapshotStorageKey(SETTINGS_STORAGE_KEY),
+    ]);
 
     await store.close();
 

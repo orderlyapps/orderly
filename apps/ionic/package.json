@@ -4,16 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vp dev --port 4220 --open",
-    "build": "vp run games#build && tsc && vp build",
+    "dev": "vp run ionic-core#build && vp dev --port 4220 --open",
+    "build": "vp run games#build && vp run ionic-core#build && tsc && vp build",
     "preview": "vp preview",
-    "deploy": "vp run games#build && tsc && vp build && wrangler deploy"
+    "deploy": "vp run games#build && vp run ionic-core#build && tsc && vp build && wrangler deploy"
   },
   "dependencies": {
     "@ionic/react": "^9.0.9",
     "@ionic/react-router": "^9.0.9",
     "@rdlabo/ionic-theme-ios27": "catalog:",
     "games": "workspace:*",
+    "ionic-core": "workspace:*",
     "ionicons": "^8.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -21,6 +22,7 @@
     "react-router-dom": "^6.30.0"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.0.1",

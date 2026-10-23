@@ -20,8 +20,10 @@ export {
 export {
   createSettingsStore,
   getSettingsStore,
+  readSettingsSnapshot,
   resetDefaultSettingsStoreForTesting,
   SETTINGS_STORAGE_KEY,
+  settingsSnapshotStorageKey,
   type CreateSettingsStoreOptions,
   type SettingsCollection,
   type SettingsStore,

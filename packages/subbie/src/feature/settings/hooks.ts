@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   getDefaultStorage,
   getSettingsStore,
+  readSettingsSnapshot,
   SETTINGS_STORAGE_KEY,
   type SettingsStore,
 } from "./db.ts";
@@ -37,30 +38,10 @@ function getInitialSettings(customStore?: SettingsStore): SettingsDocument {
   if (existing) {
     return normalizeSettingsDocument(existing);
   }
-  try {
-    const raw = customStore
-      ? customStore.storage.getItem(customStore.storageKey)
-      : getDefaultStorage().getItem(SETTINGS_STORAGE_KEY);
-    if (raw) {
-      const parsed: unknown = JSON.parse(raw);
-      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-        const entry = (parsed as Record<string, unknown>)[`s:${DEFAULT_SETTINGS_ID}`];
-        if (typeof entry === "object" && entry !== null) {
-          const data = (entry as { data?: unknown }).data;
-          if (
-            typeof data === "object" &&
-            data !== null &&
-            (data as Partial<SettingsDocument>).id === DEFAULT_SETTINGS_ID
-          ) {
-            return normalizeSettingsDocument(data as Partial<SettingsDocument>);
-          }
-        }
-      }
-    }
-  } catch {
-    // Fall back to default settings when storage cannot be read or parsed
-  }
-  return { ...DEFAULT_SETTINGS };
+  const snapshot = customStore
+    ? readSettingsSnapshot(customStore.storage, customStore.storageKey)
+    : readSettingsSnapshot(getDefaultStorage(), SETTINGS_STORAGE_KEY);
+  return snapshot ?? { ...DEFAULT_SETTINGS };
 }
 
 export function useSettings(customStore?: SettingsStore): UseSettingsResult {

@@ -1,9 +1,38 @@
+import { spawn, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { defineConfig } from "vite-plus";
+import { defineConfig, type Plugin } from "vite-plus";
 
 import viteReact from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+
+const ionicCoreDir = fileURLToPath(new URL("../../packages/ionic", import.meta.url));
+
+// Rebuild ionic-core into dist/ whenever its sources change during `vp dev`,
+// so the dev server never serves stale package output.
+function ionicCoreWatch(): Plugin {
+  let child: ChildProcess | undefined;
+  return {
+    name: "ionic-core-watch",
+    apply: "serve",
+    configureServer(server) {
+      child = spawn("vp", ["pack", "--watch"], {
+        cwd: ionicCoreDir,
+        stdio: "inherit",
+        shell: process.platform === "win32",
+      });
+      child.on("error", (err) =>
+        server.config.logger.warn(`ionic-core watch failed: ${err.message}`),
+      );
+      const stop = () => {
+        child?.kill();
+        process.off("exit", stop);
+      };
+      server.httpServer?.once("close", stop);
+      process.once("exit", stop);
+    },
+  };
+}
 
 const config = defineConfig(({ command }) => ({
   resolve:
@@ -15,6 +44,7 @@ const config = defineConfig(({ command }) => ({
         }
       : undefined,
   plugins: [
+    ionicCoreWatch(),
     viteReact(),
     VitePWA({
       registerType: "autoUpdate",
