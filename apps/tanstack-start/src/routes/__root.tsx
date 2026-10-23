@@ -15,6 +15,10 @@ export const Route = createRootRoute({
         content: "width=device-width, initial-scale=1",
       },
       {
+        name: "robots",
+        content: "noindex, nofollow",
+      },
+      {
         title: "TanStack Start Starter",
       },
     ],
@@ -28,6 +32,9 @@ export const Route = createRootRoute({
         href: appCss,
       },
     ],
+  }),
+  headers: () => ({
+    "X-Robots-Tag": "noindex, nofollow",
   }),
   shellComponent: RootDocument,
 });
