@@ -1,9 +1,7 @@
 import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from "@ionic/react";
-import { InvoiceList, listInvoices } from "subbie-core";
+import { InvoicesView } from "subbie-core";
 
 const Invoices = () => {
-  const invoices = listInvoices();
-
   return (
     <IonPage>
       <IonHeader>
@@ -17,7 +15,7 @@ const Invoices = () => {
             <IonTitle size="large">Invoices</IonTitle>
           </IonToolbar>
         </IonHeader>
-        <InvoiceList invoices={invoices} />
+        <InvoicesView />
       </IonContent>
     </IonPage>
   );

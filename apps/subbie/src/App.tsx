@@ -16,9 +16,10 @@ import {
   popoverEnterAnimation,
   popoverLeaveAnimation,
 } from "@rdlabo/ionic-theme-ios27";
-import { receipt, settings } from "ionicons/icons";
+import { people, receipt, settings } from "ionicons/icons";
 import { useThemeEffect } from "subbie-core";
 
+import Directory from "./pages/Directory";
 import Invoices from "./pages/Invoices";
 import Settings from "./pages/Settings";
 
@@ -66,6 +67,7 @@ const App = () => {
         <IonTabs>
           <IonRouterOutlet>
             <Route path="/invoices" element={<Invoices />} />
+            <Route path="/directory" element={<Directory />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/" element={<Navigate to="/invoices" replace />} />
           </IonRouterOutlet>
@@ -73,6 +75,10 @@ const App = () => {
             <IonTabButton tab="invoices" href="/invoices">
               <IonIcon aria-hidden="true" icon={receipt} />
               <IonLabel>Invoices</IonLabel>
+            </IonTabButton>
+            <IonTabButton tab="directory" href="/directory">
+              <IonIcon aria-hidden="true" icon={people} />
+              <IonLabel>Directory</IonLabel>
             </IonTabButton>
             <IonTabButton tab="settings" href="/settings">
               <IonIcon aria-hidden="true" icon={settings} />

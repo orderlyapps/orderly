@@ -20,14 +20,23 @@
     "check": "vp check"
   },
   "dependencies": {
+    "@maskito/core": "catalog:",
+    "@maskito/kit": "catalog:",
+    "@maskito/phone": "catalog:",
     "@tanstack/db": "catalog:",
-    "@tanstack/react-db": "catalog:"
+    "@tanstack/react-db": "catalog:",
+    "@tanstack/rxdb-db-collection": "catalog:",
+    "libphonenumber-js": "catalog:",
+    "rxdb": "catalog:",
+    "rxjs": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@ionic/react": "^9.0.9",
     "@types/node": "catalog:",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "ionicons": "^8.1.0",
     "react": "^19.2.0",
     "typescript": "catalog:",
     "vite": "catalog:",
@@ -35,6 +44,7 @@
   },
   "peerDependencies": {
     "@ionic/react": ">=9",
+    "ionicons": ">=8",
     "react": ">=19",
     "react-dom": ">=19"
   }
