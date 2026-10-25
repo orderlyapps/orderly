@@ -165,6 +165,20 @@ test("validates banking schema helpers and normalizers", () => {
   expect(allocatedAmountCents(line)).toBe(25_000);
   expect(unallocatedAmountCents(line)).toBe(0);
   expect(isLineFullyAllocated(line)).toBe(true);
+  expect(line.isPrivate).toBe(false);
+
+  const privateLine = normalizeBankStatementLineDocument({
+    accountId: account.id,
+    date: "2026-10-16",
+    description: "Groceries",
+    type: "payment",
+    amountCents: 8_000,
+    isPrivate: true,
+    allocations: [{ categoryId: category.id, amountCents: 8_000 }],
+  });
+  expect(isBankStatementLineDocument(privateLine)).toBe(true);
+  expect(privateLine.isPrivate).toBe(true);
+  expect(privateLine.allocations).toEqual([]);
 });
 
 test("validates create inputs for accounts, categories, and statement lines", () => {
@@ -623,6 +637,7 @@ test("summarizes banking overview cash flow, categorisation progress, accounts, 
     categorisedLines: 0,
     partiallyCategorisedLines: 0,
     uncategorisedLines: 0,
+    privateLines: 0,
     needsAttentionLines: 0,
     linkedInvoiceLineCount: 0,
     totalAllocatedCents: 0,
@@ -735,6 +750,7 @@ test("summarizes banking overview cash flow, categorisation progress, accounts, 
     categorisedLines: 1,
     partiallyCategorisedLines: 1,
     uncategorisedLines: 1,
+    privateLines: 0,
     needsAttentionLines: 2,
     linkedInvoiceLineCount: 1,
     totalAllocatedCents: 230_000,
@@ -1073,6 +1089,125 @@ test("calculates and persists GST, GST Free, and Part GST payment allocations (1
         gstFreeAmountCents: 15_000,
       }),
     ).rejects.toThrow("GST free amount cannot exceed allocation amount");
+  } finally {
+    await bankingStore.close();
+  }
+});
+
+test("marks statement lines as private and excludes them from business totals", async () => {
+  const bankingStore = await createBankingStore({
+    name: nextStoreName("subbie_banking_private"),
+    storage: getRxStorageMemory(),
+  });
+
+  try {
+    const account = await bankingStore.createAccount({
+      name: "Mixed Account",
+      currency: "AUD",
+    });
+    const materialsCat = bankingStore
+      .listCategories("payment")
+      .find((cat) => cat.name === "Materials & Supplies")!;
+
+    // Private lines drop any supplied allocations at creation
+    const privateLine = await bankingStore.createStatementLine({
+      accountId: account.id,
+      date: "2026-10-24",
+      description: "Personal groceries",
+      type: "payment",
+      amountCents: 12_000,
+      allocations: [{ categoryId: materialsCat.id, amountCents: 12_000 }],
+      isPrivate: true,
+    });
+    expect(privateLine.isPrivate).toBe(true);
+    expect(privateLine.allocations).toEqual([]);
+
+    const businessLine = await bankingStore.createStatementLine({
+      accountId: account.id,
+      date: "2026-10-25",
+      description: "Job materials",
+      type: "payment",
+      amountCents: 11_000,
+    });
+    const receiptLine = await bankingStore.createStatementLine({
+      accountId: account.id,
+      date: "2026-10-26",
+      description: "Client deposit",
+      type: "receipt",
+      amountCents: 20_000,
+    });
+
+    // Marking private clears existing allocations
+    await bankingStore.allocateLineToCategory(businessLine.id, materialsCat.id);
+    const markedPrivate = await bankingStore.setLinePrivate(businessLine.id, true);
+    expect(markedPrivate.isPrivate).toBe(true);
+    expect(markedPrivate.allocations).toEqual([]);
+
+    // Private lines cannot be allocated to categories
+    await expect(
+      bankingStore.allocateLineToCategory(businessLine.id, materialsCat.id),
+    ).rejects.toThrow("mark it as business");
+    await expect(
+      bankingStore.setLineAllocations(businessLine.id, [
+        { categoryId: materialsCat.id, amountCents: 1_000 },
+      ]),
+    ).rejects.toThrow("mark it as business");
+
+    const backToBusiness = await bankingStore.setLinePrivate(businessLine.id, false);
+    expect(backToBusiness.isPrivate).toBe(false);
+
+    // updateStatementLine also enforces the invariant
+    await bankingStore.allocateLineToCategory(businessLine.id, materialsCat.id);
+    const rePrivated = await bankingStore.updateStatementLine(businessLine.id, {
+      isPrivate: true,
+    });
+    expect(rePrivated.isPrivate).toBe(true);
+    expect(rePrivated.allocations).toEqual([]);
+
+    const lines = bankingStore.listStatementLines({ accountId: account.id });
+    const overview = summarizeBankingOverview({
+      accounts: bankingStore.listAccounts(),
+      categories: bankingStore.listCategories(),
+      statements: bankingStore.listStatements(),
+      statementLines: lines,
+    });
+
+    // Private payments are excluded from cash flow totals
+    expect(overview.cashFlow).toEqual({
+      currency: "AUD",
+      receiptCount: 1,
+      paymentCount: 0,
+      totalReceiptsCents: 20_000,
+      totalPaymentsCents: 0,
+      netCashFlowCents: 20_000,
+    });
+    expect(overview.categorisation).toMatchObject({
+      totalLines: 3,
+      categorisedLines: 2,
+      uncategorisedLines: 1,
+      privateLines: 2,
+      needsAttentionLines: 1,
+      completionPercent: 67,
+    });
+    expect(overview.accountSummaries[0]).toMatchObject({
+      lineCount: 3,
+      totalReceiptsCents: 20_000,
+      totalPaymentsCents: 0,
+      netCashFlowCents: 20_000,
+      uncategorisedLineCount: 1,
+    });
+
+    // Filtering: private lines only match "private" and "categorised" (resolved) filters
+    expect(isBankingLineCategorisationFilter("private")).toBe(true);
+    expect(
+      filterStatementLines(lines, { categorisation: "private" })
+        .map((line) => line.id)
+        .sort(),
+    ).toEqual([privateLine.id, businessLine.id].sort());
+    expect(filterStatementLines(lines, { categorisation: "categorised" })).toHaveLength(2);
+    expect(
+      filterStatementLines(lines, { categorisation: "uncategorised" }).map((line) => line.id),
+    ).toEqual([receiptLine.id]);
   } finally {
     await bankingStore.close();
   }

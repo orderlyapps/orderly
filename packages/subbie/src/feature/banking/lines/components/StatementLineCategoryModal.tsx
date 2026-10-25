@@ -49,6 +49,7 @@ export interface StatementLineCategoryModalProps {
     options?: AllocateLineToCategoryOptions,
   ) => Promise<unknown>;
   onClearCategory?: (line: BankStatementLineDocument) => Promise<unknown>;
+  onSetPrivate?: (line: BankStatementLineDocument, isPrivate: boolean) => Promise<unknown>;
 }
 
 export const StatementLineCategoryModal = ({
@@ -59,6 +60,7 @@ export const StatementLineCategoryModal = ({
   onDismiss,
   onSelectCategory,
   onClearCategory,
+  onSetPrivate,
 }: StatementLineCategoryModalProps) => {
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [gstType, setGstType] = useState<BankGstType>("gst");
@@ -179,6 +181,21 @@ export const StatementLineCategoryModal = ({
     }
   };
 
+  const handleSetPrivate = async (isPrivate: boolean) => {
+    if (!line || !onSetPrivate || isSaving) {
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await onSetPrivate(line, isPrivate);
+      onDismiss();
+    } catch {
+      // Parent handles reporting the error; keep modal open
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <IonModal isOpen={isOpen} onDidDismiss={onDismiss}>
       <IonHeader>
@@ -227,120 +244,170 @@ export const StatementLineCategoryModal = ({
               </IonItem>
             </IonList>
 
-            <IonList inset>
-              <IonListHeader>Select {bankTransactionTypeLabel(line.type)} Category</IonListHeader>
-              {matchingCategories.length === 0 ? (
+            {line.isPrivate ? (
+              <IonList inset>
                 <IonItem lines="none">
-                  <IonNote color="medium">
-                    No {line.type} categories available — add one in the Categories section
-                  </IonNote>
+                  <IonLabel>
+                    <IonNote color="medium">
+                      Marked as Private — excluded from business totals and categorisation
+                    </IonNote>
+                  </IonLabel>
                 </IonItem>
-              ) : (
-                matchingCategories.map((category) => {
-                  const isSelected = selectedCategoryId === category.id;
-                  return (
+                {onSetPrivate ? (
+                  <IonItem
+                    button
+                    detail={false}
+                    disabled={isSaving}
+                    onClick={() => {
+                      void handleSetPrivate(false);
+                    }}
+                  >
+                    <IonLabel color="primary">Mark as Business</IonLabel>
+                  </IonItem>
+                ) : null}
+              </IonList>
+            ) : (
+              <>
+                <IonList inset>
+                  <IonListHeader>
+                    Select {bankTransactionTypeLabel(line.type)} Category
+                  </IonListHeader>
+                  {matchingCategories.length === 0 ? (
+                    <IonItem lines="none">
+                      <IonNote color="medium">
+                        No {line.type} categories available — add one in the Categories section
+                      </IonNote>
+                    </IonItem>
+                  ) : (
+                    matchingCategories.map((category) => {
+                      const isSelected = selectedCategoryId === category.id;
+                      return (
+                        <IonItem
+                          key={category.id}
+                          button
+                          detail={false}
+                          disabled={isSaving}
+                          onClick={() => setSelectedCategoryId(category.id)}
+                        >
+                          <IonLabel>
+                            <h2>{category.name}</h2>
+                            {category.description ? (
+                              <IonNote>{category.description}</IonNote>
+                            ) : null}
+                          </IonLabel>
+                          {isSelected ? (
+                            <IonIcon
+                              slot="end"
+                              icon={checkmark}
+                              color="primary"
+                              aria-label="Selected"
+                            />
+                          ) : null}
+                        </IonItem>
+                      );
+                    })
+                  )}
+                </IonList>
+
+                <IonList inset>
+                  <IonListHeader>GST (10%)</IonListHeader>
+                  <IonItem
+                    lines={line.type === "payment" && gstType === "part-gst" ? "full" : "none"}
+                  >
+                    <IonSegment
+                      value={gstType}
+                      onIonChange={(event) => {
+                        const value = event.detail.value;
+                        if (isBankGstType(value) && availableGstTypes.includes(value)) {
+                          setGstType(value);
+                        }
+                      }}
+                    >
+                      {availableGstTypes.map((typeOption) => (
+                        <IonSegmentButton key={typeOption} value={typeOption}>
+                          <IonLabel>{bankGstTypeLabel(typeOption)}</IonLabel>
+                        </IonSegmentButton>
+                      ))}
+                    </IonSegment>
+                  </IonItem>
+
+                  {line.type === "payment" && gstType === "part-gst" ? (
+                    <IonItem>
+                      <IonInput
+                        label="GST Free Amount"
+                        labelPlacement="stacked"
+                        type="number"
+                        inputmode="decimal"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={gstFreeAmount}
+                        onIonInput={(event) => setGstFreeAmount(event.detail.value ?? "")}
+                      />
+                    </IonItem>
+                  ) : null}
+
+                  <IonItem lines="none">
+                    <IonLabel>
+                      <IonNote color={!isGstFreeValid ? "danger" : undefined}>
+                        {!isGstFreeValid
+                          ? `Enter a GST free amount between ${formatCurrency(0, currency)} and ${formatCurrency(line.amountCents, currency)}`
+                          : gstType === "gst"
+                            ? `GST (10%): ${formatCurrency(gstAmountCents, currency)} · Net (ex-GST): ${formatCurrency(netAmountCents, currency)}`
+                            : gstType === "gst-free"
+                              ? `GST Free: ${formatCurrency(line.amountCents, currency)} · GST: ${formatCurrency(0, currency)}`
+                              : `GST Free: ${formatCurrency(effectiveGstFreeCents, currency)} · Taxable: ${formatCurrency(taxableAmountCents, currency)} · GST (10%): ${formatCurrency(gstAmountCents, currency)}`}
+                      </IonNote>
+                    </IonLabel>
+                  </IonItem>
+                </IonList>
+
+                <IonList inset>
+                  <IonItem>
+                    <IonInput
+                      label="Notes (optional)"
+                      labelPlacement="stacked"
+                      placeholder="Add a categorisation note..."
+                      value={notes}
+                      onIonInput={(event) => setNotes(event.detail.value ?? "")}
+                    />
+                  </IonItem>
+                </IonList>
+
+                {line.allocations.length > 0 && onClearCategory ? (
+                  <IonList inset>
                     <IonItem
-                      key={category.id}
                       button
                       detail={false}
                       disabled={isSaving}
-                      onClick={() => setSelectedCategoryId(category.id)}
+                      onClick={() => {
+                        void handleClear();
+                      }}
                     >
-                      <IonLabel>
-                        <h2>{category.name}</h2>
-                        {category.description ? <IonNote>{category.description}</IonNote> : null}
-                      </IonLabel>
-                      {isSelected ? (
-                        <IonIcon
-                          slot="end"
-                          icon={checkmark}
-                          color="primary"
-                          aria-label="Selected"
-                        />
+                      <IonLabel color="danger">Clear Category</IonLabel>
+                    </IonItem>
+                  </IonList>
+                ) : null}
+
+                {onSetPrivate ? (
+                  <IonList inset>
+                    <IonItem
+                      button
+                      detail={false}
+                      disabled={isSaving}
+                      onClick={() => {
+                        void handleSetPrivate(true);
+                      }}
+                    >
+                      <IonLabel>Mark as Private (non-business)</IonLabel>
+                      {line.allocations.length > 0 ? (
+                        <IonNote slot="end">allocations will be removed</IonNote>
                       ) : null}
                     </IonItem>
-                  );
-                })
-              )}
-            </IonList>
-
-            <IonList inset>
-              <IonListHeader>GST (10%)</IonListHeader>
-              <IonItem lines={line.type === "payment" && gstType === "part-gst" ? "full" : "none"}>
-                <IonSegment
-                  value={gstType}
-                  onIonChange={(event) => {
-                    const value = event.detail.value;
-                    if (isBankGstType(value) && availableGstTypes.includes(value)) {
-                      setGstType(value);
-                    }
-                  }}
-                >
-                  {availableGstTypes.map((typeOption) => (
-                    <IonSegmentButton key={typeOption} value={typeOption}>
-                      <IonLabel>{bankGstTypeLabel(typeOption)}</IonLabel>
-                    </IonSegmentButton>
-                  ))}
-                </IonSegment>
-              </IonItem>
-
-              {line.type === "payment" && gstType === "part-gst" ? (
-                <IonItem>
-                  <IonInput
-                    label="GST Free Amount"
-                    labelPlacement="stacked"
-                    type="number"
-                    inputmode="decimal"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={gstFreeAmount}
-                    onIonInput={(event) => setGstFreeAmount(event.detail.value ?? "")}
-                  />
-                </IonItem>
-              ) : null}
-
-              <IonItem lines="none">
-                <IonLabel>
-                  <IonNote color={!isGstFreeValid ? "danger" : undefined}>
-                    {!isGstFreeValid
-                      ? `Enter a GST free amount between ${formatCurrency(0, currency)} and ${formatCurrency(line.amountCents, currency)}`
-                      : gstType === "gst"
-                        ? `GST (10%): ${formatCurrency(gstAmountCents, currency)} · Net (ex-GST): ${formatCurrency(netAmountCents, currency)}`
-                        : gstType === "gst-free"
-                          ? `GST Free: ${formatCurrency(line.amountCents, currency)} · GST: ${formatCurrency(0, currency)}`
-                          : `GST Free: ${formatCurrency(effectiveGstFreeCents, currency)} · Taxable: ${formatCurrency(taxableAmountCents, currency)} · GST (10%): ${formatCurrency(gstAmountCents, currency)}`}
-                  </IonNote>
-                </IonLabel>
-              </IonItem>
-            </IonList>
-
-            <IonList inset>
-              <IonItem>
-                <IonInput
-                  label="Notes (optional)"
-                  labelPlacement="stacked"
-                  placeholder="Add a categorisation note..."
-                  value={notes}
-                  onIonInput={(event) => setNotes(event.detail.value ?? "")}
-                />
-              </IonItem>
-            </IonList>
-
-            {line.allocations.length > 0 && onClearCategory ? (
-              <IonList inset>
-                <IonItem
-                  button
-                  detail={false}
-                  disabled={isSaving}
-                  onClick={() => {
-                    void handleClear();
-                  }}
-                >
-                  <IonLabel color="danger">Clear Category</IonLabel>
-                </IonItem>
-              </IonList>
-            ) : null}
+                  </IonList>
+                ) : null}
+              </>
+            )}
           </>
         ) : null}
       </IonContent>

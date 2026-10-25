@@ -32,6 +32,7 @@ const bankStatementLineFields = {
   balanceCents: z.number().int().optional(),
   invoiceIds: z.array(bankIdSchema),
   allocations: z.array(bankLineAllocationSchema),
+  isPrivate: z.boolean(),
   notes: z.string(),
   createdAt: nonBlankString,
   updatedAt: nonBlankString,
@@ -65,6 +66,7 @@ export const createBankStatementLineInputSchema = z.object(
       .optional(),
     invoiceIds: z.array(bankIdSchema).optional(),
     allocations: z.array(bankLineAllocationInputSchema).optional(),
+    isPrivate: z.boolean({ error: "isPrivate must be a boolean" }).optional(),
     notes: z.string({ error: "notes must be a string" }).optional(),
   },
   { error: "input must be an object" },
@@ -92,6 +94,7 @@ export function normalizeBankStatementLineDocument(
     | null,
 ): BankStatementLineDocument {
   const now = new Date().toISOString();
+  const isPrivate = fieldOrDefault(bankStatementLineFields.isPrivate, value?.isPrivate, false);
   const normalized: BankStatementLineDocument = {
     id: fieldOrDefault(bankStatementLineFields.id, value?.id, generateDocumentId()),
     statementId: fieldOrDefault(bankStatementLineFields.statementId, value?.statementId, "").trim(),
@@ -109,11 +112,13 @@ export function normalizeBankStatementLineDocument(
           ),
         )
       : [],
-    allocations: Array.isArray(value?.allocations)
-      ? value.allocations
-          .map((entry) => normalizeBankLineAllocation(entry))
-          .filter((entry) => entry.categoryId.length > 0)
-      : [],
+    allocations:
+      !isPrivate && Array.isArray(value?.allocations)
+        ? value.allocations
+            .map((entry) => normalizeBankLineAllocation(entry))
+            .filter((entry) => entry.categoryId.length > 0)
+        : [],
+    isPrivate,
     notes: fieldOrDefault(bankStatementLineFields.notes, value?.notes, ""),
     createdAt: fieldOrDefault(bankStatementLineFields.createdAt, value?.createdAt, now),
     updatedAt: fieldOrDefault(bankStatementLineFields.updatedAt, value?.updatedAt, now),
@@ -155,6 +160,7 @@ export const BANKING_LINE_CATEGORISATION_FILTERS = [
   "categorised",
   "partially-categorised",
   "uncategorised",
+  "private",
 ] as const;
 
 export type BankingLineCategorisationFilter = (typeof BANKING_LINE_CATEGORISATION_FILTERS)[number];
@@ -210,17 +216,22 @@ export function filterStatementLines(
     }
     switch (categorisation) {
       case "categorised":
-        if (!isLineFullyAllocated(line)) {
+        if (!line.isPrivate && !isLineFullyAllocated(line)) {
           return false;
         }
         break;
       case "partially-categorised":
-        if (line.allocations.length === 0 || isLineFullyAllocated(line)) {
+        if (line.isPrivate || line.allocations.length === 0 || isLineFullyAllocated(line)) {
           return false;
         }
         break;
       case "uncategorised":
-        if (line.allocations.length > 0) {
+        if (line.isPrivate || line.allocations.length > 0) {
+          return false;
+        }
+        break;
+      case "private":
+        if (!line.isPrivate) {
           return false;
         }
         break;

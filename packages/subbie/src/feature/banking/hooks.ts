@@ -67,6 +67,7 @@ export interface UseBankingResult {
     allocations: readonly BankLineAllocationInput[],
   ) => Promise<BankStatementLineDocument>;
   clearLineAllocations: (lineId: string) => Promise<BankStatementLineDocument>;
+  setLinePrivate: (lineId: string, isPrivate: boolean) => Promise<BankStatementLineDocument>;
   importStatementCsv: (input: ImportBankStatementCsvInput) => Promise<ImportBankStatementCsvResult>;
   importStatementCsvFile: (
     file: Blob & { name?: string },
@@ -194,6 +195,8 @@ export function useBanking(customStore?: BankingStore): UseBankingResult {
     setLineAllocations: async (lineId, allocations) =>
       (await resolveStore()).setLineAllocations(lineId, allocations),
     clearLineAllocations: async (lineId) => (await resolveStore()).clearLineAllocations(lineId),
+    setLinePrivate: async (lineId, isPrivate) =>
+      (await resolveStore()).setLinePrivate(lineId, isPrivate),
     importStatementCsv: async (input) => (await resolveStore()).importStatementCsv(input),
     importStatementCsvFile: async (file, accountId, options) =>
       (await resolveStore()).importStatementCsvFile(file, accountId, options),

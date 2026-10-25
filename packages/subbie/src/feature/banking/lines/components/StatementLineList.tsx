@@ -93,13 +93,15 @@ export const StatementLineList = ({
                       ? `Invoices: ${linkedInvoiceLabels.join(", ")}`
                       : "No linked invoices"}
                     {" · "}
-                    {allocationNames.length > 0
-                      ? `${allocationNames.join(", ")}${
-                          fullyAllocated
-                            ? ""
-                            : ` (${formatCurrency(allocated, currency)}/${formatCurrency(line.amountCents, currency)})`
-                        }`
-                      : "Unallocated"}
+                    {line.isPrivate
+                      ? "Private — excluded from totals"
+                      : allocationNames.length > 0
+                        ? `${allocationNames.join(", ")}${
+                            fullyAllocated
+                              ? ""
+                              : ` (${formatCurrency(allocated, currency)}/${formatCurrency(line.amountCents, currency)})`
+                          }`
+                        : "Unallocated"}
                   </p>
                 </IonLabel>
                 <div slot="end" className="ion-text-end">
@@ -112,6 +114,7 @@ export const StatementLineList = ({
                   <IonBadge color={bankTransactionTypeColor(line.type)}>
                     {bankTransactionTypeLabel(line.type)}
                   </IonBadge>
+                  {line.isPrivate ? <IonBadge color="medium">Private</IonBadge> : null}
                 </div>
               </IonItem>
               {onDelete ? (

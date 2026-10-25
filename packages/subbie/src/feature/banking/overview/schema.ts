@@ -23,6 +23,7 @@ export interface BankingCategorisationSummary {
   categorisedLines: number;
   partiallyCategorisedLines: number;
   uncategorisedLines: number;
+  privateLines: number;
   needsAttentionLines: number;
   linkedInvoiceLineCount: number;
   totalAllocatedCents: number;
@@ -122,11 +123,17 @@ export function summarizeBankingOverview(
   let categorisedLines = 0;
   let partiallyCategorisedLines = 0;
   let uncategorisedLines = 0;
+  let privateLines = 0;
   let linkedInvoiceLineCount = 0;
   let totalAllocatedCents = 0;
   let totalUnallocatedCents = 0;
 
   for (const line of sortedLines) {
+    if (line.isPrivate) {
+      privateLines += 1;
+      categorisedLines += 1;
+      continue;
+    }
     const lineCurrency = accountById.get(line.accountId)?.currency ?? primaryCurrency;
     const bucket = ensureCurrencyBucket(lineCurrency);
 
@@ -186,6 +193,9 @@ export function summarizeBankingOverview(
     let uncategorisedLineCount = 0;
 
     for (const line of accountLines) {
+      if (line.isPrivate) {
+        continue;
+      }
       if (line.type === "receipt") {
         accReceipts += line.amountCents;
       } else {
@@ -225,6 +235,9 @@ export function summarizeBankingOverview(
       let matchedCurrency: string | undefined;
 
       for (const line of sortedLines) {
+        if (line.isPrivate) {
+          continue;
+        }
         const matching = line.allocations.filter((entry) => entry.categoryId === category.id);
         if (matching.length > 0) {
           lineCount += 1;
@@ -265,6 +278,7 @@ export function summarizeBankingOverview(
       categorisedLines,
       partiallyCategorisedLines,
       uncategorisedLines,
+      privateLines,
       needsAttentionLines,
       linkedInvoiceLineCount,
       totalAllocatedCents,

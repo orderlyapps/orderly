@@ -65,6 +65,7 @@ export const BankStatementsView = ({
     deleteStatementLine,
     linkInvoicesToLine,
     setLineAllocations,
+    setLinePrivate,
     importStatementCsv,
   } = useBanking(customStore);
   const { invoices, store: resolvedInvoicesStore } = useInvoices(invoicesStore);
@@ -201,6 +202,18 @@ export const BankStatementsView = ({
     }
   };
 
+  const handleSetPrivate = async (line: BankStatementLineDocument, isPrivate: boolean) => {
+    try {
+      const updated = await setLinePrivate(line.id, isPrivate);
+      setSelectedLine(updated);
+      setStatusMessage(
+        isPrivate ? "Marked as private — excluded from totals" : "Marked as business",
+      );
+    } catch (err) {
+      setStatusMessage(err instanceof Error ? err.message : "Failed to update private status");
+    }
+  };
+
   const handleDeleteLine = async (line: BankStatementLineDocument) => {
     try {
       await deleteStatementLine(line.id);
@@ -285,6 +298,7 @@ export const BankStatementsView = ({
                     Partially categorised
                   </IonSelectOption>
                   <IonSelectOption value="uncategorised">Uncategorised</IonSelectOption>
+                  <IonSelectOption value="private">Private</IonSelectOption>
                 </IonSelect>
               </IonItem>
               <IonItem
@@ -365,6 +379,7 @@ export const BankStatementsView = ({
         onDismiss={() => setLineDetailOpen(false)}
         onLinkInvoices={handleLinkInvoices}
         onSaveAllocations={handleSaveAllocations}
+        onSetPrivate={handleSetPrivate}
         onDelete={handleDeleteLine}
       />
 

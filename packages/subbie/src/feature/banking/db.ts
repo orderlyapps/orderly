@@ -107,6 +107,7 @@ export async function createBankingStore(options: CreateBankingStoreOptions = {}
         schema: bankStatementLineJsonSchema,
         migrationStrategies: {
           1: (oldDoc: BankStatementLineDocument) => normalizeBankStatementLineDocument(oldDoc),
+          2: (oldDoc: BankStatementLineDocument) => normalizeBankStatementLineDocument(oldDoc),
         },
       },
     });

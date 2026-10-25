@@ -24,7 +24,7 @@ import {
 export const BANK_STATEMENT_LINES_COLLECTION_NAME = "bank_statement_lines";
 
 export const bankStatementLineJsonSchema: RxJsonSchema<BankStatementLineDocument> = {
-  version: 1,
+  version: 2,
   primaryKey: "id",
   type: "object",
   properties: {
@@ -55,6 +55,7 @@ export const bankStatementLineJsonSchema: RxJsonSchema<BankStatementLineDocument
         required: ["id", "categoryId", "amountCents"],
       },
     },
+    isPrivate: { type: "boolean" },
     notes: { type: "string" },
     createdAt: { type: "string" },
     updatedAt: { type: "string" },
@@ -69,6 +70,7 @@ export const bankStatementLineJsonSchema: RxJsonSchema<BankStatementLineDocument
     "amountCents",
     "invoiceIds",
     "allocations",
+    "isPrivate",
     "createdAt",
     "updatedAt",
   ],
@@ -187,12 +189,10 @@ export function createBankStatementLinesActions({
     if (!accountsCollection.has(validated.accountId)) {
       throw new Error(`Bank account not found: ${validated.accountId}`);
     }
-    if (validated.allocations && validated.allocations.length > 0) {
-      validateAllocationsAgainstCategories(
-        validated.type,
-        validated.amountCents,
-        validated.allocations,
-      );
+    const isPrivate = validated.isPrivate ?? false;
+    const allocations = isPrivate ? [] : (validated.allocations ?? []);
+    if (allocations.length > 0) {
+      validateAllocationsAgainstCategories(validated.type, validated.amountCents, allocations);
     }
     const now = new Date(allocateLineTimestampMs(1)).toISOString();
     const doc = normalizeBankStatementLineDocument({
@@ -205,7 +205,8 @@ export function createBankStatementLinesActions({
       amountCents: validated.amountCents,
       balanceCents: validated.balanceCents,
       invoiceIds: validated.invoiceIds ?? [],
-      allocations: (validated.allocations ?? []).map((entry) => normalizeBankLineAllocation(entry)),
+      allocations: allocations.map((entry) => normalizeBankLineAllocation(entry)),
+      isPrivate,
       notes: validated.notes ?? "",
       createdAt: now,
       updatedAt: now,
@@ -231,7 +232,8 @@ export function createBankStatementLinesActions({
     }
     const nextType = patch.type ?? current.type;
     const nextAmountCents = patch.amountCents ?? current.amountCents;
-    const nextAllocationsInput = patch.allocations ?? current.allocations;
+    const nextIsPrivate = patch.isPrivate ?? current.isPrivate;
+    const nextAllocationsInput = nextIsPrivate ? [] : (patch.allocations ?? current.allocations);
 
     validateAllocationsAgainstCategories(nextType, nextAmountCents, nextAllocationsInput);
 
@@ -243,6 +245,7 @@ export function createBankStatementLinesActions({
       ...patch,
       id,
       allocations: normalizedAllocations,
+      isPrivate: nextIsPrivate,
     };
     if (!isBankStatementLineDocument(candidate)) {
       throw new Error("Invalid bank statement line update");
@@ -347,6 +350,9 @@ export function createBankStatementLinesActions({
     if (!current) {
       throw new Error(`Bank statement line not found: ${lineId}`);
     }
+    if (current.isPrivate) {
+      throw new Error("Statement line is private — mark it as business before allocating");
+    }
     const resolvedOptions: AllocateLineToCategoryOptions =
       typeof notesOrOptions === "string" ? { notes: notesOrOptions } : (notesOrOptions ?? {});
     const gstType: BankGstType = resolvedOptions.gstType ?? "gst";
@@ -370,6 +376,10 @@ export function createBankStatementLinesActions({
     lineId: string,
     allocations: readonly BankLineAllocationInput[],
   ): Promise<BankStatementLineDocument> {
+    const current = getStatementLine(lineId);
+    if (current?.isPrivate) {
+      throw new Error("Statement line is private — mark it as business before allocating");
+    }
     return updateStatementLine(lineId, {
       allocations: [...allocations],
     });
@@ -377,6 +387,13 @@ export function createBankStatementLinesActions({
 
   async function clearLineAllocations(lineId: string): Promise<BankStatementLineDocument> {
     return updateStatementLine(lineId, { allocations: [] });
+  }
+
+  async function setLinePrivate(
+    lineId: string,
+    isPrivate: boolean,
+  ): Promise<BankStatementLineDocument> {
+    return updateStatementLine(lineId, { isPrivate });
   }
 
   return {
@@ -391,5 +408,6 @@ export function createBankStatementLinesActions({
     allocateLineToCategory,
     setLineAllocations,
     clearLineAllocations,
+    setLinePrivate,
   };
 }

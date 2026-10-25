@@ -55,6 +55,7 @@ export const BankCategoriseView = ({
     error,
     allocateLineToCategory,
     clearLineAllocations,
+    setLinePrivate,
   } = useBanking(customStore);
   const { invoices } = useInvoices(invoicesStore);
 
@@ -145,6 +146,19 @@ export const BankCategoriseView = ({
     }
   };
 
+  const handleSetPrivate = async (line: BankStatementLineDocument, isPrivate: boolean) => {
+    try {
+      const updated = await setLinePrivate(line.id, isPrivate);
+      setSelectedLine(updated);
+      setStatusMessage(
+        isPrivate ? "Marked as private — excluded from totals" : "Marked as business",
+      );
+    } catch (err) {
+      setStatusMessage(err instanceof Error ? err.message : "Failed to update private status");
+      throw err;
+    }
+  };
+
   const clearCategoriseFilters = () => {
     setAccountFilterId("");
     setCategorisationFilter("all");
@@ -213,6 +227,7 @@ export const BankCategoriseView = ({
                   Partially categorised
                 </IonSelectOption>
                 <IonSelectOption value="categorised">Categorised</IonSelectOption>
+                <IonSelectOption value="private">Private</IonSelectOption>
               </IonSelect>
             </IonItem>
 
@@ -301,6 +316,7 @@ export const BankCategoriseView = ({
         onDismiss={() => setLineCategoryOpen(false)}
         onSelectCategory={handleSelectCategory}
         onClearCategory={handleClearCategory}
+        onSetPrivate={handleSetPrivate}
       />
 
       <IonToast

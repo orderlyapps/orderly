@@ -20,6 +20,7 @@ import {
   IonSelect,
   IonSelectOption,
   IonTitle,
+  IonToggle,
   IonToolbar,
   useIonAlert,
 } from "@ionic/react";
@@ -36,7 +37,7 @@ import {
 } from "../../../invoices/schema.ts";
 import type { BankAccountDocument } from "../../accounts/schema.ts";
 import type { BankCategoryDocument } from "../../categories/schema.ts";
-import { bankTransactionTypeColor, bankTransactionTypeLabel } from "../../types.ts";
+import { bankTransactionTypeColor, bankTransactionTypeLabel, pluralize } from "../../types.ts";
 import {
   allocationGstAmountCents,
   BANK_GST_TYPES,
@@ -68,6 +69,7 @@ export interface StatementLineDetailModalProps {
     line: BankStatementLineDocument,
     allocations: BankLineAllocationInput[],
   ) => Promise<unknown>;
+  onSetPrivate?: (line: BankStatementLineDocument, isPrivate: boolean) => Promise<unknown>;
   onDelete: (line: BankStatementLineDocument) => Promise<unknown>;
 }
 
@@ -80,11 +82,13 @@ export const StatementLineDetailModal = ({
   onDismiss,
   onLinkInvoices,
   onSaveAllocations,
+  onSetPrivate,
   onDelete,
 }: StatementLineDetailModalProps) => {
   const [presentAlert] = useIonAlert();
   const [draftAllocations, setDraftAllocations] = useState<DraftAllocation[]>([]);
   const [isSavingAllocations, setIsSavingAllocations] = useState(false);
+  const [isSavingPrivate, setIsSavingPrivate] = useState(false);
 
   const currency = account?.currency ?? DEFAULT_INVOICE_CURRENCY;
   const matchingCategories = line
@@ -111,6 +115,7 @@ export const StatementLineDetailModal = ({
       })),
     );
     setIsSavingAllocations(false);
+    setIsSavingPrivate(false);
   }, [isOpen, line?.id, allocationsKey]);
 
   const availableGstTypes: readonly BankGstType[] =
@@ -258,6 +263,44 @@ export const StatementLineDetailModal = ({
     }
   };
 
+  const handleSetPrivate = async (isPrivate: boolean) => {
+    if (!line || !onSetPrivate || isSavingPrivate) {
+      return;
+    }
+    setIsSavingPrivate(true);
+    try {
+      await onSetPrivate(line, isPrivate);
+    } catch {
+      // Parent handles reporting the error; keep modal open
+    } finally {
+      setIsSavingPrivate(false);
+    }
+  };
+
+  const confirmSetPrivate = (isPrivate: boolean) => {
+    if (!line) {
+      return;
+    }
+    if (isPrivate && line.allocations.length > 0) {
+      void presentAlert({
+        header: "Mark as Private",
+        message: `Marking "${line.description}" as private will remove its ${pluralize(line.allocations.length, "category allocation")}. This cannot be undone.`,
+        buttons: [
+          { text: "Cancel", role: "cancel" },
+          {
+            text: "Mark Private",
+            role: "destructive",
+            handler: () => {
+              void handleSetPrivate(true);
+            },
+          },
+        ],
+      });
+      return;
+    }
+    void handleSetPrivate(isPrivate);
+  };
+
   const confirmDelete = () => {
     if (!line) {
       return;
@@ -326,6 +369,25 @@ export const StatementLineDetailModal = ({
                 <IonItem>
                   <IonLabel>Running Balance</IonLabel>
                   <IonNote slot="end">{formatCurrency(line.balanceCents, currency)}</IonNote>
+                </IonItem>
+              ) : null}
+            </IonList>
+
+            <IonList inset>
+              <IonItem>
+                <IonToggle
+                  checked={line.isPrivate}
+                  disabled={!onSetPrivate || isSavingPrivate}
+                  onIonChange={(event) => {
+                    confirmSetPrivate(event.detail.checked);
+                  }}
+                >
+                  Private (non-business)
+                </IonToggle>
+              </IonItem>
+              {line.isPrivate ? (
+                <IonItem lines="none">
+                  <IonNote color="medium">Excluded from business totals and categorisation</IonNote>
                 </IonItem>
               ) : null}
             </IonList>
@@ -402,190 +464,192 @@ export const StatementLineDetailModal = ({
               )}
             </IonList>
 
-            <IonList inset>
-              <IonListHeader>
-                Allocate {bankTransactionTypeLabel(line.type)} to Categories
-              </IonListHeader>
-              {matchingCategories.length > 0 ? (
-                <IonItem>
-                  <IonSelect
-                    label="Quick Allocate (100%)"
-                    labelPlacement="stacked"
-                    interface="action-sheet"
-                    placeholder={`Choose ${line.type} category`}
-                    disabled={isSavingAllocations}
-                    value={quickCategoryId}
-                    onIonChange={(event) => {
-                      const value = event.detail.value;
-                      if (typeof value === "string" && value.length > 0) {
-                        void handleQuickCategorySelect(value);
-                      }
-                    }}
-                  >
-                    {matchingCategories.map((category) => (
-                      <IonSelectOption key={category.id} value={category.id}>
-                        {category.name}
-                      </IonSelectOption>
-                    ))}
-                  </IonSelect>
-                </IonItem>
-              ) : (
-                <IonItem lines="none">
-                  <IonNote color="medium">
-                    No {line.type} categories available — add one in the Categories section
-                  </IonNote>
-                </IonItem>
-              )}
+            {!line.isPrivate ? (
+              <IonList inset>
+                <IonListHeader>
+                  Allocate {bankTransactionTypeLabel(line.type)} to Categories
+                </IonListHeader>
+                {matchingCategories.length > 0 ? (
+                  <IonItem>
+                    <IonSelect
+                      label="Quick Allocate (100%)"
+                      labelPlacement="stacked"
+                      interface="action-sheet"
+                      placeholder={`Choose ${line.type} category`}
+                      disabled={isSavingAllocations}
+                      value={quickCategoryId}
+                      onIonChange={(event) => {
+                        const value = event.detail.value;
+                        if (typeof value === "string" && value.length > 0) {
+                          void handleQuickCategorySelect(value);
+                        }
+                      }}
+                    >
+                      {matchingCategories.map((category) => (
+                        <IonSelectOption key={category.id} value={category.id}>
+                          {category.name}
+                        </IonSelectOption>
+                      ))}
+                    </IonSelect>
+                  </IonItem>
+                ) : (
+                  <IonItem lines="none">
+                    <IonNote color="medium">
+                      No {line.type} categories available — add one in the Categories section
+                    </IonNote>
+                  </IonItem>
+                )}
 
-              {draftAllocations.map((allocation) => (
-                <IonItem key={allocation.id} lines="full">
-                  <IonGrid className="ion-no-padding">
-                    <IonRow>
-                      <IonCol size="12">
-                        <IonSelect
-                          label="Category"
-                          labelPlacement="stacked"
-                          interface="action-sheet"
-                          value={allocation.categoryId}
-                          onIonChange={(event) => {
-                            const value = event.detail.value;
-                            if (typeof value === "string") {
-                              updateDraftAllocation(allocation.id, { categoryId: value });
-                            }
-                          }}
-                        >
-                          {matchingCategories.map((category) => (
-                            <IonSelectOption key={category.id} value={category.id}>
-                              {category.name}
-                            </IonSelectOption>
-                          ))}
-                        </IonSelect>
-                      </IonCol>
-                    </IonRow>
-                    <IonRow>
-                      <IonCol size="9">
-                        <IonInput
-                          label="Amount"
-                          labelPlacement="stacked"
-                          type="number"
-                          inputmode="decimal"
-                          min="0"
-                          step="0.01"
-                          value={allocation.amount}
-                          onIonInput={(event) =>
-                            updateDraftAllocation(allocation.id, {
-                              amount: event.detail.value ?? "",
-                            })
-                          }
-                        />
-                      </IonCol>
-                      <IonCol size="3" className="ion-align-self-end ion-text-end">
-                        <IonButton
-                          fill="clear"
-                          color="danger"
-                          aria-label="Remove allocation"
-                          onClick={() => removeDraftAllocation(allocation.id)}
-                        >
-                          <IonIcon slot="icon-only" icon={trashOutline} />
-                        </IonButton>
-                      </IonCol>
-                    </IonRow>
-                    <IonRow>
-                      <IonCol size="12">
-                        <IonSelect
-                          label="GST (10%)"
-                          labelPlacement="stacked"
-                          interface="action-sheet"
-                          value={
-                            line.type === "receipt" && allocation.gstType === "part-gst"
-                              ? "gst"
-                              : allocation.gstType
-                          }
-                          onIonChange={(event) => {
-                            const value = event.detail.value;
-                            if (isBankGstType(value) && availableGstTypes.includes(value)) {
-                              updateDraftAllocation(allocation.id, { gstType: value });
-                            }
-                          }}
-                        >
-                          {availableGstTypes.map((gstOption) => (
-                            <IonSelectOption key={gstOption} value={gstOption}>
-                              {bankGstTypeLabel(gstOption)}
-                            </IonSelectOption>
-                          ))}
-                        </IonSelect>
-                      </IonCol>
-                    </IonRow>
-                    {line.type === "payment" && allocation.gstType === "part-gst" ? (
+                {draftAllocations.map((allocation) => (
+                  <IonItem key={allocation.id} lines="full">
+                    <IonGrid className="ion-no-padding">
                       <IonRow>
                         <IonCol size="12">
+                          <IonSelect
+                            label="Category"
+                            labelPlacement="stacked"
+                            interface="action-sheet"
+                            value={allocation.categoryId}
+                            onIonChange={(event) => {
+                              const value = event.detail.value;
+                              if (typeof value === "string") {
+                                updateDraftAllocation(allocation.id, { categoryId: value });
+                              }
+                            }}
+                          >
+                            {matchingCategories.map((category) => (
+                              <IonSelectOption key={category.id} value={category.id}>
+                                {category.name}
+                              </IonSelectOption>
+                            ))}
+                          </IonSelect>
+                        </IonCol>
+                      </IonRow>
+                      <IonRow>
+                        <IonCol size="9">
                           <IonInput
-                            label="GST Free Amount"
+                            label="Amount"
                             labelPlacement="stacked"
                             type="number"
                             inputmode="decimal"
                             min="0"
                             step="0.01"
-                            value={allocation.gstFreeAmount}
+                            value={allocation.amount}
                             onIonInput={(event) =>
                               updateDraftAllocation(allocation.id, {
-                                gstFreeAmount: event.detail.value ?? "",
+                                amount: event.detail.value ?? "",
+                              })
+                            }
+                          />
+                        </IonCol>
+                        <IonCol size="3" className="ion-align-self-end ion-text-end">
+                          <IonButton
+                            fill="clear"
+                            color="danger"
+                            aria-label="Remove allocation"
+                            onClick={() => removeDraftAllocation(allocation.id)}
+                          >
+                            <IonIcon slot="icon-only" icon={trashOutline} />
+                          </IonButton>
+                        </IonCol>
+                      </IonRow>
+                      <IonRow>
+                        <IonCol size="12">
+                          <IonSelect
+                            label="GST (10%)"
+                            labelPlacement="stacked"
+                            interface="action-sheet"
+                            value={
+                              line.type === "receipt" && allocation.gstType === "part-gst"
+                                ? "gst"
+                                : allocation.gstType
+                            }
+                            onIonChange={(event) => {
+                              const value = event.detail.value;
+                              if (isBankGstType(value) && availableGstTypes.includes(value)) {
+                                updateDraftAllocation(allocation.id, { gstType: value });
+                              }
+                            }}
+                          >
+                            {availableGstTypes.map((gstOption) => (
+                              <IonSelectOption key={gstOption} value={gstOption}>
+                                {bankGstTypeLabel(gstOption)}
+                              </IonSelectOption>
+                            ))}
+                          </IonSelect>
+                        </IonCol>
+                      </IonRow>
+                      {line.type === "payment" && allocation.gstType === "part-gst" ? (
+                        <IonRow>
+                          <IonCol size="12">
+                            <IonInput
+                              label="GST Free Amount"
+                              labelPlacement="stacked"
+                              type="number"
+                              inputmode="decimal"
+                              min="0"
+                              step="0.01"
+                              value={allocation.gstFreeAmount}
+                              onIonInput={(event) =>
+                                updateDraftAllocation(allocation.id, {
+                                  gstFreeAmount: event.detail.value ?? "",
+                                })
+                              }
+                            />
+                          </IonCol>
+                        </IonRow>
+                      ) : null}
+                      <IonRow>
+                        <IonCol size="12">
+                          <IonInput
+                            label="Notes (optional)"
+                            labelPlacement="stacked"
+                            placeholder="Allocation note..."
+                            value={allocation.notes}
+                            onIonInput={(event) =>
+                              updateDraftAllocation(allocation.id, {
+                                notes: event.detail.value ?? "",
                               })
                             }
                           />
                         </IonCol>
                       </IonRow>
-                    ) : null}
-                    <IonRow>
-                      <IonCol size="12">
-                        <IonInput
-                          label="Notes (optional)"
-                          labelPlacement="stacked"
-                          placeholder="Allocation note..."
-                          value={allocation.notes}
-                          onIonInput={(event) =>
-                            updateDraftAllocation(allocation.id, {
-                              notes: event.detail.value ?? "",
-                            })
-                          }
-                        />
-                      </IonCol>
-                    </IonRow>
-                  </IonGrid>
+                    </IonGrid>
+                  </IonItem>
+                ))}
+
+                <IonItem lines="none">
+                  <IonLabel>
+                    <IonNote color={overAllocatedCents > 0 ? "danger" : undefined}>
+                      Allocated: {formatCurrency(allocatedTotalCents, currency)} ·{" "}
+                      {overAllocatedCents > 0
+                        ? `Over-allocated by ${formatCurrency(overAllocatedCents, currency)}`
+                        : `Remaining: ${formatCurrency(remainingCents, currency)}`}
+                      {allocatedTotalCents > 0
+                        ? ` · GST: ${formatCurrency(totalGstCents, currency)}`
+                        : ""}
+                    </IonNote>
+                  </IonLabel>
                 </IonItem>
-              ))}
 
-              <IonItem lines="none">
-                <IonLabel>
-                  <IonNote color={overAllocatedCents > 0 ? "danger" : undefined}>
-                    Allocated: {formatCurrency(allocatedTotalCents, currency)} ·{" "}
-                    {overAllocatedCents > 0
-                      ? `Over-allocated by ${formatCurrency(overAllocatedCents, currency)}`
-                      : `Remaining: ${formatCurrency(remainingCents, currency)}`}
-                    {allocatedTotalCents > 0
-                      ? ` · GST: ${formatCurrency(totalGstCents, currency)}`
-                      : ""}
-                  </IonNote>
-                </IonLabel>
-              </IonItem>
+                {matchingCategories.length > 0 ? (
+                  <IonItem button detail={false} onClick={addSplitAllocation}>
+                    <IonLabel color="primary">Add Split Allocation</IonLabel>
+                  </IonItem>
+                ) : null}
 
-              {matchingCategories.length > 0 ? (
-                <IonItem button detail={false} onClick={addSplitAllocation}>
-                  <IonLabel color="primary">Add Split Allocation</IonLabel>
+                <IonItem
+                  button
+                  detail={false}
+                  disabled={!allocationsValid || isSavingAllocations}
+                  onClick={() => {
+                    void handleSaveAllocationsClick();
+                  }}
+                >
+                  <IonLabel color="primary">Save Allocations</IonLabel>
                 </IonItem>
-              ) : null}
-
-              <IonItem
-                button
-                detail={false}
-                disabled={!allocationsValid || isSavingAllocations}
-                onClick={() => {
-                  void handleSaveAllocationsClick();
-                }}
-              >
-                <IonLabel color="primary">Save Allocations</IonLabel>
-              </IonItem>
-            </IonList>
+              </IonList>
+            ) : null}
 
             <IonList inset>
               <IonItem button detail={false} onClick={confirmDelete}>

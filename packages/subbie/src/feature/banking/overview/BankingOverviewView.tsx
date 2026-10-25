@@ -212,6 +212,7 @@ export const BankingOverviewView = ({
               "warning",
             ],
             ["categorised", "Categorised", categorisation.categorisedLines, "success"],
+            ["private", "Private", categorisation.privateLines, "medium"],
           ] as const
         ).map(([filter, label, count, activeColor]) => (
           <IonItem
