@@ -9,22 +9,12 @@ import {
   IonTitle,
   IonToolbar,
 } from "@ionic/react";
-import {
-  BankStatementsView,
-  isBankingLineCategorisationFilter,
-  type BankingLineCategorisationFilter,
-} from "subbie-core";
+import { BankStatementsView } from "subbie-core";
 
 const Statements = () => {
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const accountId = searchParams.get("accountId") ?? "";
-  const categorisationParam = searchParams.get("categorisation");
-  const categorisationFilter: BankingLineCategorisationFilter = isBankingLineCategorisationFilter(
-    categorisationParam,
-  )
-    ? categorisationParam
-    : "all";
 
   return (
     <IonPage>
@@ -42,10 +32,7 @@ const Statements = () => {
             <IonTitle size="large">Statements</IonTitle>
           </IonToolbar>
         </IonHeader>
-        <BankStatementsView
-          initialAccountId={accountId}
-          initialCategorisationFilter={categorisationFilter}
-        />
+        <BankStatementsView initialAccountId={accountId} />
       </IonContent>
     </IonPage>
   );

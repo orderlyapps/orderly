@@ -20,15 +20,25 @@ export interface BankStatementListProps {
   statements: BankStatementDocument[];
   accounts?: BankAccountDocument[];
   onDelete?: (statement: BankStatementDocument) => void;
+  emptyMessage?: string;
 }
 
 export const BankStatementList = ({
   statements,
   accounts = [],
   onDelete,
+  emptyMessage = "No statements yet",
 }: BankStatementListProps) => {
   if (statements.length === 0) {
-    return null;
+    return (
+      <IonList inset>
+        <IonItem lines="none">
+          <IonLabel>
+            <IonNote>{emptyMessage}</IonNote>
+          </IonLabel>
+        </IonItem>
+      </IonList>
+    );
   }
 
   const accountById = new Map(accounts.map((acc) => [acc.id, acc]));

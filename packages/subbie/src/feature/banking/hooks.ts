@@ -110,26 +110,38 @@ export function useBanking(customStore?: BankingStore): UseBankingResult {
       }
       setStore(resolvedStore);
 
-      const accountsSub = resolvedStore.accountsCollection.subscribeChanges(() => {
-        if (active) {
-          setAccounts(resolvedStore.listAccounts());
-        }
-      });
-      const categoriesSub = resolvedStore.categoriesCollection.subscribeChanges(() => {
-        if (active) {
-          setCategories(resolvedStore.listCategories());
-        }
-      });
-      const statementsSub = resolvedStore.statementsCollection.subscribeChanges(() => {
-        if (active) {
-          setStatements(resolvedStore.listStatements());
-        }
-      });
-      const linesSub = resolvedStore.linesCollection.subscribeChanges(() => {
-        if (active) {
-          setStatementLines(resolvedStore.listStatementLines());
-        }
-      });
+      const accountsSub = resolvedStore.accountsCollection.subscribeChanges(
+        () => {
+          if (active) {
+            setAccounts(resolvedStore.listAccounts());
+          }
+        },
+        { includeInitialState: true },
+      );
+      const categoriesSub = resolvedStore.categoriesCollection.subscribeChanges(
+        () => {
+          if (active) {
+            setCategories(resolvedStore.listCategories());
+          }
+        },
+        { includeInitialState: true },
+      );
+      const statementsSub = resolvedStore.statementsCollection.subscribeChanges(
+        () => {
+          if (active) {
+            setStatements(resolvedStore.listStatements());
+          }
+        },
+        { includeInitialState: true },
+      );
+      const linesSub = resolvedStore.linesCollection.subscribeChanges(
+        () => {
+          if (active) {
+            setStatementLines(resolvedStore.listStatementLines());
+          }
+        },
+        { includeInitialState: true },
+      );
 
       unsubscribes.push(
         () => accountsSub.unsubscribe(),

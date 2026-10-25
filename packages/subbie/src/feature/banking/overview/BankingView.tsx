@@ -40,14 +40,7 @@ export const BankingView = ({
 }: BankingViewProps) => {
   switch (initialSection) {
     case "statements":
-      return (
-        <BankStatementsView
-          store={store}
-          invoicesStore={invoicesStore}
-          initialAccountId={initialAccountId}
-          initialCategorisationFilter={initialCategorisationFilter}
-        />
-      );
+      return <BankStatementsView store={store} initialAccountId={initialAccountId} />;
     case "categorise":
       return (
         <BankCategoriseView

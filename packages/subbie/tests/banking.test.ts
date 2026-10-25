@@ -1212,3 +1212,57 @@ test("marks statement lines as private and excludes them from business totals", 
     await bankingStore.close();
   }
 });
+test("deleteStatement removes the statement and its lines and emits change events", async () => {
+  const store = await createBankingStore({
+    name: nextStoreName("subbie_banking_delete"),
+    storage: getRxStorageMemory(),
+  });
+
+  try {
+    const account = await store.createAccount({ name: "Checking" });
+    const csv = [
+      "Date,Description,Amount",
+      "2026-10-20,Acme Corp,3500.00",
+      "2026-10-21,Bunnings,-450.00",
+    ].join("\n");
+    const { statement, lines } = await store.importStatementCsv({
+      accountId: account.id,
+      csvText: csv,
+      filename: "checking-oct.csv",
+    });
+
+    const statementEvents: string[] = [];
+    const lineEvents: string[] = [];
+    const statementSub = store.statementsCollection.subscribeChanges(
+      (changes) => {
+        for (const change of changes) {
+          statementEvents.push(`${change.type}:${String(change.key)}`);
+        }
+      },
+      { includeInitialState: true },
+    );
+    const lineSub = store.linesCollection.subscribeChanges(
+      (changes) => {
+        for (const change of changes) {
+          lineEvents.push(`${change.type}:${String(change.key)}`);
+        }
+      },
+      { includeInitialState: true },
+    );
+
+    expect(store.listStatements()).toHaveLength(1);
+    await store.deleteStatement(statement.id);
+
+    expect(store.listStatements()).toHaveLength(0);
+    expect(store.listStatementLines({ accountId: account.id })).toHaveLength(0);
+    expect(statementEvents).toContain(`delete:${statement.id}`);
+    for (const line of lines) {
+      expect(lineEvents).toContain(`delete:${line.id}`);
+    }
+
+    statementSub.unsubscribe();
+    lineSub.unsubscribe();
+  } finally {
+    await store.close();
+  }
+});
