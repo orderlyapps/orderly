@@ -14,6 +14,7 @@ import {
   IonList,
   IonListHeader,
   IonNote,
+  IonSearchbar,
   IonSelect,
   IonSelectOption,
   IonSpinner,
@@ -22,6 +23,7 @@ import {
 } from "@ionic/react";
 import {
   add,
+  checkmarkDoneOutline,
   documentTextOutline,
   pricetagsOutline,
   trashOutline,
@@ -43,6 +45,7 @@ import {
   StatementImportModal,
   type StatementImportValues,
 } from "./components/StatementImportModal.tsx";
+import { StatementLineCategoryModal } from "./components/StatementLineCategoryModal.tsx";
 import { StatementLineDetailModal } from "./components/StatementLineDetailModal.tsx";
 import { StatementLineList } from "./components/StatementLineList.tsx";
 import type { BankingStore } from "./db.ts";
@@ -50,26 +53,27 @@ import { useBanking } from "./hooks.ts";
 import {
   bankTransactionTypeColor,
   bankTransactionTypeLabel,
-  isLineFullyAllocated,
+  filterStatementLines,
+  isBankingLineCategorisationFilter,
+  isBankingLineTypeFilter,
   summarizeBankingOverview,
   type BankAccountDocument,
   type BankCategoryDocument,
+  type BankingLineCategorisationFilter,
+  type BankingLineTypeFilter,
   type BankLineAllocationInput,
   type BankStatementDocument,
   type BankStatementLineDocument,
 } from "./schema.ts";
 
-export type BankingSection = "overview" | "statements" | "accounts" | "categories";
+export type { BankingLineCategorisationFilter, BankingLineTypeFilter } from "./schema.ts";
 
-export type BankingLineCategorisationFilter =
-  | "all"
-  | "categorised"
-  | "partially-categorised"
-  | "uncategorised";
+export type BankingSection = "overview" | "statements" | "categorise" | "accounts" | "categories";
 
 export interface BankingOverviewViewProps {
   store?: BankingStore;
   statementsRouterLink?: string;
+  categoriseRouterLink?: string;
   accountsRouterLink?: string;
   categoriesRouterLink?: string;
 }
@@ -86,6 +90,7 @@ function pluralize(count: number, singular: string, plural = `${singular}s`): st
 export const BankingOverviewView = ({
   store: customStore,
   statementsRouterLink = "/banking/statements",
+  categoriseRouterLink = "/banking/categorise",
   accountsRouterLink = "/banking/accounts",
   categoriesRouterLink = "/banking/categories",
 }: BankingOverviewViewProps) => {
@@ -125,6 +130,19 @@ export const BankingOverviewView = ({
             <IonNote>
               {pluralize(overview.totalStatements, "statement")} ·{" "}
               {pluralize(overview.totalLines, "line")}
+            </IonNote>
+          </IonLabel>
+          <IonNote slot="end">{overview.totalStatements}</IonNote>
+        </IonItem>
+
+        <IonItem button detail routerLink={categoriseRouterLink}>
+          <IonIcon aria-hidden="true" icon={checkmarkDoneOutline} slot="start" />
+          <IonLabel>
+            <h2>Categorise Lines</h2>
+            <IonNote>
+              {overview.totalLines === 0
+                ? "Assign categories to statement lines"
+                : `${categorisation.categorisedLines} of ${categorisation.totalLines} categorised`}
             </IonNote>
           </IonLabel>
           {categorisation.needsAttentionLines > 0 ? (
@@ -206,7 +224,7 @@ export const BankingOverviewView = ({
 
       <IonList inset>
         <IonListHeader>Categorisation Progress</IonListHeader>
-        <IonItem>
+        <IonItem button detail routerLink={categoriseRouterLink}>
           <IonLabel>
             <h2>
               {overview.totalLines === 0
@@ -253,7 +271,7 @@ export const BankingOverviewView = ({
             key={filter}
             button
             detail
-            routerLink={`${statementsRouterLink}?categorisation=${filter}`}
+            routerLink={`${categoriseRouterLink}?categorisation=${filter}`}
           >
             <IonLabel>
               <h3>{label}</h3>
@@ -339,7 +357,12 @@ export const BankingOverviewView = ({
           </IonItem>
         ) : (
           allocatedCategories.map((item) => (
-            <IonItem key={item.category.id} button detail routerLink={categoriesRouterLink}>
+            <IonItem
+              key={item.category.id}
+              button
+              detail
+              routerLink={`${categoriseRouterLink}?categoryId=${encodeURIComponent(item.category.id)}`}
+            >
               <IonLabel>
                 <h2>{item.category.name}</h2>
                 <IonNote>{pluralize(item.lineCount, "line")} allocated</IonNote>
@@ -367,6 +390,16 @@ export interface BankStatementsViewProps {
   initialCategorisationFilter?: BankingLineCategorisationFilter;
 }
 
+export interface BankCategoriseViewProps {
+  store?: BankingStore;
+  invoicesStore?: InvoicesStore;
+  initialAccountId?: string;
+  initialCategorisationFilter?: BankingLineCategorisationFilter;
+  initialTypeFilter?: BankingLineTypeFilter;
+  initialCategoryId?: string;
+  initialSearchQuery?: string;
+}
+
 export interface BankAccountsViewProps {
   store?: BankingStore;
 }
@@ -381,7 +414,11 @@ export interface BankingViewProps {
   initialSection?: BankingSection;
   initialAccountId?: string;
   initialCategorisationFilter?: BankingLineCategorisationFilter;
+  initialTypeFilter?: BankingLineTypeFilter;
+  initialCategoryId?: string;
+  initialSearchQuery?: string;
   statementsRouterLink?: string;
+  categoriseRouterLink?: string;
   accountsRouterLink?: string;
   categoriesRouterLink?: string;
 }
@@ -392,7 +429,11 @@ export const BankingView = ({
   initialSection = "overview",
   initialAccountId = "",
   initialCategorisationFilter = "all",
+  initialTypeFilter = "all",
+  initialCategoryId = "",
+  initialSearchQuery = "",
   statementsRouterLink,
+  categoriseRouterLink,
   accountsRouterLink,
   categoriesRouterLink,
 }: BankingViewProps) => {
@@ -412,7 +453,9 @@ export const BankingView = ({
     deleteStatement,
     deleteStatementLine,
     linkInvoicesToLine,
+    allocateLineToCategory,
     setLineAllocations,
+    clearLineAllocations,
     importStatementCsv,
   } = useBanking(customStore);
   const { invoices, store: resolvedInvoicesStore } = useInvoices(invoicesStore);
@@ -421,6 +464,9 @@ export const BankingView = ({
   const [categorisationFilter, setCategorisationFilter] = useState<BankingLineCategorisationFilter>(
     initialCategorisationFilter,
   );
+  const [typeFilter, setTypeFilter] = useState<BankingLineTypeFilter>(initialTypeFilter);
+  const [categoryFilterId, setCategoryFilterId] = useState<string>(initialCategoryId);
+  const [searchQuery, setSearchQuery] = useState<string>(initialSearchQuery);
   const [accountFormOpen, setAccountFormOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<BankAccountDocument | null>(null);
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
@@ -428,6 +474,7 @@ export const BankingView = ({
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [selectedLine, setSelectedLine] = useState<BankStatementLineDocument | null>(null);
   const [lineDetailOpen, setLineDetailOpen] = useState(false);
+  const [lineCategoryOpen, setLineCategoryOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [presentAlert] = useIonAlert();
 
@@ -439,11 +486,24 @@ export const BankingView = ({
     setCategorisationFilter(initialCategorisationFilter);
   }, [initialCategorisationFilter]);
 
+  useEffect(() => {
+    setTypeFilter(initialTypeFilter);
+  }, [initialTypeFilter]);
+
+  useEffect(() => {
+    setCategoryFilterId(initialCategoryId);
+  }, [initialCategoryId]);
+
+  useEffect(() => {
+    setSearchQuery(initialSearchQuery);
+  }, [initialSearchQuery]);
+
   if (initialSection === "overview") {
     return (
       <BankingOverviewView
         store={customStore}
         statementsRouterLink={statementsRouterLink}
+        categoriseRouterLink={categoriseRouterLink}
         accountsRouterLink={accountsRouterLink}
         categoriesRouterLink={categoriesRouterLink}
       />
@@ -454,21 +514,24 @@ export const BankingView = ({
     ? statements.filter((stmt) => stmt.accountId === accountFilterId)
     : statements;
 
-  const filteredLines = statementLines.filter((line) => {
-    if (accountFilterId && line.accountId !== accountFilterId) {
-      return false;
-    }
-    switch (categorisationFilter) {
-      case "categorised":
-        return isLineFullyAllocated(line);
-      case "partially-categorised":
-        return line.allocations.length > 0 && !isLineFullyAllocated(line);
-      case "uncategorised":
-        return line.allocations.length === 0;
-      default:
-        return true;
-    }
+  const filteredLines = filterStatementLines(statementLines, {
+    accountId: accountFilterId,
+    categorisation: categorisationFilter,
+    type: initialSection === "categorise" ? typeFilter : "all",
+    categoryId: initialSection === "categorise" ? categoryFilterId : "",
+    searchQuery: initialSection === "categorise" ? searchQuery : "",
+    categories,
   });
+
+  const filterableCategories =
+    typeFilter === "all" ? categories : categories.filter((cat) => cat.type === typeFilter);
+
+  const hasActiveCategoriseFilters =
+    accountFilterId.length > 0 ||
+    categorisationFilter !== "all" ||
+    typeFilter !== "all" ||
+    categoryFilterId.length > 0 ||
+    searchQuery.trim().length > 0;
 
   const activeLine = selectedLine
     ? (statementLines.find((entry) => entry.id === selectedLine.id) ?? null)
@@ -640,12 +703,42 @@ export const BankingView = ({
     }
   };
 
+  const handleSelectCategory = async (
+    line: BankStatementLineDocument,
+    categoryId: string,
+    notes?: string,
+  ) => {
+    try {
+      const updated = await allocateLineToCategory(line.id, categoryId, notes);
+      setSelectedLine(updated);
+      const matchedCategory = categories.find((cat) => cat.id === categoryId);
+      setStatusMessage(
+        matchedCategory ? `Categorised as ${matchedCategory.name}` : "Categorised statement line",
+      );
+    } catch (err) {
+      setStatusMessage(err instanceof Error ? err.message : "Failed to categorise statement line");
+      throw err;
+    }
+  };
+
+  const handleClearCategory = async (line: BankStatementLineDocument) => {
+    try {
+      const updated = await clearLineAllocations(line.id);
+      setSelectedLine(updated);
+      setStatusMessage("Cleared category allocation");
+    } catch (err) {
+      setStatusMessage(err instanceof Error ? err.message : "Failed to clear category allocation");
+      throw err;
+    }
+  };
+
   const handleDeleteLine = async (line: BankStatementLineDocument) => {
     try {
       await deleteStatementLine(line.id);
       if (selectedLine?.id === line.id) {
         setSelectedLine(null);
         setLineDetailOpen(false);
+        setLineCategoryOpen(false);
       }
       setStatusMessage("Deleted statement line");
     } catch (err) {
@@ -695,6 +788,14 @@ export const BankingView = ({
           ? "Add bank account"
           : "Import bank statement CSV";
 
+  const clearCategoriseFilters = () => {
+    setAccountFilterId("");
+    setCategorisationFilter("all");
+    setTypeFilter("all");
+    setCategoryFilterId("");
+    setSearchQuery("");
+  };
+
   return (
     <>
       {isLoading ? (
@@ -706,6 +807,133 @@ export const BankingView = ({
         <IonItem lines="none">
           <IonNote color="danger">{error.message}</IonNote>
         </IonItem>
+      ) : initialSection === "categorise" ? (
+        <>
+          <IonSearchbar
+            placeholder="Search statement lines"
+            value={searchQuery}
+            onIonInput={(event) => setSearchQuery(event.detail.value ?? "")}
+          />
+
+          <IonList inset>
+            <IonListHeader>Filters</IonListHeader>
+            {accounts.length > 0 ? (
+              <IonItem>
+                <IonSelect
+                  label="Bank Account"
+                  labelPlacement="stacked"
+                  interface="action-sheet"
+                  value={accountFilterId}
+                  onIonChange={(event) => {
+                    const value = event.detail.value;
+                    setAccountFilterId(typeof value === "string" ? value : "");
+                  }}
+                >
+                  <IonSelectOption value="">All Accounts</IonSelectOption>
+                  {accounts.map((account) => (
+                    <IonSelectOption key={account.id} value={account.id}>
+                      {account.name} ({account.currency})
+                    </IonSelectOption>
+                  ))}
+                </IonSelect>
+              </IonItem>
+            ) : null}
+
+            <IonItem>
+              <IonSelect
+                label="Categorisation"
+                labelPlacement="stacked"
+                interface="action-sheet"
+                value={categorisationFilter}
+                onIonChange={(event) => {
+                  const value = event.detail.value;
+                  setCategorisationFilter(isBankingLineCategorisationFilter(value) ? value : "all");
+                }}
+              >
+                <IonSelectOption value="all">All</IonSelectOption>
+                <IonSelectOption value="uncategorised">Uncategorised</IonSelectOption>
+                <IonSelectOption value="partially-categorised">
+                  Partially categorised
+                </IonSelectOption>
+                <IonSelectOption value="categorised">Categorised</IonSelectOption>
+              </IonSelect>
+            </IonItem>
+
+            <IonItem>
+              <IonSelect
+                label="Transaction Type"
+                labelPlacement="stacked"
+                interface="action-sheet"
+                value={typeFilter}
+                onIonChange={(event) => {
+                  const value = event.detail.value;
+                  const nextType: BankingLineTypeFilter = isBankingLineTypeFilter(value)
+                    ? value
+                    : "all";
+                  setTypeFilter(nextType);
+                  if (
+                    nextType !== "all" &&
+                    categoryFilterId.length > 0 &&
+                    categories.find((cat) => cat.id === categoryFilterId)?.type !== nextType
+                  ) {
+                    setCategoryFilterId("");
+                  }
+                }}
+              >
+                <IonSelectOption value="all">All Types</IonSelectOption>
+                <IonSelectOption value="payment">Payments</IonSelectOption>
+                <IonSelectOption value="receipt">Receipts</IonSelectOption>
+              </IonSelect>
+            </IonItem>
+
+            {filterableCategories.length > 0 ? (
+              <IonItem>
+                <IonSelect
+                  label="Category"
+                  labelPlacement="stacked"
+                  interface="action-sheet"
+                  value={categoryFilterId}
+                  onIonChange={(event) => {
+                    const value = event.detail.value;
+                    setCategoryFilterId(typeof value === "string" ? value : "");
+                  }}
+                >
+                  <IonSelectOption value="">All Categories</IonSelectOption>
+                  {filterableCategories.map((category) => (
+                    <IonSelectOption key={category.id} value={category.id}>
+                      {category.name}
+                    </IonSelectOption>
+                  ))}
+                </IonSelect>
+              </IonItem>
+            ) : null}
+
+            {hasActiveCategoriseFilters ? (
+              <IonItem button detail={false} onClick={clearCategoriseFilters}>
+                <IonLabel color="primary">Clear Filters</IonLabel>
+                <IonNote slot="end">
+                  {filteredLines.length} of {statementLines.length}
+                </IonNote>
+              </IonItem>
+            ) : null}
+          </IonList>
+
+          <StatementLineList
+            lines={filteredLines}
+            accounts={accounts}
+            categories={categories}
+            invoices={invoices}
+            onSelect={(line) => {
+              setSelectedLine(line);
+              setLineCategoryOpen(true);
+            }}
+            emptyMessage={
+              statementLines.length === 0
+                ? "No statement lines yet — import a CSV statement in Statements"
+                : "No statement lines match the selected filters"
+            }
+          />
+        </>
       ) : initialSection === "statements" ? (
         <>
           {accounts.length > 0 ? (
@@ -738,11 +966,7 @@ export const BankingView = ({
                   onIonChange={(event) => {
                     const value = event.detail.value;
                     setCategorisationFilter(
-                      value === "categorised" ||
-                        value === "partially-categorised" ||
-                        value === "uncategorised"
-                        ? value
-                        : "all",
+                      isBankingLineCategorisationFilter(value) ? value : "all",
                     );
                   }}
                 >
@@ -856,11 +1080,13 @@ export const BankingView = ({
         />
       )}
 
-      <IonFab slot="fixed" vertical="bottom" horizontal="end">
-        <IonFabButton onClick={handleFabClick} aria-label={fabLabel}>
-          <IonIcon icon={add} />
-        </IonFabButton>
-      </IonFab>
+      {initialSection !== "categorise" ? (
+        <IonFab slot="fixed" vertical="bottom" horizontal="end">
+          <IonFabButton onClick={handleFabClick} aria-label={fabLabel}>
+            <IonIcon icon={add} />
+          </IonFabButton>
+        </IonFab>
+      ) : null}
 
       <BankAccountFormModal
         isOpen={accountFormOpen}
@@ -896,6 +1122,16 @@ export const BankingView = ({
         onDelete={handleDeleteLine}
       />
 
+      <StatementLineCategoryModal
+        line={activeLine}
+        account={activeLineAccount}
+        categories={categories}
+        isOpen={lineCategoryOpen}
+        onDismiss={() => setLineCategoryOpen(false)}
+        onSelectCategory={handleSelectCategory}
+        onClearCategory={handleClearCategory}
+      />
+
       <IonToast
         isOpen={statusMessage !== null}
         message={statusMessage ?? undefined}
@@ -908,6 +1144,10 @@ export const BankingView = ({
 
 export const BankStatementsView = (props: BankStatementsViewProps) => (
   <BankingView {...props} initialSection="statements" />
+);
+
+export const BankCategoriseView = (props: BankCategoriseViewProps) => (
+  <BankingView {...props} initialSection="categorise" />
 );
 
 export const BankAccountsView = ({ store }: BankAccountsViewProps) => (

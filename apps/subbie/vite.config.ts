@@ -75,6 +75,7 @@ const config = defineConfig({
         globPatterns: ["**/*.{js,css,html,svg,png,ico,woff,woff2}"],
         navigateFallback: "index.html",
         cleanupOutdatedCaches: true,
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
       devOptions: {
         enabled: true,

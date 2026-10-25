@@ -16,6 +16,10 @@ export {
   type StatementImportValues,
 } from "./StatementImportModal.tsx";
 export {
+  StatementLineCategoryModal,
+  type StatementLineCategoryModalProps,
+} from "./StatementLineCategoryModal.tsx";
+export {
   StatementLineDetailModal,
   type StatementLineDetailModalProps,
 } from "./StatementLineDetailModal.tsx";

@@ -788,6 +788,106 @@ export function isLineFullyAllocated(
   return line.allocations.length > 0 && allocatedAmountCents(line) === line.amountCents;
 }
 
+export const BANKING_LINE_CATEGORISATION_FILTERS = [
+  "all",
+  "categorised",
+  "partially-categorised",
+  "uncategorised",
+] as const;
+
+export type BankingLineCategorisationFilter = (typeof BANKING_LINE_CATEGORISATION_FILTERS)[number];
+
+export function isBankingLineCategorisationFilter(
+  value: unknown,
+): value is BankingLineCategorisationFilter {
+  return (
+    typeof value === "string" &&
+    (BANKING_LINE_CATEGORISATION_FILTERS as readonly string[]).includes(value)
+  );
+}
+
+export const BANKING_LINE_TYPE_FILTERS = ["all", "payment", "receipt"] as const;
+
+export type BankingLineTypeFilter = (typeof BANKING_LINE_TYPE_FILTERS)[number];
+
+export function isBankingLineTypeFilter(value: unknown): value is BankingLineTypeFilter {
+  return (
+    typeof value === "string" && (BANKING_LINE_TYPE_FILTERS as readonly string[]).includes(value)
+  );
+}
+
+export interface FilterStatementLinesOptions {
+  accountId?: string;
+  categorisation?: BankingLineCategorisationFilter;
+  type?: BankingLineTypeFilter;
+  categoryId?: string;
+  searchQuery?: string;
+  categories?: readonly BankCategoryDocument[];
+}
+
+export function filterStatementLines(
+  lines: readonly BankStatementLineDocument[],
+  options: FilterStatementLinesOptions = {},
+): BankStatementLineDocument[] {
+  const accountId = options.accountId?.trim() ?? "";
+  const categorisation = options.categorisation ?? "all";
+  const type = options.type ?? "all";
+  const categoryId = options.categoryId?.trim() ?? "";
+  const searchQuery = options.searchQuery?.trim().toLowerCase() ?? "";
+  const categoryNameById =
+    searchQuery.length > 0 && options.categories
+      ? new Map(options.categories.map((cat) => [cat.id, cat.name.toLowerCase()]))
+      : null;
+
+  return lines.filter((line) => {
+    if (accountId.length > 0 && line.accountId !== accountId) {
+      return false;
+    }
+    if (type !== "all" && line.type !== type) {
+      return false;
+    }
+    switch (categorisation) {
+      case "categorised":
+        if (!isLineFullyAllocated(line)) {
+          return false;
+        }
+        break;
+      case "partially-categorised":
+        if (line.allocations.length === 0 || isLineFullyAllocated(line)) {
+          return false;
+        }
+        break;
+      case "uncategorised":
+        if (line.allocations.length > 0) {
+          return false;
+        }
+        break;
+      default:
+        break;
+    }
+    if (
+      categoryId.length > 0 &&
+      !line.allocations.some((allocation) => allocation.categoryId === categoryId)
+    ) {
+      return false;
+    }
+    if (searchQuery.length > 0) {
+      const matchesDescription = line.description.toLowerCase().includes(searchQuery);
+      const matchesDate = line.date.toLowerCase().includes(searchQuery);
+      const matchesNotes = line.notes.toLowerCase().includes(searchQuery);
+      const matchesAllocation = line.allocations.some((allocation) => {
+        const categoryName = categoryNameById?.get(allocation.categoryId) ?? "";
+        const allocNotes = allocation.notes?.toLowerCase() ?? "";
+        return categoryName.includes(searchQuery) || allocNotes.includes(searchQuery);
+      });
+      if (!matchesDescription && !matchesDate && !matchesNotes && !matchesAllocation) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
 export interface BankingCashFlowSummary {
   currency: string;
   receiptCount: number;

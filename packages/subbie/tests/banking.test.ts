@@ -12,10 +12,13 @@ import {
   DEFAULT_BANK_CATEGORIES,
   DEFAULT_BANK_CSV_PRESET,
   detectBankCsvPresetFromHeaders,
+  filterStatementLines,
   isBankAccountDocument,
   isBankCategoryDocument,
   isBankCsvColumnRole,
   isBankCsvPreset,
+  isBankingLineCategorisationFilter,
+  isBankingLineTypeFilter,
   isBankStatementDocument,
   isBankStatementLineDocument,
   isBankTransactionType,
@@ -762,4 +765,125 @@ test("summarizes banking overview cash flow, categorisation progress, accounts, 
     { name: "Materials", lineCount: 1, allocatedCents: 30_000 },
     { name: "Tools", lineCount: 0, allocatedCents: 0 },
   ]);
+});
+
+test("filters statement lines by account, categorisation status, type, category, and search query", () => {
+  expect(isBankingLineCategorisationFilter("all")).toBe(true);
+  expect(isBankingLineCategorisationFilter("categorised")).toBe(true);
+  expect(isBankingLineCategorisationFilter("partially-categorised")).toBe(true);
+  expect(isBankingLineCategorisationFilter("uncategorised")).toBe(true);
+  expect(isBankingLineCategorisationFilter("other")).toBe(false);
+
+  expect(isBankingLineTypeFilter("all")).toBe(true);
+  expect(isBankingLineTypeFilter("payment")).toBe(true);
+  expect(isBankingLineTypeFilter("receipt")).toBe(true);
+  expect(isBankingLineTypeFilter("transfer")).toBe(false);
+
+  const receiptsCat = normalizeBankCategoryDocument({
+    id: "cat_receipts",
+    name: "Customer Receipts",
+    type: "receipt",
+  });
+  const materialsCat = normalizeBankCategoryDocument({
+    id: "cat_materials",
+    name: "Materials & Supplies",
+    type: "payment",
+  });
+  const fuelCat = normalizeBankCategoryDocument({
+    id: "cat_fuel",
+    name: "Vehicle & Travel",
+    type: "payment",
+  });
+  const categories = [receiptsCat, materialsCat, fuelCat];
+
+  const lineCategorisedReceipt = normalizeBankStatementLineDocument({
+    id: "line_1",
+    accountId: "acc_operating",
+    date: "2026-10-10",
+    description: "Acme Corp Deposit",
+    type: "receipt",
+    amountCents: 200_000,
+    allocations: [{ categoryId: receiptsCat.id, amountCents: 200_000, notes: "Progress claim 1" }],
+  });
+
+  const linePartialPayment = normalizeBankStatementLineDocument({
+    id: "line_2",
+    accountId: "acc_operating",
+    date: "2026-10-12",
+    description: "Bunnings Warehouse",
+    type: "payment",
+    amountCents: 50_000,
+    notes: "Job site timber",
+    allocations: [{ categoryId: materialsCat.id, amountCents: 30_000 }],
+  });
+
+  const lineUncategorisedPayment = normalizeBankStatementLineDocument({
+    id: "line_3",
+    accountId: "acc_card",
+    date: "2026-10-15",
+    description: "Ampol Service Station",
+    type: "payment",
+    amountCents: 10_000,
+    allocations: [],
+  });
+
+  const lines = [lineCategorisedReceipt, linePartialPayment, lineUncategorisedPayment];
+
+  expect(filterStatementLines(lines).map((l) => l.id)).toEqual(["line_1", "line_2", "line_3"]);
+
+  expect(filterStatementLines(lines, { accountId: "acc_operating" }).map((l) => l.id)).toEqual([
+    "line_1",
+    "line_2",
+  ]);
+  expect(filterStatementLines(lines, { accountId: "acc_card" }).map((l) => l.id)).toEqual([
+    "line_3",
+  ]);
+
+  expect(filterStatementLines(lines, { categorisation: "categorised" }).map((l) => l.id)).toEqual([
+    "line_1",
+  ]);
+  expect(
+    filterStatementLines(lines, { categorisation: "partially-categorised" }).map((l) => l.id),
+  ).toEqual(["line_2"]);
+  expect(filterStatementLines(lines, { categorisation: "uncategorised" }).map((l) => l.id)).toEqual(
+    ["line_3"],
+  );
+
+  expect(filterStatementLines(lines, { type: "receipt" }).map((l) => l.id)).toEqual(["line_1"]);
+  expect(filterStatementLines(lines, { type: "payment" }).map((l) => l.id)).toEqual([
+    "line_2",
+    "line_3",
+  ]);
+
+  expect(filterStatementLines(lines, { categoryId: materialsCat.id }).map((l) => l.id)).toEqual([
+    "line_2",
+  ]);
+  expect(filterStatementLines(lines, { categoryId: fuelCat.id })).toEqual([]);
+
+  expect(
+    filterStatementLines(lines, { searchQuery: "bunnings", categories }).map((l) => l.id),
+  ).toEqual(["line_2"]);
+  expect(
+    filterStatementLines(lines, { searchQuery: "timber", categories }).map((l) => l.id),
+  ).toEqual(["line_2"]);
+  expect(
+    filterStatementLines(lines, { searchQuery: "progress claim", categories }).map((l) => l.id),
+  ).toEqual(["line_1"]);
+  expect(
+    filterStatementLines(lines, { searchQuery: "materials", categories }).map((l) => l.id),
+  ).toEqual(["line_2"]);
+  expect(
+    filterStatementLines(lines, { searchQuery: "2026-10-15", categories }).map((l) => l.id),
+  ).toEqual(["line_3"]);
+
+  expect(
+    filterStatementLines(lines, {
+      accountId: "acc_operating",
+      type: "payment",
+      categorisation: "partially-categorised",
+      categoryId: materialsCat.id,
+      searchQuery: "bunnings",
+      categories,
+    }).map((l) => l.id),
+  ).toEqual(["line_2"]);
 });
