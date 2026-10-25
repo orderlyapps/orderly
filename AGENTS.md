@@ -25,3 +25,8 @@ release. Add a tool name to select part of the graph. For example, run
 - [ ] If setup, runtime, or package-manager behavior looks wrong, run `vp env doctor` and include its output when asking for help.
 
 <!--VITE PLUS END-->
+
+## Page Structure
+
+- Each page must be in its own file under `src/pages/`.
+- Nest child pages in child folders matching the parent route (e.g., `src/pages/Banking.tsx` for `/banking`, and `src/pages/banking/Statements.tsx` for `/banking/statements`).

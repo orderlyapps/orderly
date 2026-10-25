@@ -19,12 +19,11 @@ import {
 import { card, people, receipt, settings } from "ionicons/icons";
 import { useThemeEffect } from "subbie-core";
 
-import Banking, {
-  BankingAccounts,
-  BankingCategories,
-  BankingCategorise,
-  BankingStatements,
-} from "./pages/Banking";
+import Banking from "./pages/Banking";
+import BankingAccounts from "./pages/banking/Accounts";
+import BankingCategories from "./pages/banking/Categories";
+import BankingCategorise from "./pages/banking/Categorise";
+import BankingStatements from "./pages/banking/Statements";
 import Directory from "./pages/Directory";
 import Invoices from "./pages/Invoices";
 import Settings from "./pages/Settings";
