@@ -1,10 +1,6 @@
-import { isInvoiceDateString } from "../invoices/schema.ts";
-import {
-  DEFAULT_BANK_CSV_PRESET,
-  normalizeBankCsvPreset,
-  type BankCsvPreset,
-  type BankTransactionType,
-} from "./schema.ts";
+import { isInvoiceDateString } from "../../invoices/schema.ts";
+import type { BankTransactionType } from "../types.ts";
+import { DEFAULT_BANK_CSV_PRESET, normalizeBankCsvPreset, type BankCsvPreset } from "./schema.ts";
 
 export interface ParsedBankStatementRow {
   date: string;

@@ -20,9 +20,9 @@ import {
   BANK_TRANSACTION_TYPES,
   bankTransactionTypeLabel,
   isBankTransactionType,
-  type BankCategoryDocument,
   type BankTransactionType,
-} from "../schema.ts";
+} from "../../types.ts";
+import type { BankCategoryDocument } from "../schema.ts";
 
 export interface BankCategoryFormValues {
   name: string;

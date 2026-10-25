@@ -1,0 +1,120 @@
+import { useState } from "react";
+
+import {
+  IonFab,
+  IonFabButton,
+  IonIcon,
+  IonItem,
+  IonNote,
+  IonSpinner,
+  IonToast,
+  useIonAlert,
+} from "@ionic/react";
+import { add } from "ionicons/icons";
+
+import type { BankingStore } from "../db.ts";
+import { useBanking } from "../hooks.ts";
+import {
+  BankCategoryFormModal,
+  type BankCategoryFormValues,
+} from "./components/BankCategoryFormModal.tsx";
+import { BankCategoryList } from "./components/BankCategoryList.tsx";
+import type { BankCategoryDocument } from "./schema.ts";
+
+export interface BankCategoriesViewProps {
+  store?: BankingStore;
+}
+
+export const BankCategoriesView = ({ store: customStore }: BankCategoriesViewProps) => {
+  const { categories, isLoading, error, createCategory, updateCategory, deleteCategory } =
+    useBanking(customStore);
+  const [categoryFormOpen, setCategoryFormOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<BankCategoryDocument | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [presentAlert] = useIonAlert();
+
+  const handleCategorySubmit = async (values: BankCategoryFormValues) => {
+    try {
+      if (editingCategory) {
+        await updateCategory(editingCategory.id, values);
+        setStatusMessage(`Updated ${values.name}`);
+      } else {
+        await createCategory(values);
+        setStatusMessage(`Added ${values.name}`);
+      }
+    } catch (err) {
+      setStatusMessage(err instanceof Error ? err.message : "Failed to save category");
+      throw err;
+    }
+  };
+
+  const confirmDeleteCategory = (category: BankCategoryDocument) => {
+    void presentAlert({
+      header: "Delete Category",
+      message: `Delete ${category.name}? This cannot be undone.`,
+      buttons: [
+        { text: "Cancel", role: "cancel" },
+        {
+          text: "Delete",
+          role: "destructive",
+          handler: () => {
+            void deleteCategory(category.id)
+              .then(() => setStatusMessage(`Deleted ${category.name}`))
+              .catch(() => setStatusMessage("Failed to delete category"));
+          },
+        },
+      ],
+    });
+  };
+
+  return (
+    <>
+      {isLoading ? (
+        <IonItem lines="none">
+          <IonSpinner slot="start" />
+          <IonNote>Loading banking…</IonNote>
+        </IonItem>
+      ) : error ? (
+        <IonItem lines="none">
+          <IonNote color="danger">{error.message}</IonNote>
+        </IonItem>
+      ) : (
+        <BankCategoryList
+          categories={categories}
+          onSelect={(category) => {
+            setEditingCategory(category);
+            setCategoryFormOpen(true);
+          }}
+          onDelete={confirmDeleteCategory}
+          emptyMessage="No categories yet — tap + to add one"
+        />
+      )}
+
+      <IonFab slot="fixed" vertical="bottom" horizontal="end">
+        <IonFabButton
+          onClick={() => {
+            setEditingCategory(null);
+            setCategoryFormOpen(true);
+          }}
+          aria-label="Add category"
+        >
+          <IonIcon icon={add} />
+        </IonFabButton>
+      </IonFab>
+
+      <BankCategoryFormModal
+        isOpen={categoryFormOpen}
+        initial={editingCategory}
+        onDismiss={() => setCategoryFormOpen(false)}
+        onSubmit={handleCategorySubmit}
+      />
+
+      <IonToast
+        isOpen={statusMessage !== null}
+        message={statusMessage ?? undefined}
+        duration={2500}
+        onDidDismiss={() => setStatusMessage(null)}
+      />
+    </>
+  );
+};

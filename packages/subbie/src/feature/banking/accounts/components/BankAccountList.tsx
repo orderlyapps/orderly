@@ -12,9 +12,9 @@ import {
 import {
   bankCsvColumnRoleLabel,
   columnRolesFromPreset,
-  type BankAccountDocument,
   type BankCsvPreset,
-} from "../schema.ts";
+} from "../../statements/schema.ts";
+import type { BankAccountDocument } from "../schema.ts";
 
 export interface BankAccountListProps {
   accounts: BankAccountDocument[];

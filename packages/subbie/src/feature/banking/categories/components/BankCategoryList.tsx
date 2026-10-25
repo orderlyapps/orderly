@@ -9,11 +9,8 @@ import {
   IonNote,
 } from "@ionic/react";
 
-import {
-  bankTransactionTypeColor,
-  bankTransactionTypeLabel,
-  type BankCategoryDocument,
-} from "../schema.ts";
+import { bankTransactionTypeColor, bankTransactionTypeLabel } from "../../types.ts";
+import type { BankCategoryDocument } from "../schema.ts";
 
 export interface BankCategoryListProps {
   categories: BankCategoryDocument[];

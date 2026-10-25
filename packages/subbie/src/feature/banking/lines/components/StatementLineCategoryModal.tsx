@@ -21,7 +21,10 @@ import {
 } from "@ionic/react";
 import { checkmark } from "ionicons/icons";
 
-import { DEFAULT_INVOICE_CURRENCY, formatCurrency } from "../../invoices/schema.ts";
+import { DEFAULT_INVOICE_CURRENCY, formatCurrency } from "../../../invoices/schema.ts";
+import type { BankAccountDocument } from "../../accounts/schema.ts";
+import type { BankCategoryDocument } from "../../categories/schema.ts";
+import { bankTransactionTypeColor, bankTransactionTypeLabel } from "../../types.ts";
 import type { AllocateLineToCategoryOptions } from "../db.ts";
 import {
   allocationGstAmountCents,
@@ -29,14 +32,10 @@ import {
   allocationTaxableAmountCents,
   BANK_GST_TYPES,
   bankGstTypeLabel,
-  bankTransactionTypeColor,
-  bankTransactionTypeLabel,
   isBankGstType,
-  type BankAccountDocument,
-  type BankCategoryDocument,
   type BankGstType,
-  type BankStatementLineDocument,
-} from "../schema.ts";
+} from "../gst.ts";
+import type { BankStatementLineDocument } from "../schema.ts";
 
 export interface StatementLineCategoryModalProps {
   line: BankStatementLineDocument | null;

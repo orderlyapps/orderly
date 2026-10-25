@@ -1,5 +1,15 @@
 import { useEffect, useState } from "react";
 
+import type {
+  BankAccountDocument,
+  BankAccountPatch,
+  CreateBankAccountInput,
+} from "./accounts/schema.ts";
+import type {
+  BankCategoryDocument,
+  BankCategoryPatch,
+  CreateBankCategoryInput,
+} from "./categories/schema.ts";
 import {
   getBankingStore,
   type AllocateLineToCategoryOptions,
@@ -8,20 +18,13 @@ import {
   type ImportBankStatementCsvResult,
   type LinkInvoicesOptions,
 } from "./db.ts";
+import type { BankLineAllocationInput } from "./lines/gst.ts";
 import type {
-  BankAccountDocument,
-  BankAccountPatch,
-  BankCategoryDocument,
-  BankCategoryPatch,
-  BankCsvPreset,
-  BankLineAllocationInput,
-  BankStatementDocument,
   BankStatementLineDocument,
   BankStatementLinePatch,
-  CreateBankAccountInput,
-  CreateBankCategoryInput,
   CreateBankStatementLineInput,
-} from "./schema.ts";
+} from "./lines/schema.ts";
+import type { BankCsvPreset, BankStatementDocument } from "./statements/schema.ts";
 
 export interface UseBankingResult {
   accounts: BankAccountDocument[];

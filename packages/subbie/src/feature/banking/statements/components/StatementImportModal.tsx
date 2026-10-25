@@ -6,7 +6,6 @@ import {
   IonButtons,
   IonContent,
   IonHeader,
-  IonInput,
   IonItem,
   IonLabel,
   IonList,
@@ -21,23 +20,20 @@ import {
   IonToolbar,
 } from "@ionic/react";
 
-import { DEFAULT_INVOICE_CURRENCY, formatCurrency } from "../../invoices/schema.ts";
+import { DEFAULT_INVOICE_CURRENCY, formatCurrency } from "../../../invoices/schema.ts";
+import type { BankAccountDocument } from "../../accounts/schema.ts";
+import { bankTransactionTypeColor, bankTransactionTypeLabel } from "../../types.ts";
 import { detectBankCsvPresetFromHeaders, parseBankStatementCsv, parseCsvMatrix } from "../csv.ts";
 import {
   assignColumnRole,
-  BANK_CSV_COLUMN_ROLES,
-  bankCsvColumnRoleLabel,
-  bankTransactionTypeColor,
-  bankTransactionTypeLabel,
   columnRolesFromPreset,
   DEFAULT_BANK_CSV_PRESET,
-  isBankCsvColumnRole,
   normalizeBankCsvPreset,
   presetFromColumnRoles,
-  type BankAccountDocument,
   type BankCsvColumnRole,
   type BankCsvPreset,
 } from "../schema.ts";
+import { CsvPresetFields } from "./CsvPresetFields.tsx";
 
 export interface StatementImportValues {
   accountId: string;
@@ -308,132 +304,21 @@ export const StatementImportModal = ({
 
         <IonList inset>
           <IonListHeader>Column Mapping Preset</IonListHeader>
-          <IonItem>
-            <IonToggle
-              checked={preset.hasHeader}
-              onIonChange={(event) => handleToggleHasHeader(event.detail.checked)}
-            >
-              First row is header
-            </IonToggle>
-          </IonItem>
-
-          {preset.hasHeader ? (
-            <>
-              <IonItem>
-                <IonInput
-                  label="Date column"
-                  labelPlacement="stacked"
-                  value={preset.dateColumn}
-                  onIonInput={(event) =>
-                    setPreset((current) => ({ ...current, dateColumn: event.detail.value ?? "" }))
-                  }
-                />
-              </IonItem>
-              <IonItem>
-                <IonInput
-                  label="Description column"
-                  labelPlacement="stacked"
-                  value={preset.descriptionColumn}
-                  onIonInput={(event) =>
-                    setPreset((current) => ({
-                      ...current,
-                      descriptionColumn: event.detail.value ?? "",
-                    }))
-                  }
-                />
-              </IonItem>
-              <IonItem>
-                <IonInput
-                  label="Amount column (signed)"
-                  labelPlacement="stacked"
-                  value={preset.amountColumn}
-                  onIonInput={(event) =>
-                    setPreset((current) => ({
-                      ...current,
-                      amountColumn: event.detail.value ?? "",
-                    }))
-                  }
-                />
-              </IonItem>
-              <IonItem>
-                <IonInput
-                  label="Debit column (optional)"
-                  labelPlacement="stacked"
-                  value={preset.debitColumn}
-                  onIonInput={(event) =>
-                    setPreset((current) => ({ ...current, debitColumn: event.detail.value ?? "" }))
-                  }
-                />
-              </IonItem>
-              <IonItem>
-                <IonInput
-                  label="Credit column (optional)"
-                  labelPlacement="stacked"
-                  value={preset.creditColumn}
-                  onIonInput={(event) =>
-                    setPreset((current) => ({
-                      ...current,
-                      creditColumn: event.detail.value ?? "",
-                    }))
-                  }
-                />
-              </IonItem>
-              <IonItem>
-                <IonInput
-                  label="Balance column (optional)"
-                  labelPlacement="stacked"
-                  value={preset.balanceColumn}
-                  onIonInput={(event) =>
-                    setPreset((current) => ({
-                      ...current,
-                      balanceColumn: event.detail.value ?? "",
-                    }))
-                  }
-                />
-              </IonItem>
-            </>
-          ) : (
-            <>
-              {columnRoles.map((role, colIndex) => {
-                const sampleValue = sampleRow[colIndex];
-                const label =
-                  sampleValue !== undefined && sampleValue.length > 0
-                    ? `Column ${colIndex + 1} (e.g. "${sampleValue}")`
-                    : `Column ${colIndex + 1}`;
-                return (
-                  <IonItem key={`col-role-${colIndex}`}>
-                    <IonSelect
-                      label={label}
-                      labelPlacement="stacked"
-                      interface="action-sheet"
-                      value={role}
-                      onIonChange={(event) => {
-                        const value = event.detail.value;
-                        if (isBankCsvColumnRole(value)) {
-                          handleRoleChange(colIndex, value);
-                        }
-                      }}
-                    >
-                      {BANK_CSV_COLUMN_ROLES.map((option) => (
-                        <IonSelectOption key={option} value={option}>
-                          {bankCsvColumnRoleLabel(option)}
-                        </IonSelectOption>
-                      ))}
-                    </IonSelect>
-                  </IonItem>
-                );
-              })}
-              <IonItem
-                button
-                detail={false}
-                onClick={() =>
-                  setExtraColumnCount((count) => Math.max(count, columnRoles.length) + 1)
-                }
-              >
-                <IonLabel color="primary">Add Column</IonLabel>
-              </IonItem>
-            </>
-          )}
+          <CsvPresetFields
+            hasHeader={preset.hasHeader}
+            onHasHeaderChange={handleToggleHasHeader}
+            hasHeaderLabel="First row is header"
+            preset={preset}
+            onHeaderColumnChange={(field, value) =>
+              setPreset((current) => ({ ...current, [field]: value }))
+            }
+            columnRoles={columnRoles}
+            onColumnRoleChange={handleRoleChange}
+            onAddColumn={() =>
+              setExtraColumnCount((count) => Math.max(count, columnRoles.length) + 1)
+            }
+            sampleRow={sampleRow}
+          />
 
           <IonItem>
             <IonToggle

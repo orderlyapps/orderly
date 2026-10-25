@@ -33,20 +33,19 @@ import {
   invoiceStatusLabel,
   invoiceTotalCents,
   type InvoiceDocument,
-} from "../../invoices/schema.ts";
+} from "../../../invoices/schema.ts";
+import type { BankAccountDocument } from "../../accounts/schema.ts";
+import type { BankCategoryDocument } from "../../categories/schema.ts";
+import { bankTransactionTypeColor, bankTransactionTypeLabel } from "../../types.ts";
 import {
   allocationGstAmountCents,
   BANK_GST_TYPES,
   bankGstTypeLabel,
-  bankTransactionTypeColor,
-  bankTransactionTypeLabel,
   isBankGstType,
-  type BankAccountDocument,
-  type BankCategoryDocument,
   type BankGstType,
   type BankLineAllocationInput,
-  type BankStatementLineDocument,
-} from "../schema.ts";
+} from "../gst.ts";
+import type { BankStatementLineDocument } from "../schema.ts";
 
 interface DraftAllocation {
   id: string;

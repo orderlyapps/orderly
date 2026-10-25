@@ -13,18 +13,17 @@ import {
   DEFAULT_INVOICE_CURRENCY,
   formatCurrency,
   type InvoiceDocument,
-} from "../../invoices/schema.ts";
+} from "../../../invoices/schema.ts";
+import type { BankAccountDocument } from "../../accounts/schema.ts";
+import type { BankCategoryDocument } from "../../categories/schema.ts";
+import { bankTransactionTypeColor, bankTransactionTypeLabel } from "../../types.ts";
 import {
   allocatedAmountCents,
   allocationGstAmountCents,
   bankGstTypeLabel,
-  bankTransactionTypeColor,
-  bankTransactionTypeLabel,
   isLineFullyAllocated,
-  type BankAccountDocument,
-  type BankCategoryDocument,
-  type BankStatementLineDocument,
-} from "../schema.ts";
+} from "../gst.ts";
+import type { BankStatementLineDocument } from "../schema.ts";
 
 export interface StatementLineListProps {
   lines: BankStatementLineDocument[];
