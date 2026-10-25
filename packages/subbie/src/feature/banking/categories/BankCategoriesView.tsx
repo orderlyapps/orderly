@@ -5,7 +5,10 @@ import {
   IonFabButton,
   IonIcon,
   IonItem,
+  IonLabel,
   IonNote,
+  IonSegment,
+  IonSegmentButton,
   IonSpinner,
   IonToast,
   useIonAlert,
@@ -14,6 +17,12 @@ import { add } from "ionicons/icons";
 
 import type { BankingStore } from "../db.ts";
 import { useBanking } from "../hooks.ts";
+import {
+  BANK_TRANSACTION_TYPES,
+  bankTransactionTypeLabel,
+  isBankTransactionType,
+  type BankTransactionType,
+} from "../types.ts";
 import {
   BankCategoryFormModal,
   type BankCategoryFormValues,
@@ -31,7 +40,10 @@ export const BankCategoriesView = ({ store: customStore }: BankCategoriesViewPro
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<BankCategoryDocument | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [categoryType, setCategoryType] = useState<BankTransactionType>("payment");
   const [presentAlert] = useIonAlert();
+
+  const visibleCategories = categories.filter((category) => category.type === categoryType);
 
   const handleCategorySubmit = async (values: BankCategoryFormValues) => {
     try {
@@ -69,6 +81,24 @@ export const BankCategoriesView = ({ store: customStore }: BankCategoriesViewPro
 
   return (
     <>
+      <IonItem lines="none">
+        <IonSegment
+          value={categoryType}
+          onIonChange={(event) => {
+            const value = event.detail.value;
+            if (isBankTransactionType(value)) {
+              setCategoryType(value);
+            }
+          }}
+        >
+          {BANK_TRANSACTION_TYPES.map((typeOption) => (
+            <IonSegmentButton key={typeOption} value={typeOption}>
+              <IonLabel>{bankTransactionTypeLabel(typeOption)}s</IonLabel>
+            </IonSegmentButton>
+          ))}
+        </IonSegment>
+      </IonItem>
+
       {isLoading ? (
         <IonItem lines="none">
           <IonSpinner slot="start" />
@@ -80,13 +110,13 @@ export const BankCategoriesView = ({ store: customStore }: BankCategoriesViewPro
         </IonItem>
       ) : (
         <BankCategoryList
-          categories={categories}
+          categories={visibleCategories}
           onSelect={(category) => {
             setEditingCategory(category);
             setCategoryFormOpen(true);
           }}
           onDelete={confirmDeleteCategory}
-          emptyMessage="No categories yet — tap + to add one"
+          emptyMessage={`No ${categoryType} categories yet — tap + to add one`}
         />
       )}
 
@@ -105,6 +135,7 @@ export const BankCategoriesView = ({ store: customStore }: BankCategoriesViewPro
       <BankCategoryFormModal
         isOpen={categoryFormOpen}
         initial={editingCategory}
+        defaultType={categoryType}
         onDismiss={() => setCategoryFormOpen(false)}
         onSubmit={handleCategorySubmit}
       />

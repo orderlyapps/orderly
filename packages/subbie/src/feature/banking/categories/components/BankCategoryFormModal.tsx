@@ -33,6 +33,7 @@ export interface BankCategoryFormValues {
 export interface BankCategoryFormModalProps {
   isOpen: boolean;
   initial?: BankCategoryDocument | null;
+  defaultType?: BankTransactionType;
   onDismiss: () => void;
   onSubmit: (values: BankCategoryFormValues) => Promise<void> | void;
 }
@@ -40,6 +41,7 @@ export interface BankCategoryFormModalProps {
 export const BankCategoryFormModal = ({
   isOpen,
   initial,
+  defaultType = "payment",
   onDismiss,
   onSubmit,
 }: BankCategoryFormModalProps) => {
@@ -53,10 +55,10 @@ export const BankCategoryFormModal = ({
       return;
     }
     setName(initial?.name ?? "");
-    setType(initial?.type ?? "payment");
+    setType(initial?.type ?? defaultType);
     setDescription(initial?.description ?? "");
     setIsSaving(false);
-  }, [isOpen, initial]);
+  }, [isOpen, initial, defaultType]);
 
   const isValid = name.trim().length > 0 && isBankTransactionType(type);
 
