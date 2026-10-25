@@ -42,15 +42,22 @@ import { StatementLineDetailModal } from "./components/StatementLineDetailModal.
 import { StatementLineList } from "./components/StatementLineList.tsx";
 import type { BankingStore } from "./db.ts";
 import { useBanking } from "./hooks.ts";
-import type {
-  BankAccountDocument,
-  BankCategoryDocument,
-  BankLineAllocationInput,
-  BankStatementDocument,
-  BankStatementLineDocument,
+import {
+  isLineFullyAllocated,
+  type BankAccountDocument,
+  type BankCategoryDocument,
+  type BankLineAllocationInput,
+  type BankStatementDocument,
+  type BankStatementLineDocument,
 } from "./schema.ts";
 
 export type BankingSection = "statements" | "accounts" | "categories";
+
+export type BankingLineCategorisationFilter =
+  | "all"
+  | "categorised"
+  | "partially-categorised"
+  | "uncategorised";
 
 export interface BankingViewProps {
   store?: BankingStore;
@@ -86,6 +93,8 @@ export const BankingView = ({
 
   const [section, setSection] = useState<BankingSection>(initialSection);
   const [accountFilterId, setAccountFilterId] = useState<string>("");
+  const [categorisationFilter, setCategorisationFilter] =
+    useState<BankingLineCategorisationFilter>("all");
   const [accountFormOpen, setAccountFormOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<BankAccountDocument | null>(null);
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
@@ -100,9 +109,21 @@ export const BankingView = ({
     ? statements.filter((stmt) => stmt.accountId === accountFilterId)
     : statements;
 
-  const filteredLines = accountFilterId
-    ? statementLines.filter((line) => line.accountId === accountFilterId)
-    : statementLines;
+  const filteredLines = statementLines.filter((line) => {
+    if (accountFilterId && line.accountId !== accountFilterId) {
+      return false;
+    }
+    switch (categorisationFilter) {
+      case "categorised":
+        return isLineFullyAllocated(line);
+      case "partially-categorised":
+        return line.allocations.length > 0 && !isLineFullyAllocated(line);
+      case "uncategorised":
+        return line.allocations.length === 0;
+      default:
+        return true;
+    }
+  });
 
   const activeLine = selectedLine
     ? (statementLines.find((entry) => entry.id === selectedLine.id) ?? null)
@@ -381,6 +402,31 @@ export const BankingView = ({
                   ))}
                 </IonSelect>
               </IonItem>
+              <IonItem>
+                <IonSelect
+                  label="Categorisation"
+                  labelPlacement="stacked"
+                  interface="action-sheet"
+                  value={categorisationFilter}
+                  onIonChange={(event) => {
+                    const value = event.detail.value;
+                    setCategorisationFilter(
+                      value === "categorised" ||
+                        value === "partially-categorised" ||
+                        value === "uncategorised"
+                        ? value
+                        : "all",
+                    );
+                  }}
+                >
+                  <IonSelectOption value="all">All</IonSelectOption>
+                  <IonSelectOption value="categorised">Categorised</IonSelectOption>
+                  <IonSelectOption value="partially-categorised">
+                    Partially categorised
+                  </IonSelectOption>
+                  <IonSelectOption value="uncategorised">Uncategorised</IonSelectOption>
+                </IonSelect>
+              </IonItem>
               <IonItem
                 button
                 detail={false}
@@ -455,7 +501,9 @@ export const BankingView = ({
             emptyMessage={
               accounts.length === 0
                 ? "No bank accounts yet — tap + to add an account and import a CSV statement"
-                : "No statement lines yet — tap + to import a CSV statement"
+                : statementLines.length === 0
+                  ? "No statement lines yet — tap + to import a CSV statement"
+                  : "No statement lines match the selected filters"
             }
           />
         </>
