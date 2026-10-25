@@ -1,5 +1,4 @@
 import {
-  IonBadge,
   IonItem,
   IonItemOption,
   IonItemOptions,
@@ -7,6 +6,7 @@ import {
   IonLabel,
   IonList,
   IonNote,
+  IonText,
 } from "@ionic/react";
 
 import {
@@ -16,7 +16,7 @@ import {
 } from "../../../invoices/schema.ts";
 import type { BankAccountDocument } from "../../accounts/schema.ts";
 import type { BankCategoryDocument } from "../../categories/schema.ts";
-import { bankTransactionTypeColor, bankTransactionTypeLabel } from "../../types.ts";
+import { bankTransactionTypeColor } from "../../types.ts";
 import {
   allocatedAmountCents,
   allocationGstAmountCents,
@@ -105,16 +105,12 @@ export const StatementLineList = ({
                   </p>
                 </IonLabel>
                 <div slot="end" className="ion-text-end">
-                  <div>
+                  <IonText color={line.isPrivate ? "medium" : bankTransactionTypeColor(line.type)}>
                     <strong>
                       {line.type === "payment" ? "-" : "+"}
                       {formatCurrency(line.amountCents, currency)}
                     </strong>
-                  </div>
-                  <IonBadge color={bankTransactionTypeColor(line.type)}>
-                    {bankTransactionTypeLabel(line.type)}
-                  </IonBadge>
-                  {line.isPrivate ? <IonBadge color="medium">Private</IonBadge> : null}
+                  </IonText>
                 </div>
               </IonItem>
               {onDelete ? (
