@@ -35,10 +35,15 @@ import {
   type InvoiceDocument,
 } from "../../invoices/schema.ts";
 import {
+  allocationGstAmountCents,
+  BANK_GST_TYPES,
+  bankGstTypeLabel,
   bankTransactionTypeColor,
   bankTransactionTypeLabel,
+  isBankGstType,
   type BankAccountDocument,
   type BankCategoryDocument,
+  type BankGstType,
   type BankLineAllocationInput,
   type BankStatementLineDocument,
 } from "../schema.ts";
@@ -47,6 +52,8 @@ interface DraftAllocation {
   id: string;
   categoryId: string;
   amount: string;
+  gstType: BankGstType;
+  gstFreeAmount: string;
   notes: string;
 }
 
@@ -96,19 +103,37 @@ export const StatementLineDetailModal = ({
         id: entry.id,
         categoryId: entry.categoryId,
         amount: (entry.amountCents / 100).toString(),
+        gstType: entry.gstType ?? "gst",
+        gstFreeAmount:
+          entry.gstType === "part-gst" && entry.gstFreeAmountCents !== undefined
+            ? (entry.gstFreeAmountCents / 100).toString()
+            : "0",
         notes: entry.notes ?? "",
       })),
     );
     setIsSavingAllocations(false);
   }, [isOpen, line?.id, allocationsKey]);
 
+  const availableGstTypes: readonly BankGstType[] =
+    line?.type === "receipt" ? (["gst", "gst-free"] as const) : BANK_GST_TYPES;
+
   const parsedAllocations: BankLineAllocationInput[] = draftAllocations.map((entry) => {
     const trimmedAmount = entry.amount.trim();
     const numericAmount = trimmedAmount.length > 0 ? Number(trimmedAmount) : Number.NaN;
+    const amountCents = Math.round(numericAmount * 100);
+    const trimmedGstFree = entry.gstFreeAmount.trim();
+    const numericGstFree = trimmedGstFree.length > 0 ? Number(trimmedGstFree) : Number.NaN;
+    const gstFreeAmountCents = Math.round(numericGstFree * 100);
+    const effectiveGstType: BankGstType =
+      line?.type === "receipt" && entry.gstType === "part-gst" ? "gst" : entry.gstType;
     return {
       id: entry.id,
       categoryId: entry.categoryId,
-      amountCents: Math.round(numericAmount * 100),
+      amountCents,
+      gstType: effectiveGstType,
+      ...(line?.type === "payment" && effectiveGstType === "part-gst"
+        ? { gstFreeAmountCents }
+        : {}),
       ...(entry.notes.trim().length > 0 ? { notes: entry.notes.trim() } : {}),
     };
   });
@@ -116,6 +141,14 @@ export const StatementLineDetailModal = ({
   const allocatedTotalCents = parsedAllocations.reduce(
     (sum, entry) =>
       sum + (Number.isFinite(entry.amountCents) && entry.amountCents > 0 ? entry.amountCents : 0),
+    0,
+  );
+  const totalGstCents = parsedAllocations.reduce(
+    (sum, entry) =>
+      sum +
+      (Number.isFinite(entry.amountCents) && entry.amountCents >= 0
+        ? allocationGstAmountCents(entry)
+        : 0),
     0,
   );
   const overAllocatedCents = line ? Math.max(0, allocatedTotalCents - line.amountCents) : 0;
@@ -137,12 +170,22 @@ export const StatementLineDetailModal = ({
 
   const allocationsValid =
     line !== null &&
-    draftAllocations.every((entry) => entry.amount.trim().length > 0) &&
+    draftAllocations.every(
+      (entry) =>
+        entry.amount.trim().length > 0 &&
+        (line.type !== "payment" ||
+          entry.gstType !== "part-gst" ||
+          entry.gstFreeAmount.trim().length > 0),
+    ) &&
     parsedAllocations.every(
       (entry) =>
         entry.categoryId.trim().length > 0 &&
         Number.isInteger(entry.amountCents) &&
-        entry.amountCents >= 0,
+        entry.amountCents >= 0 &&
+        (entry.gstFreeAmountCents === undefined ||
+          (Number.isInteger(entry.gstFreeAmountCents) &&
+            entry.gstFreeAmountCents >= 0 &&
+            entry.gstFreeAmountCents <= entry.amountCents)),
     ) &&
     allocatedTotalCents <= line.amountCents;
 
@@ -155,6 +198,7 @@ export const StatementLineDetailModal = ({
         id: generateDocumentId(),
         categoryId,
         amountCents: line.amountCents,
+        gstType: "gst",
       },
     ];
     setDraftAllocations([
@@ -162,6 +206,8 @@ export const StatementLineDetailModal = ({
         id: nextAllocations[0].id ?? generateDocumentId(),
         categoryId,
         amount: (line.amountCents / 100).toString(),
+        gstType: "gst",
+        gstFreeAmount: "0",
         notes: "",
       },
     ]);
@@ -184,6 +230,8 @@ export const StatementLineDetailModal = ({
         id: generateDocumentId(),
         categoryId: defaultCategory?.id ?? "",
         amount: (remainingCents / 100).toString(),
+        gstType: "gst",
+        gstFreeAmount: "0",
         notes: "",
       },
     ]);
@@ -445,6 +493,52 @@ export const StatementLineDetailModal = ({
                     </IonRow>
                     <IonRow>
                       <IonCol size="12">
+                        <IonSelect
+                          label="GST (10%)"
+                          labelPlacement="stacked"
+                          interface="action-sheet"
+                          value={
+                            line.type === "receipt" && allocation.gstType === "part-gst"
+                              ? "gst"
+                              : allocation.gstType
+                          }
+                          onIonChange={(event) => {
+                            const value = event.detail.value;
+                            if (isBankGstType(value) && availableGstTypes.includes(value)) {
+                              updateDraftAllocation(allocation.id, { gstType: value });
+                            }
+                          }}
+                        >
+                          {availableGstTypes.map((gstOption) => (
+                            <IonSelectOption key={gstOption} value={gstOption}>
+                              {bankGstTypeLabel(gstOption)}
+                            </IonSelectOption>
+                          ))}
+                        </IonSelect>
+                      </IonCol>
+                    </IonRow>
+                    {line.type === "payment" && allocation.gstType === "part-gst" ? (
+                      <IonRow>
+                        <IonCol size="12">
+                          <IonInput
+                            label="GST Free Amount"
+                            labelPlacement="stacked"
+                            type="number"
+                            inputmode="decimal"
+                            min="0"
+                            step="0.01"
+                            value={allocation.gstFreeAmount}
+                            onIonInput={(event) =>
+                              updateDraftAllocation(allocation.id, {
+                                gstFreeAmount: event.detail.value ?? "",
+                              })
+                            }
+                          />
+                        </IonCol>
+                      </IonRow>
+                    ) : null}
+                    <IonRow>
+                      <IonCol size="12">
                         <IonInput
                           label="Notes (optional)"
                           labelPlacement="stacked"
@@ -469,6 +563,9 @@ export const StatementLineDetailModal = ({
                     {overAllocatedCents > 0
                       ? `Over-allocated by ${formatCurrency(overAllocatedCents, currency)}`
                       : `Remaining: ${formatCurrency(remainingCents, currency)}`}
+                    {allocatedTotalCents > 0
+                      ? ` · GST: ${formatCurrency(totalGstCents, currency)}`
+                      : ""}
                   </IonNote>
                 </IonLabel>
               </IonItem>

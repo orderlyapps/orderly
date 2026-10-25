@@ -48,7 +48,7 @@ import {
 import { StatementLineCategoryModal } from "./components/StatementLineCategoryModal.tsx";
 import { StatementLineDetailModal } from "./components/StatementLineDetailModal.tsx";
 import { StatementLineList } from "./components/StatementLineList.tsx";
-import type { BankingStore } from "./db.ts";
+import type { AllocateLineToCategoryOptions, BankingStore } from "./db.ts";
 import { useBanking } from "./hooks.ts";
 import {
   bankTransactionTypeColor,
@@ -706,10 +706,10 @@ export const BankingView = ({
   const handleSelectCategory = async (
     line: BankStatementLineDocument,
     categoryId: string,
-    notes?: string,
+    options?: AllocateLineToCategoryOptions,
   ) => {
     try {
-      const updated = await allocateLineToCategory(line.id, categoryId, notes);
+      const updated = await allocateLineToCategory(line.id, categoryId, options);
       setSelectedLine(updated);
       const matchedCategory = categories.find((cat) => cat.id === categoryId);
       setStatusMessage(

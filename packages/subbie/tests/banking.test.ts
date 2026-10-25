@@ -3,10 +3,16 @@ import { getRxStorageMemory } from "rxdb/plugins/storage-memory";
 
 import {
   allocatedAmountCents,
+  allocationGstAmountCents,
+  allocationGstFreeAmountCents,
+  allocationNetAmountCents,
+  allocationTaxableAmountCents,
   assignColumnRole,
   bankCsvColumnRoleLabel,
+  bankGstTypeLabel,
   bankTransactionTypeColor,
   bankTransactionTypeLabel,
+  calculateGstFromInclusiveCents,
   columnRolesFromPreset,
   createBankingStore,
   DEFAULT_BANK_CATEGORIES,
@@ -17,6 +23,7 @@ import {
   isBankCategoryDocument,
   isBankCsvColumnRole,
   isBankCsvPreset,
+  isBankGstType,
   isBankingLineCategorisationFilter,
   isBankingLineTypeFilter,
   isBankStatementDocument,
@@ -24,10 +31,13 @@ import {
   isBankTransactionType,
   isLineFullyAllocated,
   isValidBankId,
+  lineGstAmountCents,
+  lineGstFreeAmountCents,
   mergeBankCsvPreset,
   normalizeBankAccountDocument,
   normalizeBankCategoryDocument,
   normalizeBankCsvPreset,
+  normalizeBankLineAllocation,
   normalizeBankStatementDocument,
   normalizeBankStatementLineDocument,
   parseBankStatementCsv,
@@ -504,6 +514,7 @@ test("manages multiple bank accounts, imports CSV statements, links invoices, an
         id: expect.any(String),
         categoryId: customerReceiptsCategory.id,
         amountCents: 350_000,
+        gstType: "gst",
         notes: "Settled Acme invoices",
       },
     ]);
@@ -886,4 +897,183 @@ test("filters statement lines by account, categorisation status, type, category,
       categories,
     }).map((l) => l.id),
   ).toEqual(["line_2"]);
+});
+
+test("calculates and persists GST, GST Free, and Part GST payment allocations (10% GST-inclusive)", async () => {
+  expect(isBankGstType("gst")).toBe(true);
+  expect(isBankGstType("gst-free")).toBe(true);
+  expect(isBankGstType("part-gst")).toBe(true);
+  expect(isBankGstType("invalid")).toBe(false);
+  expect(bankGstTypeLabel("gst")).toBe("GST");
+  expect(bankGstTypeLabel("gst-free")).toBe("GST Free");
+  expect(bankGstTypeLabel("part-gst")).toBe("Part GST");
+
+  // 10% GST-inclusive (1/11th): $110.00 -> $10.00 GST, $100.00 net
+  expect(calculateGstFromInclusiveCents(11_000)).toBe(1_000);
+  expect(calculateGstFromInclusiveCents(0)).toBe(0);
+
+  const gstAlloc = normalizeBankLineAllocation({
+    categoryId: "cat_1",
+    amountCents: 11_000,
+    gstType: "gst",
+  });
+  expect(allocationGstFreeAmountCents(gstAlloc)).toBe(0);
+  expect(allocationTaxableAmountCents(gstAlloc)).toBe(11_000);
+  expect(allocationGstAmountCents(gstAlloc)).toBe(1_000);
+  expect(allocationNetAmountCents(gstAlloc)).toBe(10_000);
+
+  const gstFreeAlloc = normalizeBankLineAllocation({
+    categoryId: "cat_1",
+    amountCents: 11_000,
+    gstType: "gst-free",
+  });
+  expect(allocationGstFreeAmountCents(gstFreeAlloc)).toBe(11_000);
+  expect(allocationTaxableAmountCents(gstFreeAlloc)).toBe(0);
+  expect(allocationGstAmountCents(gstFreeAlloc)).toBe(0);
+  expect(allocationNetAmountCents(gstFreeAlloc)).toBe(11_000);
+
+  // Part GST: $110.00 payment with $22.00 GST Free -> $88.00 taxable -> $8.00 GST, $102.00 net
+  const partGstAlloc = normalizeBankLineAllocation({
+    categoryId: "cat_1",
+    amountCents: 11_000,
+    gstType: "part-gst",
+    gstFreeAmountCents: 2_200,
+  });
+  expect(allocationGstFreeAmountCents(partGstAlloc)).toBe(2_200);
+  expect(allocationTaxableAmountCents(partGstAlloc)).toBe(8_800);
+  expect(allocationGstAmountCents(partGstAlloc)).toBe(800);
+  expect(allocationNetAmountCents(partGstAlloc)).toBe(10_200);
+
+  const lineWithSplitGst = normalizeBankStatementLineDocument({
+    accountId: "acc_1",
+    date: "2026-10-20",
+    description: "Mixed Supplies",
+    type: "payment",
+    amountCents: 22_000,
+    allocations: [gstAlloc, partGstAlloc],
+  });
+  expect(lineGstAmountCents(lineWithSplitGst)).toBe(1_800);
+  expect(lineGstFreeAmountCents(lineWithSplitGst)).toBe(2_200);
+
+  expect(() =>
+    validateBankStatementLineInput({
+      accountId: "acc_1",
+      date: "2026-10-20",
+      description: "Invalid Part GST",
+      type: "payment",
+      amountCents: 10_000,
+      allocations: [
+        {
+          categoryId: "cat_1",
+          amountCents: 10_000,
+          gstType: "part-gst",
+          gstFreeAmountCents: 12_000,
+        },
+      ],
+    }),
+  ).toThrow("GST free amount cannot exceed allocation amount");
+
+  const bankingStore = await createBankingStore({
+    name: nextStoreName("subbie_banking_gst"),
+    storage: getRxStorageMemory(),
+  });
+
+  try {
+    const account = await bankingStore.createAccount({
+      name: "Business Account",
+      currency: "AUD",
+    });
+    const materialsCat = bankingStore
+      .listCategories("payment")
+      .find((cat) => cat.name === "Materials & Supplies")!;
+    const receiptsCat = bankingStore
+      .listCategories("receipt")
+      .find((cat) => cat.name === "Customer Receipts")!;
+
+    const receiptLine = await bankingStore.createStatementLine({
+      accountId: account.id,
+      date: "2026-10-24",
+      description: "Customer Progress Payment",
+      type: "receipt",
+      amountCents: 22_000,
+    });
+
+    // Receipt defaults to GST (10% GST-inclusive -> $20.00 GST on $220.00)
+    const receiptDefaultGst = await bankingStore.allocateLineToCategory(
+      receiptLine.id,
+      receiptsCat.id,
+    );
+    expect(receiptDefaultGst.allocations[0]?.gstType).toBe("gst");
+    expect(lineGstAmountCents(receiptDefaultGst)).toBe(2_000);
+
+    // Receipt can be allocated as GST Free
+    const receiptGstFree = await bankingStore.allocateLineToCategory(
+      receiptLine.id,
+      receiptsCat.id,
+      { gstType: "gst-free" },
+    );
+    expect(receiptGstFree.allocations[0]?.gstType).toBe("gst-free");
+    expect(lineGstAmountCents(receiptGstFree)).toBe(0);
+    expect(lineGstFreeAmountCents(receiptGstFree)).toBe(22_000);
+
+    await expect(
+      bankingStore.allocateLineToCategory(receiptLine.id, receiptsCat.id, {
+        gstType: "part-gst",
+        gstFreeAmountCents: 5_000,
+      }),
+    ).rejects.toThrow("receipt allocations must be gst or gst-free");
+
+    const line = await bankingStore.createStatementLine({
+      accountId: account.id,
+      date: "2026-10-25",
+      description: "Hardware & Water Supply",
+      type: "payment",
+      amountCents: 11_000,
+    });
+
+    // Allocate as GST
+    const asGst = await bankingStore.allocateLineToCategory(line.id, materialsCat.id, {
+      gstType: "gst",
+      notes: "Standard GST purchase",
+    });
+    expect(asGst.allocations[0]).toMatchObject({
+      categoryId: materialsCat.id,
+      amountCents: 11_000,
+      gstType: "gst",
+      notes: "Standard GST purchase",
+    });
+    expect(lineGstAmountCents(asGst)).toBe(1_000);
+
+    // Allocate as GST Free
+    const asGstFree = await bankingStore.allocateLineToCategory(line.id, materialsCat.id, {
+      gstType: "gst-free",
+    });
+    expect(asGstFree.allocations[0]?.gstType).toBe("gst-free");
+    expect(lineGstAmountCents(asGstFree)).toBe(0);
+    expect(lineGstFreeAmountCents(asGstFree)).toBe(11_000);
+
+    // Allocate as Part GST with $22.00 GST Free
+    const asPartGst = await bankingStore.allocateLineToCategory(line.id, materialsCat.id, {
+      gstType: "part-gst",
+      gstFreeAmountCents: 2_200,
+    });
+    expect(asPartGst.allocations[0]).toMatchObject({
+      categoryId: materialsCat.id,
+      amountCents: 11_000,
+      gstType: "part-gst",
+      gstFreeAmountCents: 2_200,
+    });
+    expect(lineGstFreeAmountCents(asPartGst)).toBe(2_200);
+    expect(lineGstAmountCents(asPartGst)).toBe(800);
+
+    // Reject GST free amount exceeding allocation amount
+    await expect(
+      bankingStore.allocateLineToCategory(line.id, materialsCat.id, {
+        gstType: "part-gst",
+        gstFreeAmountCents: 15_000,
+      }),
+    ).rejects.toThrow("GST free amount cannot exceed allocation amount");
+  } finally {
+    await bankingStore.close();
+  }
 });

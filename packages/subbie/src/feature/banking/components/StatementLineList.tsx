@@ -16,6 +16,8 @@ import {
 } from "../../invoices/schema.ts";
 import {
   allocatedAmountCents,
+  allocationGstAmountCents,
+  bankGstTypeLabel,
   bankTransactionTypeColor,
   bankTransactionTypeLabel,
   isLineFullyAllocated,
@@ -63,7 +65,17 @@ export const StatementLineList = ({
             .map((id) => invoiceById.get(id)?.number ?? (invoices === undefined ? id : null))
             .filter((label): label is string => Boolean(label));
           const allocationNames = line.allocations
-            .map((entry) => categoryById.get(entry.categoryId)?.name ?? "Category")
+            .map((entry) => {
+              const name = categoryById.get(entry.categoryId)?.name ?? "Category";
+              if (entry.gstType) {
+                if (entry.gstType === "gst-free") {
+                  return `${name} (${bankGstTypeLabel("gst-free")})`;
+                }
+                const gstCents = allocationGstAmountCents(entry);
+                return `${name} (${bankGstTypeLabel(entry.gstType)} ${formatCurrency(gstCents, currency)})`;
+              }
+              return name;
+            })
             .filter(Boolean);
           const allocated = allocatedAmountCents(line);
           const fullyAllocated = isLineFullyAllocated(line);

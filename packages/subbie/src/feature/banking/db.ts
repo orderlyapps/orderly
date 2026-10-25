@@ -1,12 +1,14 @@
 import { createCollection, type Collection } from "@tanstack/react-db";
 import { rxdbCollectionOptions } from "@tanstack/rxdb-db-collection";
 import {
+  addRxPlugin,
   createRxDatabase,
   type RxCollection,
   type RxDatabase,
   type RxJsonSchema,
   type RxStorage,
 } from "rxdb/plugins/core";
+import { RxDBMigrationSchemaPlugin } from "rxdb/plugins/migration-schema";
 
 import { getDefaultInvoicesStorage, getInvoicesStore, type InvoicesStore } from "../invoices/db.ts";
 import { generateDocumentId } from "../invoices/schema.ts";
@@ -15,6 +17,7 @@ import {
   DEFAULT_BANK_CATEGORIES,
   isBankAccountDocument,
   isBankCategoryDocument,
+  isBankGstType,
   isBankStatementLineDocument,
   mergeBankCsvPreset,
   normalizeBankAccountDocument,
@@ -31,6 +34,7 @@ import {
   type BankCategoryDocument,
   type BankCategoryPatch,
   type BankCsvPreset,
+  type BankGstType,
   type BankLineAllocationInput,
   type BankStatementDocument,
   type BankStatementLineDocument,
@@ -40,6 +44,8 @@ import {
   type CreateBankCategoryInput,
   type CreateBankStatementLineInput,
 } from "./schema.ts";
+
+addRxPlugin(RxDBMigrationSchemaPlugin);
 
 export const BANKING_DATABASE_NAME = "subbie-banking";
 
@@ -121,7 +127,7 @@ export const bankStatementJsonSchema: RxJsonSchema<BankStatementDocument> = {
 };
 
 export const bankStatementLineJsonSchema: RxJsonSchema<BankStatementLineDocument> = {
-  version: 0,
+  version: 1,
   primaryKey: "id",
   type: "object",
   properties: {
@@ -145,6 +151,8 @@ export const bankStatementLineJsonSchema: RxJsonSchema<BankStatementLineDocument
           id: { type: "string", maxLength: 128 },
           categoryId: { type: "string", maxLength: 128 },
           amountCents: { type: "number" },
+          gstType: { type: "string", maxLength: 16 },
+          gstFreeAmountCents: { type: "number" },
           notes: { type: "string" },
         },
         required: ["id", "categoryId", "amountCents"],
@@ -206,6 +214,12 @@ export interface LinkInvoicesOptions {
   invoicesStore?: InvoicesStore;
 }
 
+export interface AllocateLineToCategoryOptions {
+  notes?: string;
+  gstType?: BankGstType;
+  gstFreeAmountCents?: number;
+}
+
 function sanitizeDatabaseName(name: string): string {
   const sanitized = name.toLowerCase().replace(/[^a-z0-9_$-]/g, "");
   return sanitized.length > 0 ? sanitized : BANKING_DATABASE_NAME;
@@ -229,7 +243,12 @@ export async function createBankingStore(options: CreateBankingStoreOptions = {}
       [BANK_ACCOUNTS_COLLECTION_NAME]: { schema: bankAccountJsonSchema },
       [BANK_CATEGORIES_COLLECTION_NAME]: { schema: bankCategoryJsonSchema },
       [BANK_STATEMENTS_COLLECTION_NAME]: { schema: bankStatementJsonSchema },
-      [BANK_STATEMENT_LINES_COLLECTION_NAME]: { schema: bankStatementLineJsonSchema },
+      [BANK_STATEMENT_LINES_COLLECTION_NAME]: {
+        schema: bankStatementLineJsonSchema,
+        migrationStrategies: {
+          1: (oldDoc: BankStatementLineDocument) => normalizeBankStatementLineDocument(oldDoc),
+        },
+      },
     });
   } catch (error) {
     await database.close().catch(() => {});
@@ -566,6 +585,20 @@ export async function createBankingStore(options: CreateBankingStoreOptions = {}
       if (!Number.isInteger(entry.amountCents) || entry.amountCents < 0) {
         throw new Error("Invalid allocation: amount must be a non-negative integer");
       }
+      if (entry.gstType !== undefined && !isBankGstType(entry.gstType)) {
+        throw new Error("Invalid allocation: gstType must be gst, gst-free, or part-gst");
+      }
+      if (lineType === "receipt" && entry.gstType === "part-gst") {
+        throw new Error("Invalid allocation: receipt allocations must be gst or gst-free");
+      }
+      if (entry.gstFreeAmountCents !== undefined) {
+        if (!Number.isInteger(entry.gstFreeAmountCents) || entry.gstFreeAmountCents < 0) {
+          throw new Error("Invalid allocation: GST free amount must be a non-negative integer");
+        }
+        if (entry.gstFreeAmountCents > entry.amountCents) {
+          throw new Error("Invalid allocation: GST free amount cannot exceed allocation amount");
+        }
+      }
       const category = getCategory(entry.categoryId);
       if (!category) {
         throw new Error(`Bank category not found: ${entry.categoryId}`);
@@ -743,18 +776,26 @@ export async function createBankingStore(options: CreateBankingStoreOptions = {}
   async function allocateLineToCategory(
     lineId: string,
     categoryId: string,
-    notes?: string,
+    notesOrOptions?: string | AllocateLineToCategoryOptions,
   ): Promise<BankStatementLineDocument> {
     const current = getStatementLine(lineId);
     if (!current) {
       throw new Error(`Bank statement line not found: ${lineId}`);
     }
+    const resolvedOptions: AllocateLineToCategoryOptions =
+      typeof notesOrOptions === "string" ? { notes: notesOrOptions } : (notesOrOptions ?? {});
+    const gstType: BankGstType = resolvedOptions.gstType ?? "gst";
+    const notes = resolvedOptions.notes?.trim();
     return updateStatementLine(lineId, {
       allocations: [
         {
           categoryId,
           amountCents: current.amountCents,
-          ...(notes && notes.trim().length > 0 ? { notes: notes.trim() } : {}),
+          gstType,
+          ...(gstType === "part-gst" && resolvedOptions.gstFreeAmountCents !== undefined
+            ? { gstFreeAmountCents: resolvedOptions.gstFreeAmountCents }
+            : {}),
+          ...(notes && notes.length > 0 ? { notes } : {}),
         },
       ],
     });

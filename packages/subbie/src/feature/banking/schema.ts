@@ -583,10 +583,32 @@ export function normalizeBankStatementDocument(
   };
 }
 
+export const BANK_GST_RATE = 0.1;
+
+export const BANK_GST_TYPES = ["gst", "gst-free", "part-gst"] as const;
+
+export type BankGstType = (typeof BANK_GST_TYPES)[number];
+
+const BANK_GST_TYPE_LABELS: Record<BankGstType, string> = {
+  gst: "GST",
+  "gst-free": "GST Free",
+  "part-gst": "Part GST",
+};
+
+export function bankGstTypeLabel(type: BankGstType): string {
+  return BANK_GST_TYPE_LABELS[type];
+}
+
+export function isBankGstType(value: unknown): value is BankGstType {
+  return typeof value === "string" && (BANK_GST_TYPES as readonly string[]).includes(value);
+}
+
 export interface BankLineAllocation {
   id: string;
   categoryId: string;
   amountCents: number;
+  gstType?: BankGstType;
+  gstFreeAmountCents?: number;
   notes?: string;
 }
 
@@ -596,6 +618,14 @@ export const bankLineAllocationSchema = z.object({
   amountCents: z.number().int().nonnegative({
     error: "allocation amount must be a non-negative integer",
   }),
+  gstType: z.enum(BANK_GST_TYPES).optional(),
+  gstFreeAmountCents: z
+    .number()
+    .int()
+    .nonnegative({
+      error: "GST free amount must be a non-negative integer",
+    })
+    .optional(),
   notes: z.string().optional(),
 });
 
@@ -611,6 +641,17 @@ export const bankLineAllocationInputSchema = z.object({
     .refine((value) => Number.isInteger(value) && value >= 0, {
       error: "allocation amount must be a non-negative integer",
     }),
+  gstType: z
+    .enum(BANK_GST_TYPES, {
+      error: "allocation gstType must be gst, gst-free, or part-gst",
+    })
+    .optional(),
+  gstFreeAmountCents: z
+    .number({ error: "GST free amount must be a non-negative integer" })
+    .refine((value) => Number.isInteger(value) && value >= 0, {
+      error: "GST free amount must be a non-negative integer",
+    })
+    .optional(),
   notes: z.string({ error: "allocation notes must be a string" }).optional(),
 });
 
@@ -623,19 +664,32 @@ export function isBankLineAllocation(value: unknown): value is BankLineAllocatio
 export function normalizeBankLineAllocation(
   value?: Partial<BankLineAllocation> | null,
 ): BankLineAllocation {
+  const amountCents =
+    typeof value?.amountCents === "number" &&
+    Number.isInteger(value.amountCents) &&
+    value.amountCents >= 0
+      ? value.amountCents
+      : 0;
   const normalized: BankLineAllocation = {
     id:
       typeof value?.id === "string" && value.id.trim().length > 0
         ? value.id.trim()
         : generateDocumentId(),
     categoryId: typeof value?.categoryId === "string" ? value.categoryId.trim() : "",
-    amountCents:
-      typeof value?.amountCents === "number" &&
-      Number.isInteger(value.amountCents) &&
-      value.amountCents >= 0
-        ? value.amountCents
-        : 0,
+    amountCents,
   };
+  if (isBankGstType(value?.gstType)) {
+    normalized.gstType = value.gstType;
+    if (value.gstType === "part-gst") {
+      const rawGstFree =
+        typeof value.gstFreeAmountCents === "number" &&
+        Number.isInteger(value.gstFreeAmountCents) &&
+        value.gstFreeAmountCents >= 0
+          ? value.gstFreeAmountCents
+          : 0;
+      normalized.gstFreeAmountCents = Math.min(amountCents, rawGstFree);
+    }
+  }
   if (typeof value?.notes === "string" && value.notes.trim().length > 0) {
     normalized.notes = value.notes.trim();
   }
@@ -756,6 +810,13 @@ export function validateBankStatementLineInput(
       `Invalid bank statement line: ${parsed.error.issues[0]?.message ?? "invalid input"}`,
     );
   }
+  for (const item of parsed.data.allocations ?? []) {
+    if (item.gstFreeAmountCents !== undefined && item.gstFreeAmountCents > item.amountCents) {
+      throw new Error(
+        "Invalid bank statement line: GST free amount cannot exceed allocation amount",
+      );
+    }
+  }
   const totalAllocated = (parsed.data.allocations ?? []).reduce(
     (sum, item) => sum + item.amountCents,
     0,
@@ -786,6 +847,72 @@ export function isLineFullyAllocated(
   line: Pick<BankStatementLineDocument, "amountCents" | "allocations">,
 ): boolean {
   return line.allocations.length > 0 && allocatedAmountCents(line) === line.amountCents;
+}
+
+export function allocationGstFreeAmountCents(
+  allocation: Pick<BankLineAllocation, "amountCents" | "gstType" | "gstFreeAmountCents">,
+): number {
+  const gstType = allocation.gstType ?? "gst";
+  if (gstType === "gst-free") {
+    return allocation.amountCents;
+  }
+  if (gstType === "part-gst") {
+    const raw =
+      typeof allocation.gstFreeAmountCents === "number" &&
+      Number.isInteger(allocation.gstFreeAmountCents) &&
+      allocation.gstFreeAmountCents >= 0
+        ? allocation.gstFreeAmountCents
+        : 0;
+    return Math.min(allocation.amountCents, raw);
+  }
+  return 0;
+}
+
+export function allocationTaxableAmountCents(
+  allocation: Pick<BankLineAllocation, "amountCents" | "gstType" | "gstFreeAmountCents">,
+): number {
+  return Math.max(0, allocation.amountCents - allocationGstFreeAmountCents(allocation));
+}
+
+export function calculateGstFromInclusiveCents(
+  taxableInclusiveCents: number,
+  gstRate = BANK_GST_RATE,
+): number {
+  if (!Number.isFinite(taxableInclusiveCents) || taxableInclusiveCents <= 0 || gstRate <= 0) {
+    return 0;
+  }
+  if (gstRate === BANK_GST_RATE) {
+    return Math.round(taxableInclusiveCents / 11);
+  }
+  return Math.round((taxableInclusiveCents * gstRate) / (1 + gstRate));
+}
+
+export function allocationGstAmountCents(
+  allocation: Pick<BankLineAllocation, "amountCents" | "gstType" | "gstFreeAmountCents">,
+): number {
+  return calculateGstFromInclusiveCents(allocationTaxableAmountCents(allocation));
+}
+
+export function allocationNetAmountCents(
+  allocation: Pick<BankLineAllocation, "amountCents" | "gstType" | "gstFreeAmountCents">,
+): number {
+  return Math.max(0, allocation.amountCents - allocationGstAmountCents(allocation));
+}
+
+export function lineGstAmountCents(line: Pick<BankStatementLineDocument, "allocations">): number {
+  return line.allocations.reduce(
+    (total, allocation) => total + allocationGstAmountCents(allocation),
+    0,
+  );
+}
+
+export function lineGstFreeAmountCents(
+  line: Pick<BankStatementLineDocument, "allocations">,
+): number {
+  return line.allocations.reduce(
+    (total, allocation) => total + allocationGstFreeAmountCents(allocation),
+    0,
+  );
 }
 
 export const BANKING_LINE_CATEGORISATION_FILTERS = [

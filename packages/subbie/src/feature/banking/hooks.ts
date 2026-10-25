@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import {
   getBankingStore,
+  type AllocateLineToCategoryOptions,
   type BankingStore,
   type ImportBankStatementCsvInput,
   type ImportBankStatementCsvResult,
@@ -56,7 +57,7 @@ export interface UseBankingResult {
   allocateLineToCategory: (
     lineId: string,
     categoryId: string,
-    notes?: string,
+    notesOrOptions?: string | AllocateLineToCategoryOptions,
   ) => Promise<BankStatementLineDocument>;
   setLineAllocations: (
     lineId: string,
@@ -185,8 +186,8 @@ export function useBanking(customStore?: BankingStore): UseBankingResult {
       (await resolveStore()).linkInvoiceToLine(lineId, invoiceId, options),
     unlinkInvoiceFromLine: async (lineId, invoiceId) =>
       (await resolveStore()).unlinkInvoiceFromLine(lineId, invoiceId),
-    allocateLineToCategory: async (lineId, categoryId, notes) =>
-      (await resolveStore()).allocateLineToCategory(lineId, categoryId, notes),
+    allocateLineToCategory: async (lineId, categoryId, notesOrOptions) =>
+      (await resolveStore()).allocateLineToCategory(lineId, categoryId, notesOrOptions),
     setLineAllocations: async (lineId, allocations) =>
       (await resolveStore()).setLineAllocations(lineId, allocations),
     clearLineAllocations: async (lineId) => (await resolveStore()).clearLineAllocations(lineId),
