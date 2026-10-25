@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
+  IonBadge,
   IonButton,
   IonFab,
   IonFabButton,
@@ -13,17 +14,21 @@ import {
   IonList,
   IonListHeader,
   IonNote,
-  IonSegment,
-  IonSegmentButton,
   IonSelect,
   IonSelectOption,
   IonSpinner,
   IonToast,
   useIonAlert,
 } from "@ionic/react";
-import { add, trashOutline } from "ionicons/icons";
+import {
+  add,
+  documentTextOutline,
+  pricetagsOutline,
+  trashOutline,
+  walletOutline,
+} from "ionicons/icons";
 
-import { useInvoices, type InvoicesStore } from "../invoices/index.ts";
+import { formatCurrency, useInvoices, type InvoicesStore } from "../invoices/index.ts";
 import {
   BankAccountFormModal,
   type BankAccountFormValues,
@@ -43,7 +48,10 @@ import { StatementLineList } from "./components/StatementLineList.tsx";
 import type { BankingStore } from "./db.ts";
 import { useBanking } from "./hooks.ts";
 import {
+  bankTransactionTypeColor,
+  bankTransactionTypeLabel,
   isLineFullyAllocated,
+  summarizeBankingOverview,
   type BankAccountDocument,
   type BankCategoryDocument,
   type BankLineAllocationInput,
@@ -51,7 +59,7 @@ import {
   type BankStatementLineDocument,
 } from "./schema.ts";
 
-export type BankingSection = "statements" | "accounts" | "categories";
+export type BankingSection = "overview" | "statements" | "accounts" | "categories";
 
 export type BankingLineCategorisationFilter =
   | "all"
@@ -59,16 +67,334 @@ export type BankingLineCategorisationFilter =
   | "partially-categorised"
   | "uncategorised";
 
+export interface BankingOverviewViewProps {
+  store?: BankingStore;
+  statementsRouterLink?: string;
+  accountsRouterLink?: string;
+  categoriesRouterLink?: string;
+}
+
+function signedCurrency(amountCents: number, currency: string): string {
+  const prefix = amountCents > 0 ? "+" : amountCents < 0 ? "-" : "";
+  return `${prefix}${formatCurrency(Math.abs(amountCents), currency)}`;
+}
+
+function pluralize(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+export const BankingOverviewView = ({
+  store: customStore,
+  statementsRouterLink = "/banking/statements",
+  accountsRouterLink = "/banking/accounts",
+  categoriesRouterLink = "/banking/categories",
+}: BankingOverviewViewProps) => {
+  const { accounts, categories, statements, statementLines, isLoading, error } =
+    useBanking(customStore);
+
+  if (isLoading || error) {
+    return (
+      <IonItem lines="none">
+        {isLoading ? <IonSpinner slot="start" /> : null}
+        <IonNote color={error ? "danger" : undefined}>
+          {error ? error.message : "Loading banking…"}
+        </IonNote>
+      </IonItem>
+    );
+  }
+
+  const overview = summarizeBankingOverview({
+    accounts,
+    categories,
+    statements,
+    statementLines,
+  });
+  const { categorisation } = overview;
+  const allocatedCategories = overview.categorySummaries.filter(
+    (entry) => entry.allocatedCents > 0 || entry.allocationCount > 0,
+  );
+  const multiCurrency = overview.cashFlowByCurrency.length > 1;
+
+  return (
+    <>
+      <IonList inset>
+        <IonItem button detail routerLink={statementsRouterLink}>
+          <IonIcon aria-hidden="true" icon={documentTextOutline} slot="start" />
+          <IonLabel>
+            <h2>Statements</h2>
+            <IonNote>
+              {pluralize(overview.totalStatements, "statement")} ·{" "}
+              {pluralize(overview.totalLines, "line")}
+            </IonNote>
+          </IonLabel>
+          {categorisation.needsAttentionLines > 0 ? (
+            <IonBadge slot="end" color="warning">
+              {categorisation.needsAttentionLines} to review
+            </IonBadge>
+          ) : (
+            <IonNote slot="end">{overview.totalLines}</IonNote>
+          )}
+        </IonItem>
+
+        <IonItem button detail routerLink={accountsRouterLink}>
+          <IonIcon aria-hidden="true" icon={walletOutline} slot="start" />
+          <IonLabel>
+            <h2>Accounts</h2>
+            <IonNote>Bank accounts and CSV presets</IonNote>
+          </IonLabel>
+          <IonNote slot="end">{overview.totalAccounts}</IonNote>
+        </IonItem>
+
+        <IonItem button detail routerLink={categoriesRouterLink}>
+          <IonIcon aria-hidden="true" icon={pricetagsOutline} slot="start" />
+          <IonLabel>
+            <h2>Categories</h2>
+            <IonNote>
+              {overview.receiptCategoryCount} receipt · {overview.paymentCategoryCount} payment
+            </IonNote>
+          </IonLabel>
+          <IonNote slot="end">{overview.totalCategories}</IonNote>
+        </IonItem>
+      </IonList>
+
+      <IonList inset>
+        <IonListHeader>Cash Flow Summary</IonListHeader>
+        {overview.cashFlowByCurrency.map((cf) => {
+          const suffix = multiCurrency ? ` (${cf.currency})` : "";
+          return (
+            <div key={cf.currency}>
+              <IonItem>
+                <IonLabel>
+                  <h2>Total Receipts{suffix}</h2>
+                  <IonNote>{pluralize(cf.receiptCount, "receipt")}</IonNote>
+                </IonLabel>
+                <IonNote slot="end" color="success">
+                  <strong>+{formatCurrency(cf.totalReceiptsCents, cf.currency)}</strong>
+                </IonNote>
+              </IonItem>
+              <IonItem>
+                <IonLabel>
+                  <h2>Total Payments{suffix}</h2>
+                  <IonNote>{pluralize(cf.paymentCount, "payment")}</IonNote>
+                </IonLabel>
+                <IonNote slot="end" color="danger">
+                  <strong>-{formatCurrency(cf.totalPaymentsCents, cf.currency)}</strong>
+                </IonNote>
+              </IonItem>
+              <IonItem>
+                <IonLabel>
+                  <h2>Net Cash Flow{suffix}</h2>
+                  <IonNote>{pluralize(cf.receiptCount + cf.paymentCount, "transaction")}</IonNote>
+                </IonLabel>
+                <IonNote
+                  slot="end"
+                  color={
+                    cf.netCashFlowCents > 0
+                      ? "success"
+                      : cf.netCashFlowCents < 0
+                        ? "danger"
+                        : "medium"
+                  }
+                >
+                  <strong>{signedCurrency(cf.netCashFlowCents, cf.currency)}</strong>
+                </IonNote>
+              </IonItem>
+            </div>
+          );
+        })}
+      </IonList>
+
+      <IonList inset>
+        <IonListHeader>Categorisation Progress</IonListHeader>
+        <IonItem>
+          <IonLabel>
+            <h2>
+              {overview.totalLines === 0
+                ? "No statement lines imported"
+                : categorisation.needsAttentionLines === 0
+                  ? "All lines categorised"
+                  : `${pluralize(categorisation.needsAttentionLines, "line")} ${
+                      categorisation.needsAttentionLines === 1 ? "needs" : "need"
+                    } attention`}
+            </h2>
+            <IonNote>
+              {overview.totalLines === 0
+                ? "Import a statement CSV to track categorisation"
+                : `${categorisation.categorisedLines} of ${categorisation.totalLines} categorised (${categorisation.completionPercent}%)`}
+            </IonNote>
+          </IonLabel>
+          <IonBadge
+            slot="end"
+            color={
+              overview.totalLines === 0
+                ? "medium"
+                : categorisation.needsAttentionLines === 0
+                  ? "success"
+                  : "warning"
+            }
+          >
+            {categorisation.completionPercent}%
+          </IonBadge>
+        </IonItem>
+
+        {(
+          [
+            ["uncategorised", "Uncategorised", categorisation.uncategorisedLines, "danger"],
+            [
+              "partially-categorised",
+              "Partially Categorised",
+              categorisation.partiallyCategorisedLines,
+              "warning",
+            ],
+            ["categorised", "Categorised", categorisation.categorisedLines, "success"],
+          ] as const
+        ).map(([filter, label, count, activeColor]) => (
+          <IonItem
+            key={filter}
+            button
+            detail
+            routerLink={`${statementsRouterLink}?categorisation=${filter}`}
+          >
+            <IonLabel>
+              <h3>{label}</h3>
+            </IonLabel>
+            <IonBadge slot="end" color={count > 0 ? activeColor : "medium"}>
+              {count}
+            </IonBadge>
+          </IonItem>
+        ))}
+
+        <IonItem>
+          <IonLabel>
+            <h3>Linked to Invoices</h3>
+          </IonLabel>
+          <IonNote slot="end">{pluralize(categorisation.linkedInvoiceLineCount, "line")}</IonNote>
+        </IonItem>
+      </IonList>
+
+      <IonList inset>
+        <IonListHeader>Account Summary</IonListHeader>
+        {overview.accountSummaries.length === 0 ? (
+          <IonItem button detail routerLink={accountsRouterLink}>
+            <IonLabel>
+              <h2>No bank accounts yet</h2>
+              <IonNote>Tap to add a bank account</IonNote>
+            </IonLabel>
+          </IonItem>
+        ) : (
+          overview.accountSummaries.map((item) => {
+            const subtitle =
+              [item.account.institution, item.account.accountNumber]
+                .filter((part) => part.trim().length > 0)
+                .join(" · ") || item.account.currency;
+            return (
+              <IonItem
+                key={item.account.id}
+                button
+                detail
+                routerLink={`${statementsRouterLink}?accountId=${encodeURIComponent(item.account.id)}`}
+              >
+                <IonLabel>
+                  <h2>{item.account.name}</h2>
+                  <IonNote>{subtitle}</IonNote>
+                  <p>
+                    {pluralize(item.statementCount, "statement")} ·{" "}
+                    {pluralize(item.lineCount, "line")}
+                    {item.uncategorisedLineCount > 0
+                      ? ` · ${item.uncategorisedLineCount} uncategorised`
+                      : ""}
+                  </p>
+                </IonLabel>
+                <div slot="end" className="ion-text-end">
+                  <div>
+                    <strong>
+                      {item.latestBalanceCents !== undefined
+                        ? formatCurrency(item.latestBalanceCents, item.account.currency)
+                        : signedCurrency(item.netCashFlowCents, item.account.currency)}
+                    </strong>
+                  </div>
+                  <IonNote>
+                    {item.latestBalanceCents !== undefined
+                      ? `Balance${item.latestTransactionDate ? ` · ${item.latestTransactionDate}` : ""}`
+                      : `Net (${item.account.currency})`}
+                  </IonNote>
+                </div>
+              </IonItem>
+            );
+          })
+        )}
+      </IonList>
+
+      <IonList inset>
+        <IonListHeader>Category Summary</IonListHeader>
+        {allocatedCategories.length === 0 ? (
+          <IonItem button detail routerLink={categoriesRouterLink}>
+            <IonLabel>
+              <h2>{pluralize(overview.totalCategories, "Category", "Categories")} Configured</h2>
+              <IonNote>
+                {overview.receiptCategoryCount} receipt · {overview.paymentCategoryCount} payment —
+                allocate statement lines to see category totals
+              </IonNote>
+            </IonLabel>
+          </IonItem>
+        ) : (
+          allocatedCategories.map((item) => (
+            <IonItem key={item.category.id} button detail routerLink={categoriesRouterLink}>
+              <IonLabel>
+                <h2>{item.category.name}</h2>
+                <IonNote>{pluralize(item.lineCount, "line")} allocated</IonNote>
+              </IonLabel>
+              <div slot="end" className="ion-text-end">
+                <div>
+                  <strong>{formatCurrency(item.allocatedCents, item.currency)}</strong>
+                </div>
+                <IonBadge color={bankTransactionTypeColor(item.category.type)}>
+                  {bankTransactionTypeLabel(item.category.type)}
+                </IonBadge>
+              </div>
+            </IonItem>
+          ))
+        )}
+      </IonList>
+    </>
+  );
+};
+
+export interface BankStatementsViewProps {
+  store?: BankingStore;
+  invoicesStore?: InvoicesStore;
+  initialAccountId?: string;
+  initialCategorisationFilter?: BankingLineCategorisationFilter;
+}
+
+export interface BankAccountsViewProps {
+  store?: BankingStore;
+}
+
+export interface BankCategoriesViewProps {
+  store?: BankingStore;
+}
+
 export interface BankingViewProps {
   store?: BankingStore;
   invoicesStore?: InvoicesStore;
   initialSection?: BankingSection;
+  initialAccountId?: string;
+  initialCategorisationFilter?: BankingLineCategorisationFilter;
+  statementsRouterLink?: string;
+  accountsRouterLink?: string;
+  categoriesRouterLink?: string;
 }
 
 export const BankingView = ({
   store: customStore,
   invoicesStore,
-  initialSection = "statements",
+  initialSection = "overview",
+  initialAccountId = "",
+  initialCategorisationFilter = "all",
+  statementsRouterLink,
+  accountsRouterLink,
+  categoriesRouterLink,
 }: BankingViewProps) => {
   const {
     accounts,
@@ -91,10 +417,10 @@ export const BankingView = ({
   } = useBanking(customStore);
   const { invoices, store: resolvedInvoicesStore } = useInvoices(invoicesStore);
 
-  const [section, setSection] = useState<BankingSection>(initialSection);
-  const [accountFilterId, setAccountFilterId] = useState<string>("");
-  const [categorisationFilter, setCategorisationFilter] =
-    useState<BankingLineCategorisationFilter>("all");
+  const [accountFilterId, setAccountFilterId] = useState<string>(initialAccountId);
+  const [categorisationFilter, setCategorisationFilter] = useState<BankingLineCategorisationFilter>(
+    initialCategorisationFilter,
+  );
   const [accountFormOpen, setAccountFormOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<BankAccountDocument | null>(null);
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
@@ -104,6 +430,25 @@ export const BankingView = ({
   const [lineDetailOpen, setLineDetailOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [presentAlert] = useIonAlert();
+
+  useEffect(() => {
+    setAccountFilterId(initialAccountId);
+  }, [initialAccountId]);
+
+  useEffect(() => {
+    setCategorisationFilter(initialCategorisationFilter);
+  }, [initialCategorisationFilter]);
+
+  if (initialSection === "overview") {
+    return (
+      <BankingOverviewView
+        store={customStore}
+        statementsRouterLink={statementsRouterLink}
+        accountsRouterLink={accountsRouterLink}
+        categoriesRouterLink={categoriesRouterLink}
+      />
+    );
+  }
 
   const filteredStatements = accountFilterId
     ? statements.filter((stmt) => stmt.accountId === accountFilterId)
@@ -214,7 +559,7 @@ export const BankingView = ({
     try {
       const result = await importStatementCsv(values);
       setStatusMessage(
-        `Imported ${result.lines.length} ${result.lines.length === 1 ? "line" : "lines"} into ${result.account.name}`,
+        `Imported ${pluralize(result.lines.length, "line")} into ${result.account.name}`,
       );
     } catch (err) {
       setStatusMessage(err instanceof Error ? err.message : "Failed to import statement CSV");
@@ -244,12 +589,12 @@ export const BankingView = ({
       if (updated.invoiceIds.length === 0) {
         setStatusMessage("Cleared linked invoices");
       } else if (addedCount > 0 && removedCount === 0) {
-        setStatusMessage(`Linked ${addedCount} ${addedCount === 1 ? "invoice" : "invoices"}`);
+        setStatusMessage(`Linked ${pluralize(addedCount, "invoice")}`);
       } else if (removedCount > 0 && addedCount === 0) {
-        setStatusMessage(`Unlinked ${removedCount} ${removedCount === 1 ? "invoice" : "invoices"}`);
+        setStatusMessage(`Unlinked ${pluralize(removedCount, "invoice")}`);
       } else {
         setStatusMessage(
-          `Updated linked invoices (${updated.invoiceIds.length} ${updated.invoiceIds.length === 1 ? "invoice" : "invoices"})`,
+          `Updated linked invoices (${pluralize(updated.invoiceIds.length, "invoice")})`,
         );
       }
     } catch (err) {
@@ -327,10 +672,10 @@ export const BankingView = ({
   };
 
   const handleFabClick = () => {
-    if (section === "accounts") {
+    if (initialSection === "accounts") {
       setEditingAccount(null);
       setAccountFormOpen(true);
-    } else if (section === "categories") {
+    } else if (initialSection === "categories") {
       setEditingCategory(null);
       setCategoryFormOpen(true);
     } else if (accounts.length === 0) {
@@ -342,34 +687,16 @@ export const BankingView = ({
   };
 
   const fabLabel =
-    section === "accounts"
+    initialSection === "accounts"
       ? "Add bank account"
-      : section === "categories"
+      : initialSection === "categories"
         ? "Add category"
-        : "Import bank statement CSV";
+        : accounts.length === 0
+          ? "Add bank account"
+          : "Import bank statement CSV";
 
   return (
     <>
-      <IonSegment
-        value={section}
-        onIonChange={(event) => {
-          const value = event.detail.value;
-          if (value === "statements" || value === "accounts" || value === "categories") {
-            setSection(value);
-          }
-        }}
-      >
-        <IonSegmentButton value="statements">
-          <IonLabel>Statements</IonLabel>
-        </IonSegmentButton>
-        <IonSegmentButton value="accounts">
-          <IonLabel>Accounts</IonLabel>
-        </IonSegmentButton>
-        <IonSegmentButton value="categories">
-          <IonLabel>Categories</IonLabel>
-        </IonSegmentButton>
-      </IonSegment>
-
       {isLoading ? (
         <IonItem lines="none">
           <IonSpinner slot="start" />
@@ -379,7 +706,7 @@ export const BankingView = ({
         <IonItem lines="none">
           <IonNote color="danger">{error.message}</IonNote>
         </IonItem>
-      ) : section === "statements" ? (
+      ) : initialSection === "statements" ? (
         <>
           {accounts.length > 0 ? (
             <IonList inset>
@@ -452,7 +779,7 @@ export const BankingView = ({
                     : "";
                 const details = [
                   statementAccount?.name,
-                  `${statement.lineCount} ${statement.lineCount === 1 ? "line" : "lines"}`,
+                  pluralize(statement.lineCount, "line"),
                   dateRange,
                 ]
                   .filter((part): part is string => Boolean(part))
@@ -507,7 +834,7 @@ export const BankingView = ({
             }
           />
         </>
-      ) : section === "accounts" ? (
+      ) : initialSection === "accounts" ? (
         <BankAccountList
           accounts={accounts}
           onSelect={(account) => {
@@ -578,3 +905,15 @@ export const BankingView = ({
     </>
   );
 };
+
+export const BankStatementsView = (props: BankStatementsViewProps) => (
+  <BankingView {...props} initialSection="statements" />
+);
+
+export const BankAccountsView = ({ store }: BankAccountsViewProps) => (
+  <BankingView store={store} initialSection="accounts" />
+);
+
+export const BankCategoriesView = ({ store }: BankCategoriesViewProps) => (
+  <BankingView store={store} initialSection="categories" />
+);

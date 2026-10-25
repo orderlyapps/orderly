@@ -19,7 +19,7 @@ import {
 import { card, people, receipt, settings } from "ionicons/icons";
 import { useThemeEffect } from "subbie-core";
 
-import Banking from "./pages/Banking";
+import Banking, { BankingAccounts, BankingCategories, BankingStatements } from "./pages/Banking";
 import Directory from "./pages/Directory";
 import Invoices from "./pages/Invoices";
 import Settings from "./pages/Settings";
@@ -69,6 +69,9 @@ const App = () => {
           <IonRouterOutlet>
             <Route path="/invoices" element={<Invoices />} />
             <Route path="/banking" element={<Banking />} />
+            <Route path="/banking/statements" element={<BankingStatements />} />
+            <Route path="/banking/accounts" element={<BankingAccounts />} />
+            <Route path="/banking/categories" element={<BankingCategories />} />
             <Route path="/directory" element={<Directory />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/" element={<Navigate to="/invoices" replace />} />

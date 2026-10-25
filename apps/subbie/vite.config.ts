@@ -48,6 +48,7 @@ const config = defineConfig({
         theme_color: "#ffffff",
         background_color: "#ffffff",
         display: "standalone",
+        display_override: ["window-controls-overlay", "standalone"],
         orientation: "portrait",
         scope: "/",
         start_url: "/",
