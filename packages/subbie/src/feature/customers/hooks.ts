@@ -34,12 +34,15 @@ export function useCustomers(customStore?: CustomersStore): UseCustomersResult {
       }
       setStore(resolvedStore);
 
-      const subscription = resolvedStore.customersCollection.subscribeChanges(() => {
-        if (!active) {
-          return;
-        }
-        setCustomers(resolvedStore.listCustomers());
-      });
+      const subscription = resolvedStore.customersCollection.subscribeChanges(
+        () => {
+          if (!active) {
+            return;
+          }
+          setCustomers(resolvedStore.listCustomers());
+        },
+        { includeInitialState: true },
+      );
       unsubscribe = () => subscription.unsubscribe();
 
       if (!active) {

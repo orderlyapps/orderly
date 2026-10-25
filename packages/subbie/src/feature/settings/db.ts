@@ -220,7 +220,9 @@ export async function createSettingsStore(options: CreateSettingsStoreOptions = 
     );
   };
   syncSettingsSnapshot();
-  const snapshotSubscription = collection.subscribeChanges(syncSettingsSnapshot);
+  const snapshotSubscription = collection.subscribeChanges(syncSettingsSnapshot, {
+    includeInitialState: true,
+  });
 
   async function getSettings(): Promise<SettingsDocument> {
     const cached = collection.get(DEFAULT_SETTINGS_ID);

@@ -34,12 +34,15 @@ export function useItems(customStore?: ItemsStore): UseItemsResult {
       }
       setStore(resolvedStore);
 
-      const subscription = resolvedStore.itemsCollection.subscribeChanges(() => {
-        if (!active) {
-          return;
-        }
-        setItems(resolvedStore.listItems());
-      });
+      const subscription = resolvedStore.itemsCollection.subscribeChanges(
+        () => {
+          if (!active) {
+            return;
+          }
+          setItems(resolvedStore.listItems());
+        },
+        { includeInitialState: true },
+      );
       unsubscribe = () => subscription.unsubscribe();
 
       if (!active) {

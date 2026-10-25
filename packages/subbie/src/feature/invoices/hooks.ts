@@ -35,12 +35,15 @@ export function useInvoices(customStore?: InvoicesStore): UseInvoicesResult {
       }
       setStore(resolvedStore);
 
-      const subscription = resolvedStore.collection.subscribeChanges(() => {
-        if (!active) {
-          return;
-        }
-        setInvoices(resolvedStore.listInvoices());
-      });
+      const subscription = resolvedStore.collection.subscribeChanges(
+        () => {
+          if (!active) {
+            return;
+          }
+          setInvoices(resolvedStore.listInvoices());
+        },
+        { includeInitialState: true },
+      );
       unsubscribeCollection = () => subscription.unsubscribe();
 
       if (!active) {

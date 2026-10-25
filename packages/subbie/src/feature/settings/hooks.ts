@@ -63,14 +63,17 @@ export function useSettings(customStore?: SettingsStore): UseSettingsResult {
       }
       setStore(resolvedStore);
 
-      const subscription = resolvedStore.collection.subscribeChanges(() => {
-        if (!active) {
-          return;
-        }
-        const current = resolvedStore.collection.get(DEFAULT_SETTINGS_ID);
-        const normalized = current ? normalizeSettingsDocument(current) : { ...DEFAULT_SETTINGS };
-        setSettings((prev) => (areSettingsEqual(prev, normalized) ? prev : normalized));
-      });
+      const subscription = resolvedStore.collection.subscribeChanges(
+        () => {
+          if (!active) {
+            return;
+          }
+          const current = resolvedStore.collection.get(DEFAULT_SETTINGS_ID);
+          const normalized = current ? normalizeSettingsDocument(current) : { ...DEFAULT_SETTINGS };
+          setSettings((prev) => (areSettingsEqual(prev, normalized) ? prev : normalized));
+        },
+        { includeInitialState: true },
+      );
       unsubscribeCollection = () => subscription.unsubscribe();
 
       const initial = await resolvedStore.getSettings();
