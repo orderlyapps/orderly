@@ -61,7 +61,6 @@ export const BankingView = ({
     default:
       return (
         <BankingOverviewView
-          store={store}
           statementsRouterLink={statementsRouterLink}
           categoriseRouterLink={categoriseRouterLink}
           accountsRouterLink={accountsRouterLink}

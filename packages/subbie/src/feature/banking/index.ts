@@ -111,16 +111,9 @@ export {
 export {
   BankingOverviewView,
   BankingView,
-  summarizeBankingOverview,
-  type BankAccountOverviewItem,
-  type BankCategoryOverviewItem,
-  type BankingCashFlowSummary,
-  type BankingCategorisationSummary,
-  type BankingOverviewSummary,
   type BankingOverviewViewProps,
   type BankingSection,
   type BankingViewProps,
-  type SummarizeBankingOverviewInput,
 } from "./overview/index.ts";
 export {
   assignColumnRole,
