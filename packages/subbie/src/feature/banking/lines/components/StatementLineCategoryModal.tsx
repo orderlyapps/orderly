@@ -24,7 +24,7 @@ import { checkmark } from "ionicons/icons";
 import { DEFAULT_INVOICE_CURRENCY, formatCurrency } from "../../../invoices/schema.ts";
 import type { BankAccountDocument } from "../../accounts/schema.ts";
 import type { BankCategoryDocument } from "../../categories/schema.ts";
-import { bankTransactionTypeColor, bankTransactionTypeLabel } from "../../types.ts";
+import { bankTransactionTypeColor, bankTransactionTypeLabel, pluralize } from "../../types.ts";
 import type { AllocateLineToCategoryOptions } from "../db.ts";
 import {
   allocationGstAmountCents,
@@ -38,29 +38,46 @@ import {
 import type { BankStatementLineDocument } from "../schema.ts";
 
 export interface StatementLineCategoryModalProps {
-  line: BankStatementLineDocument | null;
+  line?: BankStatementLineDocument | null;
+  lines?: readonly BankStatementLineDocument[];
   account?: BankAccountDocument | null;
+  accounts?: readonly BankAccountDocument[];
   categories: BankCategoryDocument[];
   isOpen: boolean;
   onDismiss: () => void;
-  onSelectCategory: (
+  onSelectCategory?: (
     line: BankStatementLineDocument,
     categoryId: string,
     options?: AllocateLineToCategoryOptions,
   ) => Promise<unknown>;
+  onSelectCategoryForLines?: (
+    lines: BankStatementLineDocument[],
+    categoryId: string,
+    options?: AllocateLineToCategoryOptions,
+  ) => Promise<unknown>;
   onClearCategory?: (line: BankStatementLineDocument) => Promise<unknown>;
+  onClearCategoryForLines?: (lines: BankStatementLineDocument[]) => Promise<unknown>;
   onSetPrivate?: (line: BankStatementLineDocument, isPrivate: boolean) => Promise<unknown>;
+  onSetPrivateForLines?: (
+    lines: BankStatementLineDocument[],
+    isPrivate: boolean,
+  ) => Promise<unknown>;
 }
 
 export const StatementLineCategoryModal = ({
   line,
+  lines,
   account,
+  accounts,
   categories,
   isOpen,
   onDismiss,
   onSelectCategory,
+  onSelectCategoryForLines,
   onClearCategory,
+  onClearCategoryForLines,
   onSetPrivate,
+  onSetPrivateForLines,
 }: StatementLineCategoryModalProps) => {
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [gstType, setGstType] = useState<BankGstType>("gst");
@@ -68,83 +85,148 @@ export const StatementLineCategoryModal = ({
   const [notes, setNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  const currency = account?.currency ?? DEFAULT_INVOICE_CURRENCY;
-  const matchingCategories = line
-    ? categories.filter((category) => category.type === line.type)
-    : [];
+  const targetLines = lines && lines.length > 0 ? [...lines] : line ? [line] : [];
+  const singleLine = targetLines.length === 1 ? targetLines[0] : null;
+  const isMultiLine = targetLines.length > 1;
+  const lineType = targetLines[0]?.type ?? null;
+  const hasMixedTypes = lineType !== null && targetLines.some((item) => item.type !== lineType);
 
-  const allocationsKey = line ? JSON.stringify(line.allocations) : "";
+  const accountById = new Map((accounts ?? []).map((acc) => [acc.id, acc]));
+  const uniqueAccountIds = Array.from(new Set(targetLines.map((item) => item.accountId)));
+  const resolvedAccount =
+    account ??
+    (uniqueAccountIds.length === 1 ? (accountById.get(uniqueAccountIds[0]!) ?? null) : null);
+  const currency =
+    resolvedAccount?.currency ??
+    (targetLines[0] ? accountById.get(targetLines[0].accountId)?.currency : undefined) ??
+    DEFAULT_INVOICE_CURRENCY;
+
+  const matchingCategories =
+    lineType && !hasMixedTypes ? categories.filter((category) => category.type === lineType) : [];
+
+  const targetKey = targetLines
+    .map((item) => `${item.id}:${item.isPrivate}:${JSON.stringify(item.allocations)}`)
+    .join("|");
 
   useEffect(() => {
-    if (!isOpen || !line) {
+    if (!isOpen || targetLines.length === 0) {
       return;
     }
-    const primaryAllocation = line.allocations.length === 1 ? line.allocations[0] : undefined;
-    const initialGstType =
-      primaryAllocation?.gstType &&
-      (line.type === "payment" || primaryAllocation.gstType !== "part-gst")
-        ? primaryAllocation.gstType
-        : "gst";
-    setSelectedCategoryId(primaryAllocation?.categoryId ?? "");
-    setGstType(initialGstType);
-    setGstFreeAmount(
-      initialGstType === "part-gst" && primaryAllocation?.gstFreeAmountCents !== undefined
-        ? (primaryAllocation.gstFreeAmountCents / 100).toString()
-        : "0",
-    );
-    setNotes(primaryAllocation?.notes ?? "");
-    setIsSaving(false);
-  }, [isOpen, line?.id, allocationsKey]);
+    if (singleLine) {
+      const primaryAllocation =
+        singleLine.allocations.length === 1 ? singleLine.allocations[0] : undefined;
+      const initialGstType =
+        primaryAllocation?.gstType &&
+        (singleLine.type === "payment" || primaryAllocation.gstType !== "part-gst")
+          ? primaryAllocation.gstType
+          : "gst";
+      setSelectedCategoryId(primaryAllocation?.categoryId ?? "");
+      setGstType(initialGstType);
+      setGstFreeAmount(
+        initialGstType === "part-gst" && primaryAllocation?.gstFreeAmountCents !== undefined
+          ? (primaryAllocation.gstFreeAmountCents / 100).toString()
+          : "0",
+      );
+      setNotes(primaryAllocation?.notes ?? "");
+    } else {
+      const firstAlloc = targetLines.every((item) => item.allocations.length === 1)
+        ? targetLines[0]?.allocations[0]
+        : undefined;
+      const sharedCategoryId =
+        firstAlloc &&
+        targetLines.every((item) => item.allocations[0]?.categoryId === firstAlloc.categoryId)
+          ? firstAlloc.categoryId
+          : "";
+      const sharedGstType: BankGstType =
+        firstAlloc?.gstType &&
+        firstAlloc.gstType !== "part-gst" &&
+        targetLines.every((item) => (item.allocations[0]?.gstType ?? "gst") === firstAlloc.gstType)
+          ? firstAlloc.gstType
+          : "gst";
+      const sharedNotes =
+        firstAlloc &&
+        targetLines.every((item) => (item.allocations[0]?.notes ?? "") === (firstAlloc.notes ?? ""))
+          ? (firstAlloc.notes ?? "")
+          : "";
+      setSelectedCategoryId(sharedCategoryId);
+      setGstType(sharedGstType);
+      setGstFreeAmount("0");
+      setNotes(sharedNotes);
+    }
+  }, [isOpen, targetKey]);
 
   const availableGstTypes: readonly BankGstType[] =
-    line?.type === "receipt" ? (["gst", "gst-free"] as const) : BANK_GST_TYPES;
+    isMultiLine || lineType === "receipt" ? (["gst", "gst-free"] as const) : BANK_GST_TYPES;
 
   const trimmedGstFree = gstFreeAmount.trim();
   const parsedGstFreeCents =
     trimmedGstFree.length > 0 ? Math.round(Number(trimmedGstFree) * 100) : Number.NaN;
 
   const isGstFreeValid =
-    line === null ||
-    line.type !== "payment" ||
+    singleLine === null ||
+    singleLine.type !== "payment" ||
     gstType !== "part-gst" ||
     (Number.isInteger(parsedGstFreeCents) &&
       parsedGstFreeCents >= 0 &&
-      parsedGstFreeCents <= line.amountCents);
+      parsedGstFreeCents <= singleLine.amountCents);
 
-  const effectiveGstFreeCents = line
+  const effectiveGstFreeCents = singleLine
     ? gstType === "gst-free"
-      ? line.amountCents
-      : line.type === "payment" &&
+      ? singleLine.amountCents
+      : singleLine.type === "payment" &&
           gstType === "part-gst" &&
           Number.isInteger(parsedGstFreeCents) &&
           parsedGstFreeCents >= 0
-        ? Math.min(line.amountCents, parsedGstFreeCents)
+        ? Math.min(singleLine.amountCents, parsedGstFreeCents)
         : 0
     : 0;
 
-  const gstPreviewAllocation = line
-    ? {
-        amountCents: line.amountCents,
-        gstType,
-        gstFreeAmountCents: effectiveGstFreeCents,
-      }
-    : null;
+  const totalsByCurrency = new Map<
+    string,
+    { total: number; gst: number; taxable: number; net: number }
+  >();
+  for (const item of targetLines) {
+    const itemCurrency = accountById.get(item.accountId)?.currency ?? DEFAULT_INVOICE_CURRENCY;
+    const preview = {
+      amountCents: item.amountCents,
+      gstType,
+      gstFreeAmountCents: singleLine ? effectiveGstFreeCents : 0,
+    };
+    const entry = totalsByCurrency.get(itemCurrency) ?? { total: 0, gst: 0, taxable: 0, net: 0 };
+    entry.total += item.amountCents;
+    entry.gst += allocationGstAmountCents(preview);
+    entry.taxable += allocationTaxableAmountCents(preview);
+    entry.net += allocationNetAmountCents(preview);
+    totalsByCurrency.set(itemCurrency, entry);
+  }
 
-  const gstAmountCents = gstPreviewAllocation ? allocationGstAmountCents(gstPreviewAllocation) : 0;
-  const taxableAmountCents = gstPreviewAllocation
-    ? allocationTaxableAmountCents(gstPreviewAllocation)
-    : 0;
-  const netAmountCents = gstPreviewAllocation ? allocationNetAmountCents(gstPreviewAllocation) : 0;
+  const formatTotals = (
+    pick: (entry: { total: number; gst: number; taxable: number; net: number }) => number,
+    sign = "",
+  ) =>
+    [...totalsByCurrency.entries()]
+      .map(([entryCurrency, entry]) => `${sign}${formatCurrency(pick(entry), entryCurrency)}`)
+      .join(" · ");
+
+  const hasSelectHandler = Boolean(onSelectCategoryForLines || onSelectCategory);
+  const hasClearHandler = Boolean(onClearCategoryForLines || onClearCategory);
+  const hasPrivateHandler = Boolean(onSetPrivateForLines || onSetPrivate);
+
+  const allPrivate = targetLines.length > 0 && targetLines.every((item) => item.isPrivate);
+  const somePrivate = targetLines.some((item) => item.isPrivate);
+  const hasAllocations = targetLines.some((item) => item.allocations.length > 0);
 
   const canSave =
-    line !== null &&
+    targetLines.length > 0 &&
+    !hasMixedTypes &&
+    hasSelectHandler &&
     selectedCategoryId.trim().length > 0 &&
     matchingCategories.some((category) => category.id === selectedCategoryId) &&
     isGstFreeValid &&
     !isSaving;
 
   const handleSave = async () => {
-    if (!line || !canSave) {
+    if (targetLines.length === 0 || !canSave) {
       return;
     }
     setIsSaving(true);
@@ -152,12 +234,18 @@ export const StatementLineCategoryModal = ({
       const trimmedNotes = notes.trim();
       const options: AllocateLineToCategoryOptions = {
         gstType,
-        ...(line.type === "payment" && gstType === "part-gst"
+        ...(singleLine && singleLine.type === "payment" && gstType === "part-gst"
           ? { gstFreeAmountCents: parsedGstFreeCents }
           : {}),
         ...(trimmedNotes.length > 0 ? { notes: trimmedNotes } : {}),
       };
-      await onSelectCategory(line, selectedCategoryId, options);
+      if (onSelectCategoryForLines) {
+        await onSelectCategoryForLines(targetLines, selectedCategoryId, options);
+      } else if (onSelectCategory) {
+        for (const item of targetLines) {
+          await onSelectCategory(item, selectedCategoryId, options);
+        }
+      }
       onDismiss();
     } catch {
       // Parent handles reporting the error; keep modal open
@@ -167,12 +255,18 @@ export const StatementLineCategoryModal = ({
   };
 
   const handleClear = async () => {
-    if (!line || !onClearCategory || isSaving) {
+    if (targetLines.length === 0 || !hasClearHandler || isSaving) {
       return;
     }
     setIsSaving(true);
     try {
-      await onClearCategory(line);
+      if (onClearCategoryForLines) {
+        await onClearCategoryForLines(targetLines);
+      } else if (onClearCategory) {
+        for (const item of targetLines) {
+          await onClearCategory(item);
+        }
+      }
       onDismiss();
     } catch {
       // Parent handles reporting the error; keep modal open
@@ -182,12 +276,18 @@ export const StatementLineCategoryModal = ({
   };
 
   const handleSetPrivate = async (isPrivate: boolean) => {
-    if (!line || !onSetPrivate || isSaving) {
+    if (targetLines.length === 0 || !hasPrivateHandler || isSaving) {
       return;
     }
     setIsSaving(true);
     try {
-      await onSetPrivate(line, isPrivate);
+      if (onSetPrivateForLines) {
+        await onSetPrivateForLines(targetLines, isPrivate);
+      } else if (onSetPrivate) {
+        for (const item of targetLines) {
+          await onSetPrivate(item, isPrivate);
+        }
+      }
       onDismiss();
     } catch {
       // Parent handles reporting the error; keep modal open
@@ -196,6 +296,18 @@ export const StatementLineCategoryModal = ({
     }
   };
 
+  const sortedDates = targetLines.map((item) => item.date).sort();
+  const minDate = sortedDates[0] ?? "";
+  const maxDate = sortedDates[sortedDates.length - 1] ?? "";
+  const dateRangeLabel =
+    minDate && maxDate ? (minDate === maxDate ? minDate : `${minDate} – ${maxDate}`) : "";
+  const multiAccountLabel = resolvedAccount
+    ? resolvedAccount.name
+    : uniqueAccountIds.length > 1
+      ? pluralize(uniqueAccountIds.length, "account")
+      : "";
+  const multiSubtitle = [dateRangeLabel, multiAccountLabel].filter(Boolean).join(" · ");
+
   return (
     <IonModal isOpen={isOpen} onDidDismiss={onDismiss}>
       <IonHeader>
@@ -203,7 +315,9 @@ export const StatementLineCategoryModal = ({
           <IonButtons slot="start">
             <IonButton onClick={onDismiss}>Cancel</IonButton>
           </IonButtons>
-          <IonTitle>Categorise Line</IonTitle>
+          <IonTitle>
+            {isMultiLine ? `Categorise ${targetLines.length} Lines` : "Categorise Line"}
+          </IonTitle>
           <IonButtons slot="end">
             <IonButton
               strong
@@ -218,33 +332,39 @@ export const StatementLineCategoryModal = ({
         </IonToolbar>
       </IonHeader>
       <IonContent>
-        {line ? (
+        {targetLines.length > 0 && lineType ? (
           <>
             <IonList inset>
               <IonItem>
                 <IonLabel>
-                  <h2>{line.description}</h2>
+                  <h2>
+                    {singleLine
+                      ? singleLine.description
+                      : `${pluralize(targetLines.length, "statement line")} selected`}
+                  </h2>
                   <p>
-                    {line.date}
-                    {account ? ` · ${account.name}` : ""}
+                    {singleLine
+                      ? `${singleLine.date}${resolvedAccount ? ` · ${resolvedAccount.name}` : ""}`
+                      : multiSubtitle}
                   </p>
                 </IonLabel>
-                <IonBadge slot="end" color={bankTransactionTypeColor(line.type)}>
-                  {bankTransactionTypeLabel(line.type)}
+                <IonBadge slot="end" color={bankTransactionTypeColor(lineType)}>
+                  {isMultiLine
+                    ? `${bankTransactionTypeLabel(lineType)}s`
+                    : bankTransactionTypeLabel(lineType)}
                 </IonBadge>
               </IonItem>
               <IonItem>
-                <IonLabel>Amount</IonLabel>
+                <IonLabel>{isMultiLine ? "Total Amount" : "Amount"}</IonLabel>
                 <IonNote slot="end">
                   <strong>
-                    {line.type === "payment" ? "-" : "+"}
-                    {formatCurrency(line.amountCents, currency)}
+                    {formatTotals((entry) => entry.total, lineType === "payment" ? "-" : "+")}
                   </strong>
                 </IonNote>
               </IonItem>
             </IonList>
 
-            {line.isPrivate ? (
+            {allPrivate ? (
               <IonList inset>
                 <IonItem lines="none">
                   <IonLabel>
@@ -253,7 +373,7 @@ export const StatementLineCategoryModal = ({
                     </IonNote>
                   </IonLabel>
                 </IonItem>
-                {onSetPrivate ? (
+                {hasPrivateHandler ? (
                   <IonItem
                     button
                     detail={false}
@@ -262,7 +382,9 @@ export const StatementLineCategoryModal = ({
                       void handleSetPrivate(false);
                     }}
                   >
-                    <IonLabel color="primary">Mark as Business</IonLabel>
+                    <IonLabel color="primary">
+                      {isMultiLine ? "Mark All as Business" : "Mark as Business"}
+                    </IonLabel>
                   </IonItem>
                 ) : null}
               </IonList>
@@ -270,12 +392,12 @@ export const StatementLineCategoryModal = ({
               <>
                 <IonList inset>
                   <IonListHeader>
-                    Select {bankTransactionTypeLabel(line.type)} Category
+                    Select {bankTransactionTypeLabel(lineType)} Category
                   </IonListHeader>
                   {matchingCategories.length === 0 ? (
                     <IonItem lines="none">
                       <IonNote color="medium">
-                        No {line.type} categories available — add one in the Categories section
+                        No {lineType} categories available — add one in the Categories section
                       </IonNote>
                     </IonItem>
                   ) : (
@@ -312,7 +434,11 @@ export const StatementLineCategoryModal = ({
                 <IonList inset>
                   <IonListHeader>GST (10%)</IonListHeader>
                   <IonItem
-                    lines={line.type === "payment" && gstType === "part-gst" ? "full" : "none"}
+                    lines={
+                      singleLine && singleLine.type === "payment" && gstType === "part-gst"
+                        ? "full"
+                        : "none"
+                    }
                   >
                     <IonSegment
                       value={gstType}
@@ -331,7 +457,7 @@ export const StatementLineCategoryModal = ({
                     </IonSegment>
                   </IonItem>
 
-                  {line.type === "payment" && gstType === "part-gst" ? (
+                  {singleLine && singleLine.type === "payment" && gstType === "part-gst" ? (
                     <IonItem>
                       <IonInput
                         label="GST Free Amount"
@@ -350,13 +476,13 @@ export const StatementLineCategoryModal = ({
                   <IonItem lines="none">
                     <IonLabel>
                       <IonNote color={!isGstFreeValid ? "danger" : undefined}>
-                        {!isGstFreeValid
-                          ? `Enter a GST free amount between ${formatCurrency(0, currency)} and ${formatCurrency(line.amountCents, currency)}`
+                        {!isGstFreeValid && singleLine
+                          ? `Enter a GST free amount between ${formatCurrency(0, currency)} and ${formatCurrency(singleLine.amountCents, currency)}`
                           : gstType === "gst"
-                            ? `GST (10%): ${formatCurrency(gstAmountCents, currency)} · Net (ex-GST): ${formatCurrency(netAmountCents, currency)}`
+                            ? `GST (10%): ${formatTotals((entry) => entry.gst)} · Net (ex-GST): ${formatTotals((entry) => entry.net)}`
                             : gstType === "gst-free"
-                              ? `GST Free: ${formatCurrency(line.amountCents, currency)} · GST: ${formatCurrency(0, currency)}`
-                              : `GST Free: ${formatCurrency(effectiveGstFreeCents, currency)} · Taxable: ${formatCurrency(taxableAmountCents, currency)} · GST (10%): ${formatCurrency(gstAmountCents, currency)}`}
+                              ? `GST Free: ${formatTotals((entry) => entry.total)} · GST: ${formatTotals((entry) => entry.gst)}`
+                              : `GST Free: ${formatCurrency(effectiveGstFreeCents, currency)} · Taxable: ${formatTotals((entry) => entry.taxable)} · GST (10%): ${formatTotals((entry) => entry.gst)}`}
                       </IonNote>
                     </IonLabel>
                   </IonItem>
@@ -374,7 +500,7 @@ export const StatementLineCategoryModal = ({
                   </IonItem>
                 </IonList>
 
-                {line.allocations.length > 0 && onClearCategory ? (
+                {hasAllocations && hasClearHandler ? (
                   <IonList inset>
                     <IonItem
                       button
@@ -389,8 +515,20 @@ export const StatementLineCategoryModal = ({
                   </IonList>
                 ) : null}
 
-                {onSetPrivate ? (
+                {hasPrivateHandler ? (
                   <IonList inset>
+                    {somePrivate ? (
+                      <IonItem
+                        button
+                        detail={false}
+                        disabled={isSaving}
+                        onClick={() => {
+                          void handleSetPrivate(false);
+                        }}
+                      >
+                        <IonLabel color="primary">Mark All as Business</IonLabel>
+                      </IonItem>
+                    ) : null}
                     <IonItem
                       button
                       detail={false}
@@ -400,7 +538,7 @@ export const StatementLineCategoryModal = ({
                       }}
                     >
                       <IonLabel>Mark as Private (non-business)</IonLabel>
-                      {line.allocations.length > 0 ? (
+                      {hasAllocations ? (
                         <IonNote slot="end">allocations will be removed</IonNote>
                       ) : null}
                     </IonItem>

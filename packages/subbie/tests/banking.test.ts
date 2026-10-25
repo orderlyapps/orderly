@@ -1052,3 +1052,94 @@ test("deleteStatement removes the statement and its lines and emits change event
     await store.close();
   }
 });
+
+test("bulk allocates, clears, and sets private status across multiple statement lines", async () => {
+  const store = await createBankingStore({
+    name: nextStoreName("subbie_banking_bulk"),
+    storage: getRxStorageMemory(),
+  });
+
+  try {
+    const account = await store.createAccount({
+      name: "Business Account",
+      currency: "AUD",
+    });
+    const materialsCat = store
+      .listCategories("payment")
+      .find((cat) => cat.name === "Materials & Supplies")!;
+
+    const p1 = await store.createStatementLine({
+      accountId: account.id,
+      date: "2026-10-20",
+      description: "Bunnings #1",
+      type: "payment",
+      amountCents: 11_000,
+    });
+    const p2 = await store.createStatementLine({
+      accountId: account.id,
+      date: "2026-10-21",
+      description: "Bunnings #2",
+      type: "payment",
+      amountCents: 22_000,
+    });
+    const r1 = await store.createStatementLine({
+      accountId: account.id,
+      date: "2026-10-22",
+      description: "Client Payment",
+      type: "receipt",
+      amountCents: 55_000,
+    });
+
+    // Empty selection is a no-op
+    expect(await store.allocateLinesToCategory([], materialsCat.id)).toEqual([]);
+
+    // Rejects mixed payment/receipt batch without mutating earlier lines
+    await expect(store.allocateLinesToCategory([p1.id, r1.id], materialsCat.id)).rejects.toThrow(
+      "cannot be allocated to a receipt line",
+    );
+    expect(store.getStatementLine(p1.id)?.allocations).toEqual([]);
+
+    // Bulk allocate multiple payment lines together with GST options and notes
+    const allocated = await store.allocateLinesToCategory([p1.id, p2.id], materialsCat.id, {
+      gstType: "gst-free",
+      notes: "Bulk trade supplies",
+    });
+    expect(allocated).toHaveLength(2);
+    expect(store.getStatementLine(p1.id)?.allocations).toMatchObject([
+      {
+        categoryId: materialsCat.id,
+        amountCents: 11_000,
+        gstType: "gst-free",
+        notes: "Bulk trade supplies",
+      },
+    ]);
+    expect(store.getStatementLine(p2.id)?.allocations).toMatchObject([
+      {
+        categoryId: materialsCat.id,
+        amountCents: 22_000,
+        gstType: "gst-free",
+        notes: "Bulk trade supplies",
+      },
+    ]);
+
+    // Bulk clear category allocations
+    const cleared = await store.clearLinesAllocations([p1.id, p2.id]);
+    expect(cleared).toHaveLength(2);
+    expect(store.getStatementLine(p1.id)?.allocations).toEqual([]);
+    expect(store.getStatementLine(p2.id)?.allocations).toEqual([]);
+
+    // Bulk mark private and back to business
+    await store.allocateLinesToCategory([p1.id, p2.id], materialsCat.id);
+    const privated = await store.setLinesPrivate([p1.id, p2.id], true);
+    expect(privated.every((line) => line.isPrivate && line.allocations.length === 0)).toBe(true);
+
+    await expect(store.allocateLinesToCategory([p1.id, p2.id], materialsCat.id)).rejects.toThrow(
+      "mark it as business",
+    );
+
+    const business = await store.setLinesPrivate([p1.id, p2.id], false);
+    expect(business.every((line) => !line.isPrivate)).toBe(true);
+  } finally {
+    await store.close();
+  }
+});

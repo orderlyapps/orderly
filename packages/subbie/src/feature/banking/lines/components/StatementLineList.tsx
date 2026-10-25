@@ -1,10 +1,13 @@
 import {
+  IonButton,
+  IonCheckbox,
   IonItem,
   IonItemOption,
   IonItemOptions,
   IonItemSliding,
   IonLabel,
   IonList,
+  IonListHeader,
   IonNote,
   IonText,
 } from "@ionic/react";
@@ -16,7 +19,12 @@ import {
 } from "../../../invoices/schema.ts";
 import type { BankAccountDocument } from "../../accounts/schema.ts";
 import type { BankCategoryDocument } from "../../categories/schema.ts";
-import { bankTransactionTypeColor } from "../../types.ts";
+import {
+  bankTransactionTypeColor,
+  bankTransactionTypeLabel,
+  pluralize,
+  type BankTransactionType,
+} from "../../types.ts";
 import {
   allocatedAmountCents,
   allocationGstAmountCents,
@@ -33,6 +41,14 @@ export interface StatementLineListProps {
   onSelect?: (line: BankStatementLineDocument) => void;
   onDelete?: (line: BankStatementLineDocument) => void;
   emptyMessage?: string;
+  selectionMode?: boolean;
+  selectedLineIds?: readonly string[];
+  lockedTransactionType?: BankTransactionType | null;
+  onToggleSelectionMode?: () => void;
+  onToggleSelectLine?: (line: BankStatementLineDocument) => void;
+  onSelectAll?: (lines: BankStatementLineDocument[]) => void;
+  onClearSelection?: () => void;
+  onCategoriseSelected?: () => void;
 }
 
 export const StatementLineList = ({
@@ -43,13 +59,94 @@ export const StatementLineList = ({
   onSelect,
   onDelete,
   emptyMessage = "No statement lines yet",
+  selectionMode = false,
+  selectedLineIds = [],
+  lockedTransactionType,
+  onToggleSelectionMode,
+  onToggleSelectLine,
+  onSelectAll,
+  onClearSelection,
+  onCategoriseSelected,
 }: StatementLineListProps) => {
   const accountById = new Map(accounts.map((acc) => [acc.id, acc]));
   const categoryById = new Map(categories.map((cat) => [cat.id, cat]));
   const invoiceById = new Map((invoices ?? []).map((inv) => [inv.id, inv]));
+  const selectedSet = new Set(selectedLineIds);
+  const selectedLines = lines.filter((line) => selectedSet.has(line.id));
+  const selectedCount = selectedLines.length;
+
+  const hasPayments = lines.some((line) => line.type === "payment");
+  const hasReceipts = lines.some((line) => line.type === "receipt");
+  const singleListType: BankTransactionType | null =
+    hasPayments && !hasReceipts ? "payment" : hasReceipts && !hasPayments ? "receipt" : null;
+
+  const effectiveLockedType: BankTransactionType | null =
+    lockedTransactionType ?? selectedLines[0]?.type ?? singleListType;
+
+  const selectableLines = effectiveLockedType
+    ? lines.filter((line) => line.type === effectiveLockedType)
+    : [];
+  const allSelectableSelected =
+    selectableLines.length > 0 && selectableLines.every((line) => selectedSet.has(line.id));
 
   return (
     <IonList inset>
+      {lines.length > 0 && (onToggleSelectionMode || selectionMode) ? (
+        <IonListHeader>
+          <IonLabel>
+            {selectionMode
+              ? selectedCount > 0
+                ? `${pluralize(selectedCount, "line")} selected`
+                : "Select Lines"
+              : "Statement Lines"}
+          </IonLabel>
+          {onToggleSelectionMode ? (
+            <IonButton onClick={onToggleSelectionMode}>
+              {selectionMode ? "Done" : "Select"}
+            </IonButton>
+          ) : null}
+        </IonListHeader>
+      ) : null}
+
+      {lines.length > 0 && selectionMode ? (
+        <IonItem lines="full">
+          {selectableLines.length > 0 && (onSelectAll || onClearSelection) ? (
+            <IonButton
+              slot="start"
+              fill="clear"
+              size="small"
+              onClick={() => {
+                if (allSelectableSelected) {
+                  onClearSelection?.();
+                } else {
+                  onSelectAll?.(selectableLines);
+                }
+              }}
+            >
+              {allSelectableSelected
+                ? "Deselect All"
+                : singleListType
+                  ? "Select All"
+                  : `Select All ${bankTransactionTypeLabel(effectiveLockedType!)}s`}
+            </IonButton>
+          ) : (
+            <IonLabel>
+              <IonNote>Select a payment or receipt to choose matching lines</IonNote>
+            </IonLabel>
+          )}
+          {onCategoriseSelected ? (
+            <IonButton
+              slot="end"
+              size="small"
+              disabled={selectedCount === 0}
+              onClick={onCategoriseSelected}
+            >
+              Categorise{selectedCount > 0 ? ` (${selectedCount})` : ""}
+            </IonButton>
+          ) : null}
+        </IonItem>
+      ) : null}
+
       {lines.length === 0 ? (
         <IonItem lines="none">
           <IonLabel>
@@ -78,10 +175,35 @@ export const StatementLineList = ({
             .filter(Boolean);
           const allocated = allocatedAmountCents(line);
           const fullyAllocated = isLineFullyAllocated(line);
+          const isSelected = selectedSet.has(line.id);
+          const isTypeDisabled =
+            selectionMode && effectiveLockedType !== null && line.type !== effectiveLockedType;
 
           return (
             <IonItemSliding key={line.id}>
-              <IonItem button detail onClick={() => onSelect?.(line)}>
+              <IonItem
+                button
+                detail={!selectionMode}
+                disabled={isTypeDisabled}
+                onClick={() => {
+                  if (selectionMode) {
+                    if (!isTypeDisabled) {
+                      onToggleSelectLine?.(line);
+                    }
+                  } else {
+                    onSelect?.(line);
+                  }
+                }}
+              >
+                {selectionMode ? (
+                  <IonCheckbox
+                    slot="start"
+                    checked={isSelected}
+                    disabled={isTypeDisabled}
+                    aria-label={`Select ${line.description}`}
+                    style={{ pointerEvents: "none" }}
+                  />
+                ) : null}
                 <IonLabel>
                   <h2>{line.description}</h2>
                   <IonNote>

@@ -396,6 +396,88 @@ export function createBankStatementLinesActions({
     return updateStatementLine(lineId, { isPrivate });
   }
 
+  async function allocateLinesToCategory(
+    lineIds: readonly string[],
+    categoryId: string,
+    notesOrOptions?: string | AllocateLineToCategoryOptions,
+  ): Promise<BankStatementLineDocument[]> {
+    const uniqueIds = Array.from(
+      new Set(lineIds.map((id) => id.trim()).filter((id) => id.length > 0)),
+    );
+    if (uniqueIds.length === 0) {
+      return [];
+    }
+    const resolvedOptions: AllocateLineToCategoryOptions =
+      typeof notesOrOptions === "string" ? { notes: notesOrOptions } : (notesOrOptions ?? {});
+    const gstType: BankGstType = resolvedOptions.gstType ?? "gst";
+    const notes = resolvedOptions.notes?.trim();
+
+    const targetLines = uniqueIds.map((lineId) => {
+      const current = getStatementLine(lineId);
+      if (!current) {
+        throw new Error(`Bank statement line not found: ${lineId}`);
+      }
+      if (current.isPrivate) {
+        throw new Error("Statement line is private — mark it as business before allocating");
+      }
+      validateAllocationsAgainstCategories(current.type, current.amountCents, [
+        {
+          categoryId,
+          amountCents: current.amountCents,
+          gstType,
+          ...(gstType === "part-gst" && resolvedOptions.gstFreeAmountCents !== undefined
+            ? { gstFreeAmountCents: resolvedOptions.gstFreeAmountCents }
+            : {}),
+          ...(notes && notes.length > 0 ? { notes } : {}),
+        },
+      ]);
+      return current;
+    });
+
+    const results: BankStatementLineDocument[] = [];
+    for (const line of targetLines) {
+      results.push(await allocateLineToCategory(line.id, categoryId, resolvedOptions));
+    }
+    return results;
+  }
+
+  async function clearLinesAllocations(
+    lineIds: readonly string[],
+  ): Promise<BankStatementLineDocument[]> {
+    const uniqueIds = Array.from(
+      new Set(lineIds.map((id) => id.trim()).filter((id) => id.length > 0)),
+    );
+    for (const lineId of uniqueIds) {
+      if (!getStatementLine(lineId)) {
+        throw new Error(`Bank statement line not found: ${lineId}`);
+      }
+    }
+    const results: BankStatementLineDocument[] = [];
+    for (const lineId of uniqueIds) {
+      results.push(await clearLineAllocations(lineId));
+    }
+    return results;
+  }
+
+  async function setLinesPrivate(
+    lineIds: readonly string[],
+    isPrivate: boolean,
+  ): Promise<BankStatementLineDocument[]> {
+    const uniqueIds = Array.from(
+      new Set(lineIds.map((id) => id.trim()).filter((id) => id.length > 0)),
+    );
+    for (const lineId of uniqueIds) {
+      if (!getStatementLine(lineId)) {
+        throw new Error(`Bank statement line not found: ${lineId}`);
+      }
+    }
+    const results: BankStatementLineDocument[] = [];
+    for (const lineId of uniqueIds) {
+      results.push(await setLinePrivate(lineId, isPrivate));
+    }
+    return results;
+  }
+
   return {
     listStatementLines,
     getStatementLine,
@@ -406,8 +488,11 @@ export function createBankStatementLinesActions({
     linkInvoiceToLine,
     unlinkInvoiceFromLine,
     allocateLineToCategory,
+    allocateLinesToCategory,
     setLineAllocations,
     clearLineAllocations,
+    clearLinesAllocations,
     setLinePrivate,
+    setLinesPrivate,
   };
 }

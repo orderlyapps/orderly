@@ -16,6 +16,7 @@ import {
 import { useInvoices, type InvoicesStore } from "../../invoices/index.ts";
 import type { BankingStore } from "../db.ts";
 import { useBanking } from "../hooks.ts";
+import { pluralize } from "../types.ts";
 import { StatementLineCategoryModal } from "./components/StatementLineCategoryModal.tsx";
 import { StatementLineList } from "./components/StatementLineList.tsx";
 import type { AllocateLineToCategoryOptions } from "./db.ts";
@@ -54,8 +55,11 @@ export const BankCategoriseView = ({
     isLoading,
     error,
     allocateLineToCategory,
+    allocateLinesToCategory,
     clearLineAllocations,
+    clearLinesAllocations,
     setLinePrivate,
+    setLinesPrivate,
   } = useBanking(customStore);
   const { invoices } = useInvoices(invoicesStore);
 
@@ -67,6 +71,8 @@ export const BankCategoriseView = ({
   const [categoryFilterId, setCategoryFilterId] = useState<string>(initialCategoryId);
   const [searchQuery, setSearchQuery] = useState<string>(initialSearchQuery);
   const [selectedLine, setSelectedLine] = useState<BankStatementLineDocument | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedLineIds, setSelectedLineIds] = useState<string[]>([]);
   const [lineCategoryOpen, setLineCategoryOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
@@ -117,6 +123,19 @@ export const BankCategoriseView = ({
     ? (accounts.find((entry) => entry.id === activeLine.accountId) ?? null)
     : null;
 
+  const filteredLineIdSet = new Set(filteredLines.map((line) => line.id));
+  const visibleSelectedLineIds = selectedLineIds.filter((id) => filteredLineIdSet.has(id));
+  const selectedLines = filteredLines.filter((line) => visibleSelectedLineIds.includes(line.id));
+  const lockedTransactionType = selectedLines[0]?.type ?? null;
+  const modalLines = selectionMode ? selectedLines : activeLine ? [activeLine] : [];
+
+  const finishBulkAction = () => {
+    if (selectionMode) {
+      setSelectedLineIds([]);
+      setSelectionMode(false);
+    }
+  };
+
   const handleSelectCategory = async (
     line: BankStatementLineDocument,
     categoryId: string,
@@ -135,11 +154,77 @@ export const BankCategoriseView = ({
     }
   };
 
+  const handleSelectCategoryForLines = async (
+    linesToUpdate: BankStatementLineDocument[],
+    categoryId: string,
+    options?: AllocateLineToCategoryOptions,
+  ) => {
+    if (linesToUpdate.length === 1 && !selectionMode) {
+      await handleSelectCategory(linesToUpdate[0]!, categoryId, options);
+      return;
+    }
+    const privateIds = linesToUpdate.filter((line) => line.isPrivate).map((line) => line.id);
+    try {
+      if (privateIds.length > 0) {
+        await setLinesPrivate(privateIds, false);
+      }
+      const updated = await allocateLinesToCategory(
+        linesToUpdate.map((line) => line.id),
+        categoryId,
+        options,
+      );
+      if (updated.length === 1) {
+        setSelectedLine(updated[0] ?? null);
+      }
+      finishBulkAction();
+      const matchedCategory = categories.find((cat) => cat.id === categoryId);
+      if (linesToUpdate.length === 1) {
+        setStatusMessage(
+          matchedCategory ? `Categorised as ${matchedCategory.name}` : "Categorised statement line",
+        );
+      } else {
+        setStatusMessage(
+          matchedCategory
+            ? `Categorised ${pluralize(linesToUpdate.length, "line")} as ${matchedCategory.name}`
+            : `Categorised ${pluralize(linesToUpdate.length, "statement line")}`,
+        );
+      }
+    } catch (err) {
+      if (privateIds.length > 0) {
+        await setLinesPrivate(privateIds, true).catch(() => undefined);
+      }
+      setStatusMessage(err instanceof Error ? err.message : "Failed to categorise statement lines");
+      throw err;
+    }
+  };
+
   const handleClearCategory = async (line: BankStatementLineDocument) => {
     try {
       const updated = await clearLineAllocations(line.id);
       setSelectedLine(updated);
       setStatusMessage("Cleared category allocation");
+    } catch (err) {
+      setStatusMessage(err instanceof Error ? err.message : "Failed to clear category allocation");
+      throw err;
+    }
+  };
+
+  const handleClearCategoryForLines = async (linesToUpdate: BankStatementLineDocument[]) => {
+    if (linesToUpdate.length === 1 && !selectionMode) {
+      await handleClearCategory(linesToUpdate[0]!);
+      return;
+    }
+    try {
+      const updated = await clearLinesAllocations(linesToUpdate.map((line) => line.id));
+      if (updated.length === 1) {
+        setSelectedLine(updated[0] ?? null);
+      }
+      finishBulkAction();
+      setStatusMessage(
+        linesToUpdate.length === 1
+          ? "Cleared category allocation"
+          : `Cleared category allocation for ${pluralize(linesToUpdate.length, "line")}`,
+      );
     } catch (err) {
       setStatusMessage(err instanceof Error ? err.message : "Failed to clear category allocation");
       throw err;
@@ -157,6 +242,63 @@ export const BankCategoriseView = ({
       setStatusMessage(err instanceof Error ? err.message : "Failed to update private status");
       throw err;
     }
+  };
+
+  const handleSetPrivateForLines = async (
+    linesToUpdate: BankStatementLineDocument[],
+    isPrivate: boolean,
+  ) => {
+    if (linesToUpdate.length === 1 && !selectionMode) {
+      await handleSetPrivate(linesToUpdate[0]!, isPrivate);
+      return;
+    }
+    try {
+      const updated = await setLinesPrivate(
+        linesToUpdate.map((line) => line.id),
+        isPrivate,
+      );
+      if (updated.length === 1) {
+        setSelectedLine(updated[0] ?? null);
+      }
+      finishBulkAction();
+      if (linesToUpdate.length === 1) {
+        setStatusMessage(
+          isPrivate ? "Marked as private — excluded from totals" : "Marked as business",
+        );
+      } else {
+        setStatusMessage(
+          isPrivate
+            ? `Marked ${pluralize(linesToUpdate.length, "line")} as private — excluded from totals`
+            : `Marked ${pluralize(linesToUpdate.length, "line")} as business`,
+        );
+      }
+    } catch (err) {
+      setStatusMessage(err instanceof Error ? err.message : "Failed to update private status");
+      throw err;
+    }
+  };
+
+  const handleToggleSelectionMode = () => {
+    setSelectionMode((prev) => {
+      if (prev) {
+        setSelectedLineIds([]);
+      }
+      return !prev;
+    });
+  };
+
+  const handleToggleSelectLine = (line: BankStatementLineDocument) => {
+    setSelectedLineIds((prev) => {
+      const activePrev = prev.filter((id) => filteredLineIdSet.has(id));
+      if (activePrev.includes(line.id)) {
+        return activePrev.filter((id) => id !== line.id);
+      }
+      const firstSelected = filteredLines.find((item) => activePrev.includes(item.id));
+      if (firstSelected && firstSelected.type !== line.type) {
+        return activePrev;
+      }
+      return [...activePrev, line.id];
+    });
   };
 
   const clearCategoriseFilters = () => {
@@ -295,6 +437,21 @@ export const BankCategoriseView = ({
             accounts={accounts}
             categories={categories}
             invoices={invoices}
+            selectionMode={selectionMode}
+            selectedLineIds={visibleSelectedLineIds}
+            lockedTransactionType={lockedTransactionType}
+            onToggleSelectionMode={handleToggleSelectionMode}
+            onToggleSelectLine={handleToggleSelectLine}
+            onSelectAll={(linesToSelect) =>
+              setSelectedLineIds(linesToSelect.map((line) => line.id))
+            }
+            onClearSelection={() => setSelectedLineIds([])}
+            onCategoriseSelected={() => {
+              if (selectedLines.length > 0) {
+                setSelectedLine(null);
+                setLineCategoryOpen(true);
+              }
+            }}
             onSelect={(line) => {
               setSelectedLine(line);
               setLineCategoryOpen(true);
@@ -310,13 +467,18 @@ export const BankCategoriseView = ({
 
       <StatementLineCategoryModal
         line={activeLine}
+        lines={modalLines}
         account={activeLineAccount}
+        accounts={accounts}
         categories={categories}
         isOpen={lineCategoryOpen}
         onDismiss={() => setLineCategoryOpen(false)}
         onSelectCategory={handleSelectCategory}
+        onSelectCategoryForLines={handleSelectCategoryForLines}
         onClearCategory={handleClearCategory}
+        onClearCategoryForLines={handleClearCategoryForLines}
         onSetPrivate={handleSetPrivate}
+        onSetPrivateForLines={handleSetPrivateForLines}
       />
 
       <IonToast

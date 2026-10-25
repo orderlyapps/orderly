@@ -62,12 +62,22 @@ export interface UseBankingResult {
     categoryId: string,
     notesOrOptions?: string | AllocateLineToCategoryOptions,
   ) => Promise<BankStatementLineDocument>;
+  allocateLinesToCategory: (
+    lineIds: readonly string[],
+    categoryId: string,
+    notesOrOptions?: string | AllocateLineToCategoryOptions,
+  ) => Promise<BankStatementLineDocument[]>;
   setLineAllocations: (
     lineId: string,
     allocations: readonly BankLineAllocationInput[],
   ) => Promise<BankStatementLineDocument>;
   clearLineAllocations: (lineId: string) => Promise<BankStatementLineDocument>;
+  clearLinesAllocations: (lineIds: readonly string[]) => Promise<BankStatementLineDocument[]>;
   setLinePrivate: (lineId: string, isPrivate: boolean) => Promise<BankStatementLineDocument>;
+  setLinesPrivate: (
+    lineIds: readonly string[],
+    isPrivate: boolean,
+  ) => Promise<BankStatementLineDocument[]>;
   importStatementCsv: (input: ImportBankStatementCsvInput) => Promise<ImportBankStatementCsvResult>;
   importStatementCsvFile: (
     file: Blob & { name?: string },
@@ -204,11 +214,16 @@ export function useBanking(customStore?: BankingStore): UseBankingResult {
       (await resolveStore()).unlinkInvoiceFromLine(lineId, invoiceId),
     allocateLineToCategory: async (lineId, categoryId, notesOrOptions) =>
       (await resolveStore()).allocateLineToCategory(lineId, categoryId, notesOrOptions),
+    allocateLinesToCategory: async (lineIds, categoryId, notesOrOptions) =>
+      (await resolveStore()).allocateLinesToCategory(lineIds, categoryId, notesOrOptions),
     setLineAllocations: async (lineId, allocations) =>
       (await resolveStore()).setLineAllocations(lineId, allocations),
     clearLineAllocations: async (lineId) => (await resolveStore()).clearLineAllocations(lineId),
+    clearLinesAllocations: async (lineIds) => (await resolveStore()).clearLinesAllocations(lineIds),
     setLinePrivate: async (lineId, isPrivate) =>
       (await resolveStore()).setLinePrivate(lineId, isPrivate),
+    setLinesPrivate: async (lineIds, isPrivate) =>
+      (await resolveStore()).setLinesPrivate(lineIds, isPrivate),
     importStatementCsv: async (input) => (await resolveStore()).importStatementCsv(input),
     importStatementCsvFile: async (file, accountId, options) =>
       (await resolveStore()).importStatementCsvFile(file, accountId, options),
