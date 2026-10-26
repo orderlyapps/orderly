@@ -1,6 +1,13 @@
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from "@ionic/react";
-
-import ExploreContainer from "../components/ExploreContainer";
+import {
+  IonContent,
+  IonHeader,
+  IonItem,
+  IonLabel,
+  IonList,
+  IonPage,
+  IonTitle,
+  IonToolbar,
+} from "@ionic/react";
 
 const Ministry = () => {
   return (
@@ -16,7 +23,17 @@ const Ministry = () => {
             <IonTitle size="large">Ministry</IonTitle>
           </IonToolbar>
         </IonHeader>
-        <ExploreContainer name="Ministry page" />
+        <IonList>
+          <IonItem routerLink="/ministry/map" detail>
+            <IonLabel>Map</IonLabel>
+          </IonItem>
+          <IonItem routerLink="/ministry/letter-writing" detail>
+            <IonLabel>Letter Writing</IonLabel>
+          </IonItem>
+          <IonItem routerLink="/ministry/schedule" detail>
+            <IonLabel>Schedule</IonLabel>
+          </IonItem>
+        </IonList>
       </IonContent>
     </IonPage>
   );
