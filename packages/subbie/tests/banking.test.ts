@@ -19,6 +19,7 @@ import {
   DEFAULT_BANK_CSV_PRESET,
   detectBankCsvPresetFromHeaders,
   filterStatementLines,
+  getAustralianFinancialYear,
   isBankAccountDocument,
   isBankCategoryDocument,
   isBankCsvColumnRole,
@@ -29,6 +30,7 @@ import {
   isBankStatementDocument,
   isBankStatementLineDocument,
   isBankTransactionType,
+  isDateInFinancialYear,
   isLineFullyAllocated,
   isValidBankId,
   lineGstAmountCents,
@@ -46,6 +48,8 @@ import {
   parseCurrencyToCents,
   presetFromColumnRoles,
   signedStatementLineAmountCents,
+  summarizeBankingFinancialYears,
+  summarizeFinancialYear,
   unallocatedAmountCents,
   validateBankAccountInput,
   validateBankCategoryInput,
@@ -1142,4 +1146,286 @@ test("bulk allocates, clears, and sets private status across multiple statement 
   } finally {
     await store.close();
   }
+});
+
+test("calculates current and previous Australian financial year summaries (July 1 - June 30)", () => {
+  // Reference date in October 2026 -> Current FY is 2026-07-01 to 2027-06-30, Previous FY is 2025-07-01 to 2026-06-30
+  const fyOct2026 = getAustralianFinancialYear("2026-10-25", 0);
+  expect(fyOct2026).toEqual({
+    startYear: 2026,
+    endYear: 2027,
+    startDate: "2026-07-01",
+    endDate: "2027-06-30",
+    label: "FY 2026–27",
+  });
+  expect(getAustralianFinancialYear("2026-10-25", -1)).toEqual({
+    startYear: 2025,
+    endYear: 2026,
+    startDate: "2025-07-01",
+    endDate: "2026-06-30",
+    label: "FY 2025–26",
+  });
+
+  // Reference date in June 2026 -> Current FY is 2025-07-01 to 2026-06-30, Previous FY is 2024-07-01 to 2025-06-30
+  expect(getAustralianFinancialYear("2026-06-30", 0)).toEqual({
+    startYear: 2025,
+    endYear: 2026,
+    startDate: "2025-07-01",
+    endDate: "2026-06-30",
+    label: "FY 2025–26",
+  });
+  expect(getAustralianFinancialYear("2026-07-01", 0)).toEqual({
+    startYear: 2026,
+    endYear: 2027,
+    startDate: "2026-07-01",
+    endDate: "2027-06-30",
+    label: "FY 2026–27",
+  });
+
+  expect(isDateInFinancialYear("2026-06-30", fyOct2026)).toBe(false);
+  expect(isDateInFinancialYear("2026-07-01", fyOct2026)).toBe(true);
+  expect(isDateInFinancialYear("2027-06-30", fyOct2026)).toBe(true);
+  expect(isDateInFinancialYear("2027-07-01", fyOct2026)).toBe(false);
+
+  const account = normalizeBankAccountDocument({
+    id: "acc_aud",
+    name: "Operating",
+    currency: "AUD",
+  });
+  const customerReceiptsCat = normalizeBankCategoryDocument({
+    id: "cat_receipts",
+    name: "Customer Receipts",
+    type: "receipt",
+  });
+  const otherIncomeCat = normalizeBankCategoryDocument({
+    id: "cat_other_income",
+    name: "Other Income",
+    type: "receipt",
+  });
+  const materialsCat = normalizeBankCategoryDocument({
+    id: "cat_materials",
+    name: "Materials & Supplies",
+    type: "payment",
+  });
+  const toolsCat = normalizeBankCategoryDocument({
+    id: "cat_tools",
+    name: "Tools & Equipment",
+    type: "payment",
+  });
+  const categories = [materialsCat, customerReceiptsCat, toolsCat, otherIncomeCat];
+
+  const statementLines = [
+    // Current FY (2026-07-01 to 2027-06-30)
+    // Receipt 1: $2,200.00 incl GST -> $200.00 GST, $2,000.00 ex GST
+    normalizeBankStatementLineDocument({
+      id: "curr_r1",
+      accountId: account.id,
+      date: "2026-07-15",
+      description: "Invoice 101",
+      type: "receipt",
+      amountCents: 220_000,
+      allocations: [{ categoryId: customerReceiptsCat.id, amountCents: 220_000, gstType: "gst" }],
+    }),
+    // Receipt 2: $500.00 GST Free -> $0.00 GST, $500.00 ex GST
+    normalizeBankStatementLineDocument({
+      id: "curr_r2",
+      accountId: account.id,
+      date: "2026-10-05",
+      description: "Interest Refund",
+      type: "receipt",
+      amountCents: 50_000,
+      allocations: [{ categoryId: otherIncomeCat.id, amountCents: 50_000, gstType: "gst-free" }],
+    }),
+    // Payment 1: $1,100.00 incl GST -> $100.00 GST, $1,000.00 ex GST (Materials)
+    normalizeBankStatementLineDocument({
+      id: "curr_p1",
+      accountId: account.id,
+      date: "2026-08-20",
+      description: "Bunnings",
+      type: "payment",
+      amountCents: 110_000,
+      allocations: [{ categoryId: materialsCat.id, amountCents: 110_000, gstType: "gst" }],
+    }),
+    // Payment 2: $110.00 Part GST ($22.00 GST Free -> $88.00 taxable -> $8.00 GST, $102.00 ex GST) (Tools)
+    normalizeBankStatementLineDocument({
+      id: "curr_p2",
+      accountId: account.id,
+      date: "2027-06-30",
+      description: "Mixed Trade Purchase",
+      type: "payment",
+      amountCents: 11_000,
+      allocations: [
+        {
+          categoryId: toolsCat.id,
+          amountCents: 11_000,
+          gstType: "part-gst",
+          gstFreeAmountCents: 2_200,
+        },
+      ],
+    }),
+    // Private payment in Current FY -> excluded from all totals
+    normalizeBankStatementLineDocument({
+      id: "curr_private",
+      accountId: account.id,
+      date: "2026-09-10",
+      description: "Personal Groceries",
+      type: "payment",
+      amountCents: 30_000,
+      isPrivate: true,
+    }),
+    // Uncategorised receipt and payment in Current FY -> excluded from all totals
+    normalizeBankStatementLineDocument({
+      id: "curr_uncat_r",
+      accountId: account.id,
+      date: "2026-11-01",
+      description: "Uncategorised Deposit",
+      type: "receipt",
+      amountCents: 80_000,
+      allocations: [],
+    }),
+    normalizeBankStatementLineDocument({
+      id: "curr_uncat_p",
+      accountId: account.id,
+      date: "2026-11-02",
+      description: "Uncategorised Expense",
+      type: "payment",
+      amountCents: 45_000,
+      allocations: [],
+    }),
+
+    // Previous FY (2025-07-01 to 2026-06-30)
+    // Receipt: $1,100.00 incl GST -> $100.00 GST, $1,000.00 ex GST
+    normalizeBankStatementLineDocument({
+      id: "prev_r1",
+      accountId: account.id,
+      date: "2025-07-01",
+      description: "Prior FY Invoice",
+      type: "receipt",
+      amountCents: 110_000,
+      allocations: [{ categoryId: customerReceiptsCat.id, amountCents: 110_000, gstType: "gst" }],
+    }),
+    // Partially categorised payment: line is $500.00, only $330.00 categorised ($30.00 GST, $300.00 ex GST)
+    normalizeBankStatementLineDocument({
+      id: "prev_p1",
+      accountId: account.id,
+      date: "2026-06-30",
+      description: "Prior FY Materials",
+      type: "payment",
+      amountCents: 50_000,
+      allocations: [{ categoryId: materialsCat.id, amountCents: 33_000, gstType: "gst" }],
+    }),
+
+    // Older FY (2024-25) -> excluded from both current and previous
+    normalizeBankStatementLineDocument({
+      id: "older_r1",
+      accountId: account.id,
+      date: "2025-06-30",
+      description: "Two FYs Ago",
+      type: "receipt",
+      amountCents: 999_000,
+      allocations: [{ categoryId: customerReceiptsCat.id, amountCents: 999_000, gstType: "gst" }],
+    }),
+  ];
+
+  const { currentFinancialYear, previousFinancialYear } = summarizeBankingFinancialYears({
+    accounts: [account],
+    categories,
+    statementLines,
+    referenceDate: "2026-10-25",
+  });
+
+  // Current FY assertions (2026–27)
+  expect(currentFinancialYear.financialYear.label).toBe("FY 2026–27");
+  expect(currentFinancialYear.currency).toBe("AUD");
+  expect(currentFinancialYear.gstCollectedCents).toBe(20_000);
+  expect(currentFinancialYear.gstPaidCents).toBe(10_800);
+  expect(currentFinancialYear.gstDifferenceCents).toBe(9_200);
+  expect(currentFinancialYear.totalCollectedIncGstCents).toBe(270_000);
+  expect(currentFinancialYear.totalPaidIncGstCents).toBe(121_000);
+  expect(currentFinancialYear.totalDifferenceIncGstCents).toBe(149_000);
+  expect(currentFinancialYear.totalCollectedExGstCents).toBe(250_000);
+  expect(currentFinancialYear.totalPaidExGstCents).toBe(110_200);
+  expect(currentFinancialYear.totalDifferenceExGstCents).toBe(139_800);
+  expect(
+    currentFinancialYear.categorySummaries.map((item) => ({
+      name: item.category.name,
+      amountExGstCents: item.amountExGstCents,
+      gstAmountCents: item.gstAmountCents,
+      amountIncGstCents: item.amountIncGstCents,
+    })),
+  ).toEqual([
+    {
+      name: "Customer Receipts",
+      amountExGstCents: 200_000,
+      gstAmountCents: 20_000,
+      amountIncGstCents: 220_000,
+    },
+    {
+      name: "Other Income",
+      amountExGstCents: 50_000,
+      gstAmountCents: 0,
+      amountIncGstCents: 50_000,
+    },
+    {
+      name: "Materials & Supplies",
+      amountExGstCents: 100_000,
+      gstAmountCents: 10_000,
+      amountIncGstCents: 110_000,
+    },
+    {
+      name: "Tools & Equipment",
+      amountExGstCents: 10_200,
+      gstAmountCents: 800,
+      amountIncGstCents: 11_000,
+    },
+  ]);
+
+  // Previous FY assertions (2025–26)
+  expect(previousFinancialYear.financialYear.label).toBe("FY 2025–26");
+  expect(previousFinancialYear.currency).toBe("AUD");
+  expect(previousFinancialYear.gstCollectedCents).toBe(10_000);
+  expect(previousFinancialYear.gstPaidCents).toBe(3_000);
+  expect(previousFinancialYear.gstDifferenceCents).toBe(7_000);
+  expect(previousFinancialYear.totalCollectedIncGstCents).toBe(110_000);
+  expect(previousFinancialYear.totalPaidIncGstCents).toBe(33_000);
+  expect(previousFinancialYear.totalDifferenceIncGstCents).toBe(77_000);
+  expect(previousFinancialYear.totalCollectedExGstCents).toBe(100_000);
+  expect(previousFinancialYear.totalPaidExGstCents).toBe(30_000);
+  expect(previousFinancialYear.totalDifferenceExGstCents).toBe(70_000);
+  expect(
+    previousFinancialYear.categorySummaries.map((item) => ({
+      name: item.category.name,
+      amountExGstCents: item.amountExGstCents,
+    })),
+  ).toEqual([
+    { name: "Customer Receipts", amountExGstCents: 100_000 },
+    { name: "Materials & Supplies", amountExGstCents: 30_000 },
+  ]);
+
+  // Direct summarizeFinancialYear call with explicit currency override
+  const direct = summarizeFinancialYear({
+    financialYear: fyOct2026,
+    statementLines: [],
+    categories: [],
+    currency: "NZD",
+  });
+  expect(direct.currency).toBe("NZD");
+  expect(direct.totalCollectedIncGstCents).toBe(0);
+
+  // Resolves currency from accounts referenced by lines in the financial year and ignores unknown categories
+  const unusedUsdAccount = normalizeBankAccountDocument({
+    id: "acc_usd",
+    name: "AAA USD Account",
+    currency: "USD",
+  });
+  const subsetSummary = summarizeFinancialYear({
+    financialYear: fyOct2026,
+    accounts: [unusedUsdAccount, account],
+    statementLines,
+    categories: [customerReceiptsCat],
+  });
+  expect(subsetSummary.currency).toBe("AUD");
+  expect(subsetSummary.totalCollectedIncGstCents).toBe(220_000);
+  expect(subsetSummary.totalPaidIncGstCents).toBe(0);
+  expect(subsetSummary.categorySummaries).toHaveLength(1);
 });

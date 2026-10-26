@@ -111,9 +111,19 @@ export {
 export {
   BankingOverviewView,
   BankingView,
+  getAustralianFinancialYear,
+  isDateInFinancialYear,
+  summarizeBankingFinancialYears,
+  summarizeFinancialYear,
+  type AustralianFinancialYear,
+  type BankingFinancialYearsSummary,
   type BankingOverviewViewProps,
   type BankingSection,
   type BankingViewProps,
+  type FinancialYearCategorySummary,
+  type FinancialYearSummary,
+  type SummarizeBankingFinancialYearsInput,
+  type SummarizeFinancialYearInput,
 } from "./overview/index.ts";
 export {
   assignColumnRole,

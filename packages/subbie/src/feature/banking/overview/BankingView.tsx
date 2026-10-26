@@ -12,6 +12,7 @@ export type BankingSection = "overview" | "statements" | "categorise" | "account
 export interface BankingViewProps {
   store?: BankingStore;
   invoicesStore?: InvoicesStore;
+  referenceDate?: Date | string;
   initialSection?: BankingSection;
   initialAccountId?: string;
   initialCategorisationFilter?: BankingLineCategorisationFilter;
@@ -27,6 +28,7 @@ export interface BankingViewProps {
 export const BankingView = ({
   store,
   invoicesStore,
+  referenceDate,
   initialSection = "overview",
   initialAccountId,
   initialCategorisationFilter,
@@ -61,6 +63,8 @@ export const BankingView = ({
     default:
       return (
         <BankingOverviewView
+          store={store}
+          referenceDate={referenceDate}
           statementsRouterLink={statementsRouterLink}
           categoriseRouterLink={categoriseRouterLink}
           accountsRouterLink={accountsRouterLink}
