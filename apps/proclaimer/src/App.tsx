@@ -24,6 +24,10 @@ import Ministry from "./pages/Ministry";
 import Publishers from "./pages/Publishers";
 import Schedules from "./pages/Schedules";
 import Settings from "./pages/Settings";
+import Cleaning from "./pages/schedules/Cleaning";
+import Events from "./pages/schedules/Events";
+import Midweek from "./pages/schedules/Midweek";
+import Weekend from "./pages/schedules/Weekend";
 
 /* Core CSS required for Ionic components to work properly */
 import "@ionic/react/css/core.css";
@@ -71,6 +75,10 @@ const App = () => {
             <Route path="/home" element={<Home />} />
             <Route path="/ministry" element={<Ministry />} />
             <Route path="/schedules" element={<Schedules />} />
+            <Route path="/schedules/midweek" element={<Midweek />} />
+            <Route path="/schedules/weekend" element={<Weekend />} />
+            <Route path="/schedules/cleaning" element={<Cleaning />} />
+            <Route path="/schedules/events" element={<Events />} />
             <Route path="/publishers" element={<Publishers />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/" element={<Navigate to="/home" replace />} />

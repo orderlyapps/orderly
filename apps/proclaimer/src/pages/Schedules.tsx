@@ -1,6 +1,13 @@
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from "@ionic/react";
-
-import ExploreContainer from "../components/ExploreContainer";
+import {
+  IonContent,
+  IonHeader,
+  IonItem,
+  IonLabel,
+  IonList,
+  IonPage,
+  IonTitle,
+  IonToolbar,
+} from "@ionic/react";
 
 const Schedules = () => {
   return (
@@ -16,7 +23,20 @@ const Schedules = () => {
             <IonTitle size="large">Schedules</IonTitle>
           </IonToolbar>
         </IonHeader>
-        <ExploreContainer name="Schedules page" />
+        <IonList>
+          <IonItem routerLink="/schedules/midweek" detail>
+            <IonLabel>Midweek</IonLabel>
+          </IonItem>
+          <IonItem routerLink="/schedules/weekend" detail>
+            <IonLabel>Weekend</IonLabel>
+          </IonItem>
+          <IonItem routerLink="/schedules/cleaning" detail>
+            <IonLabel>Cleaning</IonLabel>
+          </IonItem>
+          <IonItem routerLink="/schedules/events" detail>
+            <IonLabel>Events</IonLabel>
+          </IonItem>
+        </IonList>
       </IonContent>
     </IonPage>
   );
