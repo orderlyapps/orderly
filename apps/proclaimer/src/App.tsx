@@ -16,13 +16,14 @@ import {
   popoverEnterAnimation,
   popoverLeaveAnimation,
 } from "@rdlabo/ionic-theme-ios27";
-import { ellipse, settings, square, triangle } from "ionicons/icons";
+import { briefcase, calendar, home, people, settings } from "ionicons/icons";
 import { useThemeEffect } from "proclaimer-core";
 
+import Home from "./pages/Home";
+import Ministry from "./pages/Ministry";
+import Publishers from "./pages/Publishers";
+import Schedules from "./pages/Schedules";
 import Settings from "./pages/Settings";
-import Tab1 from "./pages/Tab1";
-import Tab2 from "./pages/Tab2";
-import Tab3 from "./pages/Tab3";
 
 /* Core CSS required for Ionic components to work properly */
 import "@ionic/react/css/core.css";
@@ -67,24 +68,29 @@ const App = () => {
       <IonReactRouter>
         <IonTabs>
           <IonRouterOutlet>
-            <Route path="/tab1" element={<Tab1 />} />
-            <Route path="/tab2" element={<Tab2 />} />
-            <Route path="/tab3" element={<Tab3 />} />
+            <Route path="/home" element={<Home />} />
+            <Route path="/ministry" element={<Ministry />} />
+            <Route path="/schedules" element={<Schedules />} />
+            <Route path="/publishers" element={<Publishers />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/" element={<Navigate to="/tab1" replace />} />
+            <Route path="/" element={<Navigate to="/home" replace />} />
           </IonRouterOutlet>
           <IonTabBar slot="bottom">
-            <IonTabButton tab="tab1" href="/tab1">
-              <IonIcon aria-hidden="true" icon={triangle} />
-              <IonLabel>Tab 1</IonLabel>
+            <IonTabButton tab="home" href="/home">
+              <IonIcon aria-hidden="true" icon={home} />
+              <IonLabel>Home</IonLabel>
             </IonTabButton>
-            <IonTabButton tab="tab2" href="/tab2">
-              <IonIcon aria-hidden="true" icon={ellipse} />
-              <IonLabel>Tab 2</IonLabel>
+            <IonTabButton tab="ministry" href="/ministry">
+              <IonIcon aria-hidden="true" icon={briefcase} />
+              <IonLabel>Ministry</IonLabel>
             </IonTabButton>
-            <IonTabButton tab="tab3" href="/tab3">
-              <IonIcon aria-hidden="true" icon={square} />
-              <IonLabel>Tab 3</IonLabel>
+            <IonTabButton tab="schedules" href="/schedules">
+              <IonIcon aria-hidden="true" icon={calendar} />
+              <IonLabel>Schedules</IonLabel>
+            </IonTabButton>
+            <IonTabButton tab="publishers" href="/publishers">
+              <IonIcon aria-hidden="true" icon={people} />
+              <IonLabel>Publishers</IonLabel>
             </IonTabButton>
             <IonTabButton tab="settings" href="/settings">
               <IonIcon aria-hidden="true" icon={settings} />

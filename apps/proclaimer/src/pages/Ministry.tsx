@@ -2,24 +2,24 @@ import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from "@ionic/rea
 
 import ExploreContainer from "../components/ExploreContainer";
 
-const Tab2 = () => {
+const Ministry = () => {
   return (
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonTitle>Tab 2</IonTitle>
+          <IonTitle>Ministry</IonTitle>
         </IonToolbar>
       </IonHeader>
       <IonContent fullscreen>
         <IonHeader collapse="condense">
           <IonToolbar>
-            <IonTitle size="large">Tab 2</IonTitle>
+            <IonTitle size="large">Ministry</IonTitle>
           </IonToolbar>
         </IonHeader>
-        <ExploreContainer name="Tab 2 page" />
+        <ExploreContainer name="Ministry page" />
       </IonContent>
     </IonPage>
   );
 };
 
-export default Tab2;
+export default Ministry;
