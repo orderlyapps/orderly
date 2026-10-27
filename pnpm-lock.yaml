@@ -182,12 +182,21 @@ catalogs:
     '@rdlabo/ionic-theme-ios27':
       specifier: ^1.2.1
       version: 1.2.1
+    '@supabase/supabase-js':
+      specifier: ^2.118.0
+      version: 2.118.0
     '@tanstack/db':
-      specifier: ^0.15.0
-      version: 0.15.0
+      specifier: ^0.15.1
+      version: 0.15.1
+    '@tanstack/query-db-collection':
+      specifier: ^1.4.5
+      version: 1.4.7
     '@tanstack/react-db':
-      specifier: ^0.5.10
-      version: 0.5.10
+      specifier: ^0.5.11
+      version: 0.5.11
+    '@tanstack/react-query':
+      specifier: ^5.104.5
+      version: 5.104.5
     '@tanstack/rxdb-db-collection':
       specifier: ^0.1.109
       version: 0.1.109
@@ -311,6 +320,9 @@ importers:
       '@rdlabo/ionic-theme-ios27':
         specifier: 'catalog:'
         version: 1.2.1(@ionic/core@9.0.9)
+      '@tanstack/react-query':
+        specifier: 'catalog:'
+        version: 5.104.5(@types/react@19.3.0)(react@19.3.1)
       ionicons:
         specifier: ^8.1.0
         version: 8.1.0
@@ -493,10 +505,10 @@ importers:
     dependencies:
       '@tanstack/db':
         specifier: 'catalog:'
-        version: 0.15.0(typescript@7.0.2)
+        version: 0.15.1(typescript@7.0.2)
       '@tanstack/react-db':
         specifier: 'catalog:'
-        version: 0.5.10(react@19.3.1)(typescript@7.0.2)
+        version: 0.5.11(react@19.3.1)(typescript@7.0.2)
       react-dom:
         specifier: '>=19'
         version: 19.3.1(react@19.3.1)
@@ -528,12 +540,21 @@ importers:
 
   packages/proclaimer:
     dependencies:
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.118.0
       '@tanstack/db':
         specifier: 'catalog:'
-        version: 0.15.0(typescript@7.0.2)
+        version: 0.15.1(typescript@7.0.2)
+      '@tanstack/query-db-collection':
+        specifier: 'catalog:'
+        version: 1.4.7(@tanstack/query-core@5.104.5)(typescript@7.0.2)
       '@tanstack/react-db':
         specifier: 'catalog:'
-        version: 0.5.10(react@19.3.1)(typescript@7.0.2)
+        version: 0.5.11(react@19.3.1)(typescript@7.0.2)
+      '@tanstack/react-query':
+        specifier: 'catalog:'
+        version: 5.104.5(@types/react@19.3.0)(react@19.3.1)
       react-dom:
         specifier: '>=19'
         version: 19.3.1(react@19.3.1)
@@ -576,10 +597,10 @@ importers:
         version: 5.6.0(@maskito/core@5.6.0)(@maskito/kit@5.6.0(@maskito/core@5.6.0))(libphonenumber-js@1.13.15)
       '@tanstack/db':
         specifier: 'catalog:'
-        version: 0.15.0(typescript@7.0.2)
+        version: 0.15.1(typescript@7.0.2)
       '@tanstack/react-db':
         specifier: 'catalog:'
-        version: 0.5.10(react@19.3.1)(typescript@7.0.2)
+        version: 0.5.11(react@19.3.1)(typescript@7.0.2)
       '@tanstack/rxdb-db-collection':
         specifier: 'catalog:'
         version: 0.1.109(rxdb@17.6.0(react@19.3.1)(rxjs@7.8.2)(typescript@7.0.2))(rxjs@7.8.2)(typescript@7.0.2)
@@ -2251,6 +2272,38 @@ packages:
       react: ^18 || ^19
       react-dom: ^18 || ^19
 
+  '@supabase/auth-js@2.118.0':
+    resolution: {integrity: sha512-xWfPXyhS2KDSfAneMtI6p/tBnbdiz/5vaRKXEqUfzfC9WCniKr2Ds5o5G7RIGig0bom4z6wUY9zaV07WDVTfnQ==}
+    engines: {node: '>=22.0.0'}
+
+  '@supabase/functions-js@2.118.0':
+    resolution: {integrity: sha512-4ofletPa/noKAU6KHeqsd3FztGzRPUEJRey1MKY0o+PIHaVePqRPShIXtl37gcVyIWaFM+zNg6r9zh0uUSFOSA==}
+    engines: {node: '>=22.0.0'}
+
+  '@supabase/phoenix@0.4.5':
+    resolution: {integrity: sha512-aAn9H9ovVyeApKy11OWOrrOGq8DV68yWeH4ud2lN9fzn4aO8Zb5GLL9m1pUg9nLqIcT+ZDfAcsZe0E/nqdv2lw==}
+
+  '@supabase/postgrest-js@2.118.0':
+    resolution: {integrity: sha512-JXy+37KPApHsyotaQACovv/Jy9E22rfiWLRuT+2UjoEAcAIelDFIrsF/FY47Dy19mO7lI0Tq+zDCX8oJ2Ozfiw==}
+    engines: {node: '>=22.0.0'}
+
+  '@supabase/realtime-js@2.118.0':
+    resolution: {integrity: sha512-pzCIEWjqD5/xqEZQerpt+q9rsgYkcrkgCJgf0W2ULqC4fYUeB/p9CFa3t9vn+IVh6dMN9r4ZCE262lZvUC+Bfw==}
+    engines: {node: '>=22.0.0'}
+
+  '@supabase/storage-js@2.118.0':
+    resolution: {integrity: sha512-5MNkKt2Moy7Jud/sPX7/28BwdDxZMCVHGJT00b8op3KRa9LKSjOAYU5IcfGWIstaasAqY8GkbA6oI3IRDgB1YQ==}
+    engines: {node: '>=22.0.0'}
+
+  '@supabase/supabase-js@2.118.0':
+    resolution: {integrity: sha512-FxI8UXMVC2UG7IkeiI8fuQZqq2oI3JeSuN8MPIC2RLVaoEAxKS0nqE6kii9Ewpq8f9gNPM6git1Y8f0vN/QLFw==}
+    engines: {node: '>=22.0.0'}
+    peerDependencies:
+      '@opentelemetry/api': '>=1.0.0'
+    peerDependenciesMeta:
+      '@opentelemetry/api':
+        optional: true
+
   '@tanstack/db-ivm@0.2.0':
     resolution: {integrity: sha512-AuMuGzVdWR5qzJPRYajmrUp95vMo0duvMZ0zBjMOvaI9rkh2GHZWCsJ/p7s81UN4Lep6HHJjahnYUF+XVL0+AQ==}
     peerDependencies:
@@ -2258,6 +2311,11 @@ packages:
 
   '@tanstack/db@0.15.0':
     resolution: {integrity: sha512-truZ/WWSS48goC3JlxR2dbjSxYcVfwLtA8Z8xexvayR8HG1Jii040rS+PKUs+C50QGNfUQo5jWQUZ+lERZYeQw==}
+    peerDependencies:
+      typescript: '>=4.7'
+
+  '@tanstack/db@0.15.1':
+    resolution: {integrity: sha512-V47I3xqH8RLeI6BGBvQTBrALaGCArnMhq3sslP10RdBKYO6usa6uDWVvcNbRDyblRwBPOrRPKfi+3X+RVTeFoA==}
     peerDependencies:
       typescript: '>=4.7'
 
@@ -2269,10 +2327,28 @@ packages:
     resolution: {integrity: sha512-eQ1MyLKCHyXiH7NbdmB80W77OhiMgGBUb+qDx/8WMGbwg5Lf/NlfD0TfNYAqY77i8V3AxoDoYdICrQE5ADw4Yw==}
     engines: {node: '>=18'}
 
-  '@tanstack/react-db@0.5.10':
-    resolution: {integrity: sha512-cLXzBQPloOrvS2iyAPY5uJy4a+r/2xTFcUyfuNVMpQQcrNP0QkphxmgfqYDbYMPMKq91RGLgY0hncRu0xslwEg==}
+  '@tanstack/query-core@5.104.5':
+    resolution: {integrity: sha512-Q94gI8Opd+CbdVNOdj8ZCyV8WqLYitrDq1t96Xc8WZT6lY0r5iRnJLXYDxMex7EEf2v+mXvn4FcjaBKSxXZQ9A==}
+
+  '@tanstack/query-db-collection@1.4.7':
+    resolution: {integrity: sha512-8jNXwePOl4QwDAkob4l4yBrhKPb1Q8uPnLodTQ1HgzswOrhIN9kwpE3VMw8fzSM7e9r837KBS/L0zjefr/pZmw==}
+    peerDependencies:
+      '@tanstack/query-core': ^5.90.15
+      typescript: '>=4.7'
+
+  '@tanstack/react-db@0.5.11':
+    resolution: {integrity: sha512-o22NPesFU0r59ddePVM6grRTDb8gArKPC8hHMQ0scAeB+yR9XzMh5fnLGhfjrnle1a4gguWvvWCS8SO3lrVxOw==}
     peerDependencies:
       react: '>=18.0.0'
+
+  '@tanstack/react-query@5.104.5':
+    resolution: {integrity: sha512-RORgFe052U+93weaNuqg7qHq7vNVNzXN/VrXqD4bbAuQCWUqOl2lV5Ui9flWk5CVvMyL/Bh27QWhzwH0aaOx9g==}
+    peerDependencies:
+      '@types/react': ^18 || ^19
+      react: ^18 || ^19
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
 
   '@tanstack/react-router@1.170.44':
     resolution: {integrity: sha512-uIIZ3CHU1yWlkMkmbnGFX3WIfZozF+tNrOMMEoM9lo+jzPInCRq80LBqW3DH9ixNHWjB3TM/cNIvr05uGIlP3A==}
@@ -3467,6 +3543,10 @@ packages:
 
   htmlparser2@10.1.0:
     resolution: {integrity: sha512-VTZkM9GWRAtEpveh7MSF6SjjrpNVNNVJfFup7xTY3UpFtm67foy9HDVXneLtFVt4pMz5kZtgNcvCniNFb1hlEQ==}
+
+  iceberg-js@0.8.1:
+    resolution: {integrity: sha512-1dhVQZXhcHje7798IVM+xoo/1ZdVfzOMIc8/rgVSijRK38EDqOJoGula9N/8ZI5RD8QTxNQtK/Gozpr+qUqRRA==}
+    engines: {node: '>=20.0.0'}
 
   idb@7.1.1:
     resolution: {integrity: sha512-gchesWBzyvGHRO9W8tzUWFDycow5gwjvFKfyV9FF32Y7F50yZMp7mP+T2mJIWFx49zicqyC4uefHM17o6xKIVQ==}
@@ -6128,6 +6208,38 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react'
 
+  '@supabase/auth-js@2.118.0':
+    dependencies:
+      tslib: 2.8.1
+
+  '@supabase/functions-js@2.118.0':
+    dependencies:
+      tslib: 2.8.1
+
+  '@supabase/phoenix@0.4.5': {}
+
+  '@supabase/postgrest-js@2.118.0':
+    dependencies:
+      tslib: 2.8.1
+
+  '@supabase/realtime-js@2.118.0':
+    dependencies:
+      '@supabase/phoenix': 0.4.5
+      tslib: 2.8.1
+
+  '@supabase/storage-js@2.118.0':
+    dependencies:
+      iceberg-js: 0.8.1
+      tslib: 2.8.1
+
+  '@supabase/supabase-js@2.118.0':
+    dependencies:
+      '@supabase/auth-js': 2.118.0
+      '@supabase/functions-js': 2.118.0
+      '@supabase/postgrest-js': 2.118.0
+      '@supabase/realtime-js': 2.118.0
+      '@supabase/storage-js': 2.118.0
+
   '@tanstack/db-ivm@0.2.0(typescript@7.0.2)':
     dependencies:
       fractional-indexing: 3.4.0
@@ -6140,16 +6252,39 @@ snapshots:
       '@tanstack/pacer-lite': 0.2.2
       typescript: 7.0.2
 
+  '@tanstack/db@0.15.1(typescript@7.0.2)':
+    dependencies:
+      '@standard-schema/spec': 1.1.0
+      '@tanstack/db-ivm': 0.2.0(typescript@7.0.2)
+      '@tanstack/pacer-lite': 0.2.2
+      typescript: 7.0.2
+
   '@tanstack/history@1.162.5': {}
 
   '@tanstack/pacer-lite@0.2.2': {}
 
-  '@tanstack/react-db@0.5.10(react@19.3.1)(typescript@7.0.2)':
+  '@tanstack/query-core@5.104.5': {}
+
+  '@tanstack/query-db-collection@1.4.7(@tanstack/query-core@5.104.5)(typescript@7.0.2)':
     dependencies:
-      '@tanstack/db': 0.15.0(typescript@7.0.2)
+      '@standard-schema/spec': 1.1.0
+      '@tanstack/db': 0.15.1(typescript@7.0.2)
+      '@tanstack/query-core': 5.104.5
+      typescript: 7.0.2
+
+  '@tanstack/react-db@0.5.11(react@19.3.1)(typescript@7.0.2)':
+    dependencies:
+      '@tanstack/db': 0.15.1(typescript@7.0.2)
       react: 19.3.1
     transitivePeerDependencies:
       - typescript
+
+  '@tanstack/react-query@5.104.5(@types/react@19.3.0)(react@19.3.1)':
+    dependencies:
+      '@tanstack/query-core': 5.104.5
+      react: 19.3.1
+    optionalDependencies:
+      '@types/react': 19.3.0
 
   '@tanstack/react-router@1.170.44(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
@@ -7381,6 +7516,8 @@ snapshots:
       domhandler: 5.0.3
       domutils: 3.2.2
       entities: 7.0.1
+
+  iceberg-js@0.8.1: {}
 
   idb@7.1.1: {}
 

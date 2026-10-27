@@ -20,8 +20,11 @@
     "check": "vp check"
   },
   "dependencies": {
+    "@supabase/supabase-js": "catalog:",
     "@tanstack/db": "catalog:",
-    "@tanstack/react-db": "catalog:"
+    "@tanstack/query-db-collection": "catalog:",
+    "@tanstack/react-db": "catalog:",
+    "@tanstack/react-query": "catalog:"
   },
   "devDependencies": {
     "@ionic/react": "^9.0.9",

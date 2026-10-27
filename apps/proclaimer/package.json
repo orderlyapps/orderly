@@ -13,6 +13,7 @@
     "@ionic/react": "^9.0.9",
     "@ionic/react-router": "^9.0.9",
     "@rdlabo/ionic-theme-ios27": "catalog:",
+    "@tanstack/react-query": "catalog:",
     "ionicons": "^8.1.0",
     "proclaimer-core": "workspace:*",
     "react": "^19.2.0",
