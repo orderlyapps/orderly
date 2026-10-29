@@ -4,6 +4,7 @@ import { IonList } from "@ionic/react";
 
 import {
   AppearanceSettingsSection,
+  BusinessSettingsSection,
   DataSettingsSection,
   GstSettingsSection,
   InvoicingSettingsSection,
@@ -19,6 +20,7 @@ export interface SettingsViewProps {
 export const SettingsView = ({ store: customStore, children }: SettingsViewProps) => {
   const { settings, theme, setTheme, updateSettings, store } = useSettings(customStore);
   const [appearanceStatus, setAppearanceStatus] = useState<string | null>(null);
+  const [businessStatus, setBusinessStatus] = useState<string | null>(null);
   const [invoicingStatus, setInvoicingStatus] = useState<string | null>(null);
   const [gstStatus, setGstStatus] = useState<string | null>(null);
   const [dataStatus, setDataStatus] = useState<string | null>(null);
@@ -31,6 +33,16 @@ export const SettingsView = ({ store: customStore, children }: SettingsViewProps
         onThemeChange={setTheme}
         statusMessage={appearanceStatus}
         onStatusChange={setAppearanceStatus}
+      />
+      <BusinessSettingsSection
+        businessName={settings.businessName}
+        abn={settings.abn}
+        bankAccountName={settings.bankAccountName}
+        bankBsb={settings.bankBsb}
+        bankAccountNumber={settings.bankAccountNumber}
+        onUpdateSettings={updateSettings}
+        statusMessage={businessStatus}
+        onStatusChange={setBusinessStatus}
       />
       <InvoicingSettingsSection
         paymentTermsDays={settings.defaultPaymentTermsDays}

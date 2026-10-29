@@ -80,7 +80,13 @@ export const InvoicesView = ({
 
   const handleSendPdf = async (invoice: InvoiceDocument) => {
     try {
-      const result = await sendInvoicePdf(invoice);
+      const result = await sendInvoicePdf(invoice, {
+        businessName: settings.businessName,
+        abn: settings.abn,
+        bankAccountName: settings.bankAccountName,
+        bankBsb: settings.bankBsb,
+        bankAccountNumber: settings.bankAccountNumber,
+      });
       if (invoice.status === "draft") {
         await setInvoiceStatus(invoice.id, "sent");
       }

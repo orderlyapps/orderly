@@ -2,9 +2,15 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vite-plus/test";
 import {
+  ABN_MAX_LENGTH,
   AppearanceSettingsSection,
   applyTheme,
   areSettingsEqual,
+  BANK_ACCOUNT_NAME_MAX_LENGTH,
+  BANK_ACCOUNT_NUMBER_MAX_LENGTH,
+  BANK_BSB_MAX_LENGTH,
+  BUSINESS_NAME_MAX_LENGTH,
+  BusinessSettingsSection,
   createSettingsBinaryFilename,
   createSettingsStore,
   DARK_PALETTE_CLASS,
@@ -19,6 +25,11 @@ import {
   importSettingsBinary,
   importSettingsBinaryFile,
   INVOICE_NOTES_MAX_LENGTH,
+  isAbn,
+  isBankAccountName,
+  isBankAccountNumber,
+  isBankBsb,
+  isBusinessName,
   isGstRate,
   isGstRegistered,
   isInvoiceNotes,
@@ -66,6 +77,11 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     "gstRegistered",
     "gstRate",
     "defaultGstType",
+    "businessName",
+    "abn",
+    "bankAccountName",
+    "bankBsb",
+    "bankAccountNumber",
   ]);
   expect(THEME_LABELS).toEqual({ light: "Light", dark: "Dark", system: "System" });
   expect(THEME_OPTIONS).toEqual([
@@ -101,6 +117,23 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
   expect(isGstRate("0.1")).toBe(false);
   expect(isSettingValue("defaultGstType", "gst-free")).toBe(true);
   expect(isSettingValue("defaultGstType", "none")).toBe(false);
+  expect(isBusinessName("Acme Pty Ltd")).toBe(true);
+  expect(isBusinessName("")).toBe(true);
+  expect(isBusinessName("a".repeat(BUSINESS_NAME_MAX_LENGTH + 1))).toBe(false);
+  expect(isBusinessName(null)).toBe(false);
+  expect(isAbn("51 824 753 556")).toBe(true);
+  expect(isAbn("")).toBe(true);
+  expect(isAbn("a".repeat(ABN_MAX_LENGTH + 1))).toBe(false);
+  expect(isAbn(51824753556)).toBe(false);
+  expect(isBankAccountName("Acme Pty Ltd")).toBe(true);
+  expect(isBankAccountName("a".repeat(BANK_ACCOUNT_NAME_MAX_LENGTH + 1))).toBe(false);
+  expect(isBankAccountName(null)).toBe(false);
+  expect(isBankBsb("062-001")).toBe(true);
+  expect(isBankBsb("062001")).toBe(true);
+  expect(isBankBsb("a".repeat(BANK_BSB_MAX_LENGTH + 1))).toBe(false);
+  expect(isBankAccountNumber("123456789")).toBe(true);
+  expect(isBankAccountNumber("a".repeat(BANK_ACCOUNT_NUMBER_MAX_LENGTH + 1))).toBe(false);
+  expect(isBankAccountNumber(123456789)).toBe(false);
 
   expect(normalizeSettingsDocument(undefined)).toEqual({ ...DEFAULT_SETTINGS });
   expect(normalizeSettingsDocument({ id: "", theme: "dark" })).toEqual({
@@ -134,6 +167,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
   expect(typeof SettingsView).toBe("function");
   expect(typeof SettingsSection).toBe("function");
   expect(typeof AppearanceSettingsSection).toBe("function");
+  expect(typeof BusinessSettingsSection).toBe("function");
   expect(typeof DataSettingsSection).toBe("function");
 });
 
@@ -170,14 +204,25 @@ test("initializes LocalStorage Collection store with default system theme and up
       gstRegistered: false,
       gstRate: 0.05,
       defaultGstType: "gst-free",
+      businessName: "Acme Pty Ltd",
+      abn: "51 824 753 556",
+      bankAccountName: "Acme Pty Ltd",
+      bankBsb: "062-001",
+      bankAccountNumber: "123456789",
     });
     expect(patched.defaultPaymentTermsDays).toBe(14);
     expect(patched.defaultInvoiceNotes).toBe("Please pay by bank transfer");
     expect(patched.gstRegistered).toBe(false);
     expect(patched.gstRate).toBe(0.05);
     expect(patched.defaultGstType).toBe("gst-free");
+    expect(patched.businessName).toBe("Acme Pty Ltd");
+    expect(patched.abn).toBe("51 824 753 556");
+    expect(patched.bankAccountName).toBe("Acme Pty Ltd");
+    expect(patched.bankBsb).toBe("062-001");
+    expect(patched.bankAccountNumber).toBe("123456789");
     expect(patched.theme).toBe("light");
     expect((await store.getSettings()).gstRate).toBe(0.05);
+    expect((await store.getSettings()).bankBsb).toBe("062-001");
 
     await expect(store.updateSettings({})).rejects.toThrow(
       "Invalid settings patch: at least one valid setting is required",
@@ -197,6 +242,15 @@ test("initializes LocalStorage Collection store with default system theme and up
     await expect(
       store.updateSettings({ defaultGstType: "bogus" } as unknown as SettingsPatch),
     ).rejects.toThrow('Invalid settings value for "defaultGstType"');
+    await expect(
+      store.updateSettings({ businessName: "a".repeat(BUSINESS_NAME_MAX_LENGTH + 1) }),
+    ).rejects.toThrow('Invalid settings value for "businessName"');
+    await expect(store.updateSettings({ abn: "a".repeat(ABN_MAX_LENGTH + 1) })).rejects.toThrow(
+      'Invalid settings value for "abn"',
+    );
+    await expect(
+      store.updateSettings({ bankBsb: "a".repeat(BANK_BSB_MAX_LENGTH + 1) }),
+    ).rejects.toThrow('Invalid settings value for "bankBsb"');
   } finally {
     await store.close();
   }
