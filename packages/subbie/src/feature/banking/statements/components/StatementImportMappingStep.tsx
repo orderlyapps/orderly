@@ -8,7 +8,7 @@ import {
   IonToggle,
 } from "@ionic/react";
 
-import { formatCurrency } from "../../../invoices/schema.ts";
+import { formatAmount } from "../../../invoices/schema.ts";
 import { bankTransactionTypeColor, bankTransactionTypeLabel } from "../../types.ts";
 import type { ParsedBankStatementRow } from "../csv.ts";
 import type { BankCsvColumnRole, BankCsvPreset } from "../schema.ts";
@@ -21,7 +21,6 @@ export interface StatementImportMappingStepProps {
   savePresetToAccount: boolean;
   previewRows: readonly ParsedBankStatementRow[];
   previewError: string | null;
-  currency: string;
   onHasHeaderChange: (hasHeader: boolean) => void;
   onHeaderColumnChange: CsvPresetFieldsProps["onHeaderColumnChange"];
   onColumnRoleChange: (columnIndex: number, role: BankCsvColumnRole) => void;
@@ -36,7 +35,6 @@ export const StatementImportMappingStep = ({
   savePresetToAccount,
   previewRows,
   previewError,
-  currency,
   onHasHeaderChange,
   onHeaderColumnChange,
   onColumnRoleChange,
@@ -91,7 +89,7 @@ export const StatementImportMappingStep = ({
               <div>
                 <strong>
                   {row.type === "payment" ? "-" : "+"}
-                  {formatCurrency(row.amountCents, currency)}
+                  {formatAmount(row.amountCents)}
                 </strong>
               </div>
               <IonBadge color={bankTransactionTypeColor(row.type)}>

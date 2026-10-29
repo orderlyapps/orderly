@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { isCurrencyCode, isInvoiceDateString } from "../invoices/schema.ts";
+import { isInvoiceDateString } from "../invoices/schema.ts";
 
 export const BANK_ID_MAX_LENGTH = 128;
 
@@ -33,10 +33,6 @@ export function isBankTransactionType(value: unknown): value is BankTransactionT
 export const nonBlankString = z.string().refine((value) => value.trim().length > 0);
 
 export const bankIdSchema = z.string().min(1).max(BANK_ID_MAX_LENGTH);
-
-export const currencySchema = z.string().refine((value) => isCurrencyCode(value), {
-  error: "currency must be a 3-letter code",
-});
 
 export const dateStringSchema = z.string().refine((value) => isInvoiceDateString(value), {
   error: "date must be YYYY-MM-DD",

@@ -15,7 +15,7 @@ import {
   walletOutline,
 } from "ionicons/icons";
 
-import { formatCurrency } from "../../invoices/schema.ts";
+import { formatAmount } from "../../invoices/schema.ts";
 import { useSettings, type SettingsStore } from "../../settings/index.ts";
 import type { BankingStore } from "../db.ts";
 import { useBanking } from "../hooks.ts";
@@ -32,9 +32,9 @@ export interface BankingOverviewViewProps {
   categoriesRouterLink?: string;
 }
 
-function signedCurrency(amountCents: number, currency: string): string {
+function signedAmount(amountCents: number): string {
   const prefix = amountCents > 0 ? "+" : amountCents < 0 ? "-" : "";
-  return `${prefix}${formatCurrency(Math.abs(amountCents), currency)}`;
+  return `${prefix}${formatAmount(Math.abs(amountCents))}`;
 }
 
 function differenceColor(amountCents: number): "success" | "danger" | "medium" {
@@ -70,7 +70,7 @@ const FinancialYearSummarySection = ({
     return null;
   }
 
-  const { financialYear, currency, categorySummaries } = summary;
+  const { financialYear, categorySummaries } = summary;
 
   return (
     <IonList inset>
@@ -98,10 +98,7 @@ const FinancialYearSummarySection = ({
               </IonLabel>
               <IonNote slot="end" color={bankTransactionTypeColor(item.category.type)}>
                 <strong>
-                  {formatCurrency(
-                    showGst ? item.amountExGstCents : item.amountIncGstCents,
-                    currency,
-                  )}
+                  {formatAmount(showGst ? item.amountExGstCents : item.amountIncGstCents)}
                 </strong>
               </IonNote>
             </IonItem>
@@ -119,7 +116,7 @@ const FinancialYearSummarySection = ({
               <h3>Total GST Collected</h3>
             </IonLabel>
             <IonNote slot="end" color={summary.gstCollectedCents > 0 ? "success" : "medium"}>
-              <strong>{formatCurrency(summary.gstCollectedCents, currency)}</strong>
+              <strong>{formatAmount(summary.gstCollectedCents)}</strong>
             </IonNote>
           </IonItem>
           <IonItem>
@@ -127,7 +124,7 @@ const FinancialYearSummarySection = ({
               <h3>Total GST Paid</h3>
             </IonLabel>
             <IonNote slot="end" color={summary.gstPaidCents > 0 ? "danger" : "medium"}>
-              <strong>{formatCurrency(summary.gstPaidCents, currency)}</strong>
+              <strong>{formatAmount(summary.gstPaidCents)}</strong>
             </IonNote>
           </IonItem>
           <IonItem>
@@ -135,7 +132,7 @@ const FinancialYearSummarySection = ({
               <h3>GST Difference</h3>
             </IonLabel>
             <IonNote slot="end" color={differenceColor(summary.gstDifferenceCents)}>
-              <strong>{signedCurrency(summary.gstDifferenceCents, currency)}</strong>
+              <strong>{signedAmount(summary.gstDifferenceCents)}</strong>
             </IonNote>
           </IonItem>
         </>
@@ -149,7 +146,7 @@ const FinancialYearSummarySection = ({
           <h3>Total Collected{showGst ? " (Incl. GST)" : ""}</h3>
         </IonLabel>
         <IonNote slot="end" color={summary.totalCollectedIncGstCents > 0 ? "success" : "medium"}>
-          <strong>{formatCurrency(summary.totalCollectedIncGstCents, currency)}</strong>
+          <strong>{formatAmount(summary.totalCollectedIncGstCents)}</strong>
         </IonNote>
       </IonItem>
       <IonItem>
@@ -157,7 +154,7 @@ const FinancialYearSummarySection = ({
           <h3>Total Paid{showGst ? " (Incl. GST)" : ""}</h3>
         </IonLabel>
         <IonNote slot="end" color={summary.totalPaidIncGstCents > 0 ? "danger" : "medium"}>
-          <strong>{formatCurrency(summary.totalPaidIncGstCents, currency)}</strong>
+          <strong>{formatAmount(summary.totalPaidIncGstCents)}</strong>
         </IonNote>
       </IonItem>
 
@@ -171,7 +168,7 @@ const FinancialYearSummarySection = ({
               <h3>Total Collected (Excl. GST)</h3>
             </IonLabel>
             <IonNote slot="end" color={summary.totalCollectedExGstCents > 0 ? "success" : "medium"}>
-              <strong>{formatCurrency(summary.totalCollectedExGstCents, currency)}</strong>
+              <strong>{formatAmount(summary.totalCollectedExGstCents)}</strong>
             </IonNote>
           </IonItem>
           <IonItem>
@@ -179,7 +176,7 @@ const FinancialYearSummarySection = ({
               <h3>Total Paid (Excl. GST)</h3>
             </IonLabel>
             <IonNote slot="end" color={summary.totalPaidExGstCents > 0 ? "danger" : "medium"}>
-              <strong>{formatCurrency(summary.totalPaidExGstCents, currency)}</strong>
+              <strong>{formatAmount(summary.totalPaidExGstCents)}</strong>
             </IonNote>
           </IonItem>
           <IonItem>
@@ -187,7 +184,7 @@ const FinancialYearSummarySection = ({
               <h3>Difference (Excl. GST)</h3>
             </IonLabel>
             <IonNote slot="end" color={differenceColor(summary.totalDifferenceExGstCents)}>
-              <strong>{signedCurrency(summary.totalDifferenceExGstCents, currency)}</strong>
+              <strong>{signedAmount(summary.totalDifferenceExGstCents)}</strong>
             </IonNote>
           </IonItem>
         </>
@@ -197,7 +194,7 @@ const FinancialYearSummarySection = ({
             <h3>Difference</h3>
           </IonLabel>
           <IonNote slot="end" color={differenceColor(summary.totalDifferenceIncGstCents)}>
-            <strong>{signedCurrency(summary.totalDifferenceIncGstCents, currency)}</strong>
+            <strong>{signedAmount(summary.totalDifferenceIncGstCents)}</strong>
           </IonNote>
         </IonItem>
       )}
@@ -214,11 +211,10 @@ export const BankingOverviewView = ({
   accountsRouterLink = "/banking/accounts",
   categoriesRouterLink = "/banking/categories",
 }: BankingOverviewViewProps) => {
-  const { accounts, categories, statementLines, isLoading, error } = useBanking(customStore);
+  const { categories, statementLines, isLoading, error } = useBanking(customStore);
   const { settings } = useSettings(settingsStore);
 
   const summaries = summarizeBankingFinancialYears({
-    accounts,
     categories,
     statementLines,
     referenceDate,

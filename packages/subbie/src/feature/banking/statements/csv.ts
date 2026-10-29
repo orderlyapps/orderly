@@ -112,7 +112,7 @@ export function parseCsvDate(raw: string): string {
   throw new Error(`Invalid CSV date: "${raw}"`);
 }
 
-export function parseCurrencyToCents(raw: string): number {
+export function parseAmountToCents(raw: string): number {
   let trimmed = raw.trim();
   if (!trimmed) {
     throw new Error("Invalid CSV amount: empty amount");
@@ -153,9 +153,9 @@ export function parseCurrencyToCents(raw: string): number {
     trimmed = trimmed.slice(1).trim();
   }
 
-  const currencyPrefixMatch = /^(?:[A-Z]{1,2}\$|\p{Sc}|[A-Z]{3}\s+)\s*/u.exec(trimmed);
-  if (currencyPrefixMatch) {
-    trimmed = trimmed.slice(currencyPrefixMatch[0].length).trim();
+  const amountPrefixMatch = /^(?:[A-Z]{1,2}\$|\p{Sc}|[A-Z]{3}\s+)\s*/u.exec(trimmed);
+  if (amountPrefixMatch) {
+    trimmed = trimmed.slice(amountPrefixMatch[0].length).trim();
   }
 
   if (/^[+-]/.test(trimmed)) {
@@ -165,9 +165,9 @@ export function parseCurrencyToCents(raw: string): number {
     trimmed = trimmed.slice(1).trim();
   }
 
-  const currencySuffixMatch = /\s+[A-Z]{3}$/.exec(trimmed);
-  if (currencySuffixMatch) {
-    trimmed = trimmed.slice(0, currencySuffixMatch.index).trim();
+  const amountSuffixMatch = /\s+[A-Z]{3}$/.exec(trimmed);
+  if (amountSuffixMatch) {
+    trimmed = trimmed.slice(0, amountSuffixMatch.index).trim();
   }
 
   if (!/^(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/.test(trimmed)) {
@@ -515,12 +515,12 @@ export function parseBankStatementCsv(
     const rawCredit = creditIdx !== -1 ? (row[creditIdx] ?? "").trim() : "";
 
     if (rawAmount.length > 0) {
-      const signedCents = parseCurrencyToCents(rawAmount);
+      const signedCents = parseAmountToCents(rawAmount);
       type = signedCents < 0 ? "payment" : "receipt";
       amountCents = Math.abs(signedCents);
     } else if (rawCredit.length > 0 || rawDebit.length > 0) {
-      const creditCents = rawCredit.length > 0 ? Math.abs(parseCurrencyToCents(rawCredit)) : 0;
-      const debitCents = rawDebit.length > 0 ? Math.abs(parseCurrencyToCents(rawDebit)) : 0;
+      const creditCents = rawCredit.length > 0 ? Math.abs(parseAmountToCents(rawCredit)) : 0;
+      const debitCents = rawDebit.length > 0 ? Math.abs(parseAmountToCents(rawDebit)) : 0;
       if (creditCents > 0 && debitCents === 0) {
         type = "receipt";
         amountCents = creditCents;
@@ -553,7 +553,7 @@ export function parseBankStatementCsv(
 
     const rawBalance = balanceIdx !== -1 ? (row[balanceIdx] ?? "").trim() : "";
     if (rawBalance.length > 0) {
-      parsedRow.balanceCents = parseCurrencyToCents(rawBalance);
+      parsedRow.balanceCents = parseAmountToCents(rawBalance);
     }
 
     parsedRows.push(parsedRow);

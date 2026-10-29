@@ -1,5 +1,5 @@
 import {
-  formatCurrency,
+  formatAmount,
   invoiceStatusLabel,
   invoiceTotalCents,
   type InvoiceDocument,
@@ -166,16 +166,14 @@ export function renderInvoicePdf(
     const description = item.date ? `${baseDescription} (${item.date})` : baseDescription;
     page.text(COLUMN_X.description, y, description, { size: 10 });
     page.text(COLUMN_X.quantity, y, String(item.quantity), { size: 10, align: "right" });
-    page.text(COLUMN_X.unitPrice, y, formatCurrency(item.unitPriceCents, invoice.currency), {
+    page.text(COLUMN_X.unitPrice, y, formatAmount(item.unitPriceCents), {
       size: 10,
       align: "right",
     });
-    page.text(
-      COLUMN_X.amount,
-      y,
-      formatCurrency(Math.round(item.quantity * item.unitPriceCents), invoice.currency),
-      { size: 10, align: "right" },
-    );
+    page.text(COLUMN_X.amount, y, formatAmount(Math.round(item.quantity * item.unitPriceCents)), {
+      size: 10,
+      align: "right",
+    });
     y -= 16;
     if (itemNotes) {
       page.text(COLUMN_X.description, y + 3, itemNotes, { size: 8 });
@@ -188,7 +186,7 @@ export function renderInvoicePdf(
   page.line(MARGIN, y, PAGE_WIDTH - MARGIN, y, 0.75);
   y -= 20;
   page.text(COLUMN_X.unitPrice - 40, y, "Total", { size: 11, bold: true, align: "right" });
-  page.text(COLUMN_X.amount, y, formatCurrency(invoiceTotalCents(invoice), invoice.currency), {
+  page.text(COLUMN_X.amount, y, formatAmount(invoiceTotalCents(invoice)), {
     size: 11,
     bold: true,
     align: "right",

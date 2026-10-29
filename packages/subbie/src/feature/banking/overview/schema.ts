@@ -1,5 +1,3 @@
-import { DEFAULT_INVOICE_CURRENCY } from "../../invoices/schema.ts";
-import type { BankAccountDocument } from "../accounts/schema.ts";
 import type { BankCategoryDocument } from "../categories/schema.ts";
 import { allocationGstAmountCents, allocationNetAmountCents, BANK_GST_RATE } from "../lines/gst.ts";
 import type { BankStatementLineDocument } from "../lines/schema.ts";
@@ -23,7 +21,6 @@ export interface FinancialYearCategorySummary {
 
 export interface FinancialYearSummary {
   financialYear: AustralianFinancialYear;
-  currency: string;
   categorySummaries: FinancialYearCategorySummary[];
   gstCollectedCents: number;
   gstPaidCents: number;
@@ -40,16 +37,12 @@ export interface SummarizeFinancialYearInput {
   financialYear: AustralianFinancialYear;
   statementLines: readonly BankStatementLineDocument[];
   categories: readonly BankCategoryDocument[];
-  accounts?: readonly BankAccountDocument[];
-  currency?: string;
   gstRate?: number;
 }
 
 export interface SummarizeBankingFinancialYearsInput {
   statementLines: readonly BankStatementLineDocument[];
   categories: readonly BankCategoryDocument[];
-  accounts?: readonly BankAccountDocument[];
-  currency?: string;
   gstRate?: number;
   referenceDate?: Date | string;
 }
@@ -117,19 +110,12 @@ function compareCategories(a: BankCategoryDocument, b: BankCategoryDocument): nu
 }
 
 export function summarizeFinancialYear(input: SummarizeFinancialYearInput): FinancialYearSummary {
-  const { financialYear, statementLines, categories, accounts = [] } = input;
+  const { financialYear, statementLines, categories } = input;
   const gstRate = input.gstRate ?? BANK_GST_RATE;
 
   const linesInYear = statementLines.filter(
     (line) => !line.isPrivate && isDateInFinancialYear(line.date, financialYear),
   );
-
-  const accountById = new Map(accounts.map((account) => [account.id, account]));
-  const firstLineCurrency = linesInYear
-    .map((line) => accountById.get(line.accountId)?.currency)
-    .find((value): value is string => typeof value === "string" && value.length > 0);
-  const currency =
-    input.currency ?? firstLineCurrency ?? accounts[0]?.currency ?? DEFAULT_INVOICE_CURRENCY;
 
   const sortedCategories = [...categories].sort(compareCategories);
   const categorySummariesById = new Map<string, FinancialYearCategorySummary>(
@@ -195,7 +181,6 @@ export function summarizeFinancialYear(input: SummarizeFinancialYearInput): Fina
 
   return {
     financialYear,
-    currency,
     categorySummaries,
     gstCollectedCents,
     gstPaidCents,
@@ -220,16 +205,12 @@ export function summarizeBankingFinancialYears(
       financialYear: currentFy,
       statementLines: input.statementLines,
       categories: input.categories,
-      accounts: input.accounts,
-      currency: input.currency,
       gstRate: input.gstRate,
     }),
     previousFinancialYear: summarizeFinancialYear({
       financialYear: previousFy,
       statementLines: input.statementLines,
       categories: input.categories,
-      accounts: input.accounts,
-      currency: input.currency,
       gstRate: input.gstRate,
     }),
   };

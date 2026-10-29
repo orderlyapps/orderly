@@ -1,7 +1,7 @@
 import { IonBadge, IonItem, IonLabel, IonList, IonNote } from "@ionic/react";
 
 import {
-  formatCurrency,
+  formatAmount,
   invoiceStatusColor,
   invoiceStatusLabel,
   invoiceTotalCents,
@@ -40,9 +40,7 @@ export const InvoiceList = ({
               {invoice.number} · {invoice.issueDate}
             </IonNote>
           </IonLabel>
-          <IonNote slot="end">
-            {formatCurrency(invoiceTotalCents(invoice), invoice.currency)}
-          </IonNote>
+          <IonNote slot="end">{formatAmount(invoiceTotalCents(invoice))}</IonNote>
           <IonBadge slot="end" color={invoiceStatusColor(invoice.status)}>
             {invoiceStatusLabel(invoice.status)}
           </IonBadge>

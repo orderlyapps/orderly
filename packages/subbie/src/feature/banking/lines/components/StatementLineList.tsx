@@ -12,11 +12,7 @@ import {
   IonText,
 } from "@ionic/react";
 
-import {
-  DEFAULT_INVOICE_CURRENCY,
-  formatCurrency,
-  type InvoiceDocument,
-} from "../../../invoices/schema.ts";
+import { formatAmount, type InvoiceDocument } from "../../../invoices/schema.ts";
 import type { BankAccountDocument } from "../../accounts/schema.ts";
 import type { BankCategoryDocument } from "../../categories/schema.ts";
 import {
@@ -161,7 +157,6 @@ export const StatementLineList = ({
       ) : (
         lines.map((line) => {
           const account = accountById.get(line.accountId);
-          const currency = account?.currency ?? DEFAULT_INVOICE_CURRENCY;
           const linkedInvoiceLabels = line.invoiceIds
             .map((id) => invoiceById.get(id)?.number ?? (invoices === undefined ? id : null))
             .filter((label): label is string => Boolean(label));
@@ -173,7 +168,7 @@ export const StatementLineList = ({
                   return `${name} (${bankGstTypeLabel("gst-free")})`;
                 }
                 const gstCents = allocationGstAmountCents(entry, gstRate);
-                return `${name} (${bankGstTypeLabel(entry.gstType)} ${formatCurrency(gstCents, currency)})`;
+                return `${name} (${bankGstTypeLabel(entry.gstType)} ${formatAmount(gstCents)})`;
               }
               return name;
             })
@@ -226,7 +221,7 @@ export const StatementLineList = ({
                         ? `${allocationNames.join(", ")}${
                             fullyAllocated
                               ? ""
-                              : ` (${formatCurrency(allocated, currency)}/${formatCurrency(line.amountCents, currency)})`
+                              : ` (${formatAmount(allocated)}/${formatAmount(line.amountCents)})`
                           }`
                         : "Unallocated"}
                   </p>
@@ -235,7 +230,7 @@ export const StatementLineList = ({
                   <IonText color={line.isPrivate ? "medium" : bankTransactionTypeColor(line.type)}>
                     <strong>
                       {line.type === "payment" ? "-" : "+"}
-                      {formatCurrency(line.amountCents, currency)}
+                      {formatAmount(line.amountCents)}
                     </strong>
                   </IonText>
                 </div>

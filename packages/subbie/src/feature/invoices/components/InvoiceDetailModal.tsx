@@ -18,7 +18,7 @@ import {
 } from "@ionic/react";
 
 import {
-  formatCurrency,
+  formatAmount,
   invoiceStatusColor,
   invoiceStatusLabel,
   invoiceTotalCents,
@@ -140,16 +140,13 @@ export const InvoiceDetailModal = ({
                   <IonLabel>
                     <h3>{item.description}</h3>
                     <IonNote>
-                      {item.quantity} × {formatCurrency(item.unitPriceCents, invoice.currency)}
+                      {item.quantity} × {formatAmount(item.unitPriceCents)}
                       {item.date ? ` · ${item.date}` : ""}
                     </IonNote>
                     {item.notes ? <p>{item.notes}</p> : null}
                   </IonLabel>
                   <IonNote slot="end">
-                    {formatCurrency(
-                      Math.round(item.quantity * item.unitPriceCents),
-                      invoice.currency,
-                    )}
+                    {formatAmount(Math.round(item.quantity * item.unitPriceCents))}
                   </IonNote>
                 </IonItem>
               ))}
@@ -158,7 +155,7 @@ export const InvoiceDetailModal = ({
                   <strong>Total</strong>
                 </IonLabel>
                 <IonNote slot="end">
-                  <strong>{formatCurrency(invoiceTotalCents(invoice), invoice.currency)}</strong>
+                  <strong>{formatAmount(invoiceTotalCents(invoice))}</strong>
                 </IonNote>
               </IonItem>
             </IonList>

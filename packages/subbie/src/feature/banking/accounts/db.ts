@@ -20,7 +20,7 @@ import {
 export const BANK_ACCOUNTS_COLLECTION_NAME = "bank_accounts";
 
 export const bankAccountJsonSchema: RxJsonSchema<BankAccountDocument> = {
-  version: 0,
+  version: 1,
   primaryKey: "id",
   type: "object",
   properties: {
@@ -28,7 +28,6 @@ export const bankAccountJsonSchema: RxJsonSchema<BankAccountDocument> = {
     name: { type: "string" },
     institution: { type: "string" },
     accountNumber: { type: "string" },
-    currency: { type: "string", maxLength: 3 },
     csvPreset: {
       type: "object",
       properties: {
@@ -54,7 +53,7 @@ export const bankAccountJsonSchema: RxJsonSchema<BankAccountDocument> = {
     createdAt: { type: "string" },
     updatedAt: { type: "string" },
   },
-  required: ["id", "name", "currency", "csvPreset", "createdAt", "updatedAt"],
+  required: ["id", "name", "csvPreset", "createdAt", "updatedAt"],
 };
 
 export type BankAccountsCollection = Collection<BankAccountDocument, string>;
@@ -91,7 +90,6 @@ export function createBankAccountsActions({
       name: validated.name.trim(),
       institution: validated.institution?.trim() ?? "",
       accountNumber: validated.accountNumber?.trim() ?? "",
-      currency: validated.currency,
       csvPreset: normalizeBankCsvPreset(validated.csvPreset),
       notes: validated.notes ?? "",
       createdAt: now,

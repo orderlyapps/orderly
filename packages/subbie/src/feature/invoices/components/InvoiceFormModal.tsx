@@ -26,9 +26,8 @@ import { trashOutline } from "ionicons/icons";
 import type { CustomerDocument } from "../../customers/schema.ts";
 import type { ItemDocument } from "../../items/schema.ts";
 import {
-  DEFAULT_INVOICE_CURRENCY,
   DEFAULT_PAYMENT_TERMS_DAYS,
-  formatCurrency,
+  formatAmount,
   generateDocumentId,
   isInvoiceDateString,
   normalizeInvoiceLineItem,
@@ -41,7 +40,6 @@ import {
 export interface InvoiceFormValues {
   clientName: string;
   clientEmail: string;
-  currency: string;
   issueDate: string;
   dueDate: string;
   notes: string;
@@ -97,7 +95,6 @@ export const InvoiceFormModal = ({
   onSubmit,
 }: InvoiceFormModalProps) => {
   const [customerId, setCustomerId] = useState("");
-  const [currency, setCurrency] = useState(DEFAULT_INVOICE_CURRENCY);
   const [issueDate, setIssueDate] = useState(toDateString());
   const [dueDate, setDueDate] = useState(addDaysToDateString(toDateString(), paymentTermsDays));
   const [notes, setNotes] = useState("");
@@ -122,7 +119,6 @@ export const InvoiceFormModal = ({
         )
       : undefined;
     setCustomerId(matchedCustomer?.id ?? "");
-    setCurrency(initial?.currency ?? DEFAULT_INVOICE_CURRENCY);
     const nextIssueDate = initial?.issueDate ?? toDateString();
     setIssueDate(nextIssueDate);
     setDueDate(initial?.dueDate ?? addDaysToDateString(nextIssueDate, paymentTermsDays));
@@ -205,7 +201,6 @@ export const InvoiceFormModal = ({
       await onSubmit({
         clientName: resolvedClient.name,
         clientEmail: resolvedClient.email,
-        currency,
         issueDate,
         dueDate,
         notes,
@@ -331,10 +326,7 @@ export const InvoiceFormModal = ({
                       readonly
                       label="Unit price"
                       labelPlacement="stacked"
-                      value={formatCurrency(
-                        Math.round(Number(item.unitPrice) * 100) || 0,
-                        currency,
-                      )}
+                      value={formatAmount(Math.round(Number(item.unitPrice) * 100) || 0)}
                     />
                   </IonCol>
                   <IonCol size="3" className="ion-align-self-end ion-text-end">
@@ -393,7 +385,7 @@ export const InvoiceFormModal = ({
               >
                 {items.map((catalogItem) => (
                   <IonSelectOption key={catalogItem.id} value={catalogItem.id}>
-                    {catalogItem.name} — {formatCurrency(catalogItem.unitPriceCents, currency)}
+                    {catalogItem.name} — {formatAmount(catalogItem.unitPriceCents)}
                   </IonSelectOption>
                 ))}
               </IonSelect>

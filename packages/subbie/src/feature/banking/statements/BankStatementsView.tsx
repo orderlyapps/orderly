@@ -132,7 +132,7 @@ export const BankStatementsView = ({
                   <IonSelectOption value="">All Accounts</IonSelectOption>
                   {accounts.map((account) => (
                     <IonSelectOption key={account.id} value={account.id}>
-                      {account.name} ({account.currency})
+                      {account.name}
                     </IonSelectOption>
                   ))}
                 </IonSelect>

@@ -21,7 +21,7 @@ import {
 } from "@ionic/react";
 import { checkmark } from "ionicons/icons";
 
-import { DEFAULT_INVOICE_CURRENCY, formatCurrency } from "../../../invoices/schema.ts";
+import { formatAmount } from "../../../invoices/schema.ts";
 import type { BankAccountDocument } from "../../accounts/schema.ts";
 import type { BankCategoryDocument } from "../../categories/schema.ts";
 import { bankTransactionTypeColor, bankTransactionTypeLabel, pluralize } from "../../types.ts";
@@ -104,10 +104,6 @@ export const StatementLineCategoryModal = ({
   const resolvedAccount =
     account ??
     (uniqueAccountIds.length === 1 ? (accountById.get(uniqueAccountIds[0]!) ?? null) : null);
-  const currency =
-    resolvedAccount?.currency ??
-    (targetLines[0] ? accountById.get(targetLines[0].accountId)?.currency : undefined) ??
-    DEFAULT_INVOICE_CURRENCY;
 
   const matchingCategories =
     lineType && !hasMixedTypes ? categories.filter((category) => category.type === lineType) : [];
@@ -195,32 +191,23 @@ export const StatementLineCategoryModal = ({
         : 0
     : 0;
 
-  const totalsByCurrency = new Map<
-    string,
-    { total: number; gst: number; taxable: number; net: number }
-  >();
+  const totals = { total: 0, gst: 0, taxable: 0, net: 0 };
   for (const item of targetLines) {
-    const itemCurrency = accountById.get(item.accountId)?.currency ?? DEFAULT_INVOICE_CURRENCY;
     const preview = {
       amountCents: item.amountCents,
       gstType: effectiveGstType,
       gstFreeAmountCents: singleLine ? effectiveGstFreeCents : 0,
     };
-    const entry = totalsByCurrency.get(itemCurrency) ?? { total: 0, gst: 0, taxable: 0, net: 0 };
-    entry.total += item.amountCents;
-    entry.gst += allocationGstAmountCents(preview, gstRate);
-    entry.taxable += allocationTaxableAmountCents(preview);
-    entry.net += allocationNetAmountCents(preview, gstRate);
-    totalsByCurrency.set(itemCurrency, entry);
+    totals.total += item.amountCents;
+    totals.gst += allocationGstAmountCents(preview, gstRate);
+    totals.taxable += allocationTaxableAmountCents(preview);
+    totals.net += allocationNetAmountCents(preview, gstRate);
   }
 
   const formatTotals = (
     pick: (entry: { total: number; gst: number; taxable: number; net: number }) => number,
     sign = "",
-  ) =>
-    [...totalsByCurrency.entries()]
-      .map(([entryCurrency, entry]) => `${sign}${formatCurrency(pick(entry), entryCurrency)}`)
-      .join(" · ");
+  ) => `${sign}${formatAmount(pick(totals))}`;
 
   const hasSelectHandler = Boolean(onSelectCategoryForLines || onSelectCategory);
   const hasClearHandler = Boolean(onClearCategoryForLines || onClearCategory);
@@ -492,12 +479,12 @@ export const StatementLineCategoryModal = ({
                       <IonLabel>
                         <IonNote color={!isGstFreeValid ? "danger" : undefined}>
                           {!isGstFreeValid && singleLine
-                            ? `Enter a GST free amount between ${formatCurrency(0, currency)} and ${formatCurrency(singleLine.amountCents, currency)}`
+                            ? `Enter a GST free amount between ${formatAmount(0)} and ${formatAmount(singleLine.amountCents)}`
                             : gstType === "gst"
                               ? `GST (${bankGstRateLabel(gstRate)}): ${formatTotals((entry) => entry.gst)} · Net (ex-GST): ${formatTotals((entry) => entry.net)}`
                               : gstType === "gst-free"
                                 ? `GST Free: ${formatTotals((entry) => entry.total)} · GST: ${formatTotals((entry) => entry.gst)}`
-                                : `GST Free: ${formatCurrency(effectiveGstFreeCents, currency)} · Taxable: ${formatTotals((entry) => entry.taxable)} · GST (${bankGstRateLabel(gstRate)}): ${formatTotals((entry) => entry.gst)}`}
+                                : `GST Free: ${formatAmount(effectiveGstFreeCents)} · Taxable: ${formatTotals((entry) => entry.taxable)} · GST (${bankGstRateLabel(gstRate)}): ${formatTotals((entry) => entry.gst)}`}
                         </IonNote>
                       </IonLabel>
                     </IonItem>

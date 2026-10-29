@@ -8,7 +8,7 @@ import {
   IonNote,
 } from "@ionic/react";
 
-import { formatCurrency } from "../../invoices/schema.ts";
+import { formatAmount } from "../../invoices/schema.ts";
 import type { ItemDocument } from "../schema.ts";
 
 export interface ItemListProps {
@@ -43,7 +43,7 @@ export const ItemList = ({
                   .join(" · ")}
               </IonNote>
             </IonLabel>
-            <IonNote slot="end">{formatCurrency(item.unitPriceCents)}</IonNote>
+            <IonNote slot="end">{formatAmount(item.unitPriceCents)}</IonNote>
           </IonItem>
           {onDelete ? (
             <IonItemOptions side="end">

@@ -100,7 +100,15 @@ export async function createBankingStore(options: CreateBankingStoreOptions = {}
 
   try {
     await database.addCollections({
-      [BANK_ACCOUNTS_COLLECTION_NAME]: { schema: bankAccountJsonSchema },
+      [BANK_ACCOUNTS_COLLECTION_NAME]: {
+        schema: bankAccountJsonSchema,
+        migrationStrategies: {
+          1: (oldDoc: BankAccountDocument & { currency?: string }) => {
+            const { currency: _currency, ...doc } = oldDoc;
+            return doc;
+          },
+        },
+      },
       [BANK_CATEGORIES_COLLECTION_NAME]: { schema: bankCategoryJsonSchema },
       [BANK_STATEMENTS_COLLECTION_NAME]: { schema: bankStatementJsonSchema },
       [BANK_STATEMENT_LINES_COLLECTION_NAME]: {

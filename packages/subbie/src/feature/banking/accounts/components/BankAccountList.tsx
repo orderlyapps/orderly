@@ -1,5 +1,4 @@
 import {
-  IonBadge,
   IonItem,
   IonItemOption,
   IonItemOptions,
@@ -66,9 +65,6 @@ export const BankAccountList = ({
                 </IonNote>
                 <p>{formatPresetSummary(account.csvPreset)}</p>
               </IonLabel>
-              <IonBadge slot="end" color="medium">
-                {account.currency}
-              </IonBadge>
             </IonItem>
             {onDelete ? (
               <IonItemOptions side="end">

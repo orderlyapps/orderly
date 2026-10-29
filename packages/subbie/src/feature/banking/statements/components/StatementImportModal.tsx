@@ -10,7 +10,6 @@ import {
   IonToolbar,
 } from "@ionic/react";
 
-import { DEFAULT_INVOICE_CURRENCY } from "../../../invoices/schema.ts";
 import type { BankAccountDocument } from "../../accounts/schema.ts";
 import { detectBankCsvPresetFromHeaders, parseBankStatementCsv, parseCsvMatrix } from "../csv.ts";
 import {
@@ -81,9 +80,6 @@ export const StatementImportModal = ({
     setSavePresetToAccount(true);
     setIsImporting(false);
   }, [isOpen, accounts, defaultAccountId]);
-
-  const selectedAccount = accounts.find((entry) => entry.id === accountId);
-  const currency = selectedAccount?.currency ?? DEFAULT_INVOICE_CURRENCY;
 
   const sampleRow = useMemo(() => {
     if (csvText.trim().length === 0) {
@@ -294,7 +290,6 @@ export const StatementImportModal = ({
             savePresetToAccount={savePresetToAccount}
             previewRows={preview.rows}
             previewError={preview.error}
-            currency={currency}
             onHasHeaderChange={handleToggleHasHeader}
             onHeaderColumnChange={(field, value) =>
               setPreset((current) => ({ ...current, [field]: value }))

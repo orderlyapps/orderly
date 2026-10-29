@@ -151,7 +151,7 @@ export {
   parseBankStatementCsv,
   parseCsvDate,
   parseCsvMatrix,
-  parseCurrencyToCents,
+  parseAmountToCents,
   presetFromColumnRoles,
   StatementImportModal,
   type BankCsvColumnRole,

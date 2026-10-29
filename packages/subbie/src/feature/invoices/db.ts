@@ -14,7 +14,6 @@ import { getRxStorageMemory } from "rxdb/plugins/storage-memory";
 
 import {
   addDaysToDateString,
-  DEFAULT_INVOICE_CURRENCY,
   generateDocumentId,
   isInvoiceValue,
   INVOICE_KEYS,
@@ -36,7 +35,7 @@ export const INVOICES_DATABASE_NAME = "subbie";
 export const INVOICES_COLLECTION_NAME = "invoices";
 
 export const invoiceJsonSchema: RxJsonSchema<InvoiceDocument> = {
-  version: 1,
+  version: 2,
   primaryKey: "id",
   type: "object",
   properties: {
@@ -44,7 +43,6 @@ export const invoiceJsonSchema: RxJsonSchema<InvoiceDocument> = {
     number: { type: "string", maxLength: 64 },
     clientName: { type: "string" },
     clientEmail: { type: "string" },
-    currency: { type: "string", maxLength: 3 },
     status: { type: "string", maxLength: 16 },
     issueDate: { type: "string", maxLength: 10 },
     dueDate: { type: "string", maxLength: 10 },
@@ -66,7 +64,7 @@ export const invoiceJsonSchema: RxJsonSchema<InvoiceDocument> = {
     createdAt: { type: "string" },
     updatedAt: { type: "string" },
   },
-  required: ["id", "number", "clientName", "currency", "status", "items", "createdAt", "updatedAt"],
+  required: ["id", "number", "clientName", "status", "items", "createdAt", "updatedAt"],
 };
 
 export type InvoicesCollection = Collection<InvoiceDocument, string>;
@@ -107,6 +105,10 @@ export async function createInvoicesStore(options: CreateInvoicesStoreOptions = 
         schema: invoiceJsonSchema,
         migrationStrategies: {
           1: (oldDoc: InvoiceDocument) => oldDoc,
+          2: (oldDoc: InvoiceDocument & { currency?: string }) => {
+            const { currency: _currency, ...doc } = oldDoc;
+            return doc;
+          },
         },
       },
     });
@@ -152,7 +154,6 @@ export async function createInvoicesStore(options: CreateInvoicesStoreOptions = 
       number: nextInvoiceNumber(listInvoiceNumbers()),
       clientName: validated.clientName.trim(),
       clientEmail: validated.clientEmail?.trim() ?? "",
-      currency: validated.currency ?? DEFAULT_INVOICE_CURRENCY,
       status: "draft",
       issueDate,
       dueDate: validated.dueDate ?? addDaysToDateString(issueDate, 30),

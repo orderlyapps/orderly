@@ -27,8 +27,7 @@ import {
 import { trashOutline } from "ionicons/icons";
 
 import {
-  DEFAULT_INVOICE_CURRENCY,
-  formatCurrency,
+  formatAmount,
   generateDocumentId,
   invoiceStatusColor,
   invoiceStatusLabel,
@@ -98,7 +97,6 @@ export const StatementLineDetailModal = ({
   const [isSavingAllocations, setIsSavingAllocations] = useState(false);
   const [isSavingPrivate, setIsSavingPrivate] = useState(false);
 
-  const currency = account?.currency ?? DEFAULT_INVOICE_CURRENCY;
   const matchingCategories = line
     ? categories.filter((category) => category.type === line.type)
     : [];
@@ -380,14 +378,14 @@ export const StatementLineDetailModal = ({
                 <IonNote slot="end">
                   <strong>
                     {line.type === "payment" ? "-" : "+"}
-                    {formatCurrency(line.amountCents, currency)}
+                    {formatAmount(line.amountCents)}
                   </strong>
                 </IonNote>
               </IonItem>
               {line.balanceCents !== undefined ? (
                 <IonItem>
                   <IonLabel>Running Balance</IonLabel>
-                  <IonNote slot="end">{formatCurrency(line.balanceCents, currency)}</IonNote>
+                  <IonNote slot="end">{formatAmount(line.balanceCents)}</IonNote>
                 </IonItem>
               ) : null}
             </IonList>
@@ -422,8 +420,7 @@ export const StatementLineDetailModal = ({
                           {invoice.number} — {invoice.clientName}
                         </h3>
                         <IonNote>
-                          {formatCurrency(invoiceTotalCents(invoice), invoice.currency)} ·{" "}
-                          {invoice.issueDate}
+                          {formatAmount(invoiceTotalCents(invoice))} · {invoice.issueDate}
                         </IonNote>
                       </IonLabel>
                       <IonBadge slot="end" color={invoiceStatusColor(invoice.status)}>
@@ -471,7 +468,7 @@ export const StatementLineDetailModal = ({
                     {invoices.map((invoice) => (
                       <IonSelectOption key={invoice.id} value={invoice.id}>
                         {invoice.number} · {invoice.clientName} (
-                        {formatCurrency(invoiceTotalCents(invoice), invoice.currency)})
+                        {formatAmount(invoiceTotalCents(invoice))})
                       </IonSelectOption>
                     ))}
                   </IonSelect>
@@ -644,12 +641,12 @@ export const StatementLineDetailModal = ({
                 <IonItem lines="none">
                   <IonLabel>
                     <IonNote color={overAllocatedCents > 0 ? "danger" : undefined}>
-                      Allocated: {formatCurrency(allocatedTotalCents, currency)} ·{" "}
+                      Allocated: {formatAmount(allocatedTotalCents)} ·{" "}
                       {overAllocatedCents > 0
-                        ? `Over-allocated by ${formatCurrency(overAllocatedCents, currency)}`
-                        : `Remaining: ${formatCurrency(remainingCents, currency)}`}
+                        ? `Over-allocated by ${formatAmount(overAllocatedCents)}`
+                        : `Remaining: ${formatAmount(remainingCents)}`}
                       {allocatedTotalCents > 0 && gstRegistered
-                        ? ` · GST: ${formatCurrency(totalGstCents, currency)}`
+                        ? ` · GST: ${formatAmount(totalGstCents)}`
                         : ""}
                     </IonNote>
                   </IonLabel>

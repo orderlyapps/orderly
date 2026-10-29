@@ -45,7 +45,7 @@ import {
   parseBankStatementCsv,
   parseCsvDate,
   parseCsvMatrix,
-  parseCurrencyToCents,
+  parseAmountToCents,
   presetFromColumnRoles,
   signedStatementLineAmountCents,
   summarizeBankingFinancialYears,
@@ -117,14 +117,12 @@ test("validates banking schema helpers and normalizers", () => {
     name: "  Operating Account ",
     institution: "  CommBank ",
     accountNumber: " 1234-5678 ",
-    currency: "AUD",
   });
   expect(isBankAccountDocument(account)).toBe(true);
   expect(isValidBankId(account.id)).toBe(true);
   expect(account.name).toBe("Operating Account");
   expect(account.institution).toBe("CommBank");
   expect(account.accountNumber).toBe("1234-5678");
-  expect(account.currency).toBe("AUD");
 
   const category = normalizeBankCategoryDocument({
     name: "  Materials ",
@@ -187,9 +185,6 @@ test("validates banking schema helpers and normalizers", () => {
 test("validates create inputs for accounts, categories, and statement lines", () => {
   expect(() => validateBankAccountInput({ name: "Business Checking" })).not.toThrow();
   expect(() => validateBankAccountInput({ name: "  " })).toThrow("account name is required");
-  expect(() => validateBankAccountInput({ name: "Main", currency: "aud" })).toThrow(
-    "currency must be a 3-letter code",
-  );
 
   expect(() => validateBankCategoryInput({ name: "Fuel", type: "payment" })).not.toThrow();
   expect(() => validateBankCategoryInput({ name: "", type: "payment" })).toThrow(
@@ -222,7 +217,7 @@ test("validates create inputs for accounts, categories, and statement lines", ()
   ).toThrow("allocated total exceeds line amount");
 });
 
-test("parses dates, currency amounts, and CSV matrices", () => {
+test("parses dates, amounts, and CSV matrices", () => {
   expect(parseCsvDate("2026-10-25")).toBe("2026-10-25");
   expect(parseCsvDate("2026-10-5")).toBe("2026-10-05");
   expect(parseCsvDate("2026/10/05")).toBe("2026-10-05");
@@ -235,24 +230,24 @@ test("parses dates, currency amounts, and CSV matrices", () => {
   expect(() => parseCsvDate("not-a-date")).toThrow("Invalid CSV date");
   expect(() => parseCsvDate("25/10/202")).toThrow("Invalid CSV date");
 
-  expect(parseCurrencyToCents("1250.50")).toBe(125_050);
-  expect(parseCurrencyToCents("-$45.25")).toBe(-4_525);
-  expect(parseCurrencyToCents("$-45.25")).toBe(-4_525);
-  expect(parseCurrencyToCents("($1,200.00)")).toBe(-120_000);
-  expect(parseCurrencyToCents("($-1,200.00)")).toBe(-120_000);
-  expect(parseCurrencyToCents("350.00 DR")).toBe(-35_000);
-  expect(parseCurrencyToCents("$-350.00 DR")).toBe(-35_000);
-  expect(parseCurrencyToCents("900.00 CR")).toBe(90_000);
-  expect(parseCurrencyToCents("145.50-")).toBe(-14_550);
-  expect(parseCurrencyToCents("AUD 1,250.50")).toBe(125_050);
-  expect(parseCurrencyToCents("1,250.50 AUD")).toBe(125_050);
-  expect(parseCurrencyToCents("-0.00")).toBe(0);
-  expect(() => parseCurrencyToCents("")).toThrow("empty amount");
-  expect(() => parseCurrencyToCents("2026-10-01")).toThrow("Invalid CSV amount");
-  expect(() => parseCurrencyToCents("25/10/2026")).toThrow("Invalid CSV amount");
-  expect(() => parseCurrencyToCents("25 Oct 2026")).toThrow("Invalid CSV amount");
-  expect(() => parseCurrencyToCents("TXN-999")).toThrow("Invalid CSV amount");
-  expect(() => parseCurrencyToCents("12 34 56")).toThrow("Invalid CSV amount");
+  expect(parseAmountToCents("1250.50")).toBe(125_050);
+  expect(parseAmountToCents("-$45.25")).toBe(-4_525);
+  expect(parseAmountToCents("$-45.25")).toBe(-4_525);
+  expect(parseAmountToCents("($1,200.00)")).toBe(-120_000);
+  expect(parseAmountToCents("($-1,200.00)")).toBe(-120_000);
+  expect(parseAmountToCents("350.00 DR")).toBe(-35_000);
+  expect(parseAmountToCents("$-350.00 DR")).toBe(-35_000);
+  expect(parseAmountToCents("900.00 CR")).toBe(90_000);
+  expect(parseAmountToCents("145.50-")).toBe(-14_550);
+  expect(parseAmountToCents("AUD 1,250.50")).toBe(125_050);
+  expect(parseAmountToCents("1,250.50 AUD")).toBe(125_050);
+  expect(parseAmountToCents("-0.00")).toBe(0);
+  expect(() => parseAmountToCents("")).toThrow("empty amount");
+  expect(() => parseAmountToCents("2026-10-01")).toThrow("Invalid CSV amount");
+  expect(() => parseAmountToCents("25/10/2026")).toThrow("Invalid CSV amount");
+  expect(() => parseAmountToCents("25 Oct 2026")).toThrow("Invalid CSV amount");
+  expect(() => parseAmountToCents("TXN-999")).toThrow("Invalid CSV amount");
+  expect(() => parseAmountToCents("12 34 56")).toThrow("Invalid CSV amount");
 
   const matrix = parseCsvMatrix(
     '\uFEFFDate,Description,Amount\r\n2026-10-01,"Acme, Inc. ""Invoice #1""",1250.00\r\n',
@@ -413,13 +408,11 @@ test("manages multiple bank accounts, imports CSV statements, links invoices, an
       name: "Business Checking",
       institution: "ANZ",
       accountNumber: "012-345 11112222",
-      currency: "AUD",
     });
     const savings = await bankingStore.createAccount({
       name: "Tax Savings",
       institution: "NAB",
       accountNumber: "082-000 99998888",
-      currency: "AUD",
       csvPreset: {
         hasHeader: true,
         dateColumn: "Posted Date",
@@ -487,12 +480,10 @@ test("manages multiple bank accounts, imports CSV statements, links invoices, an
     // 5. Create invoices and link them to a statement line (auto-marking them as paid)
     const inv1 = await invoicesStore.createInvoice({
       clientName: "Acme Corp",
-      currency: "AUD",
       items: [{ description: "Phase 1", quantity: 1, unitPriceCents: 200_000 }],
     });
     const inv2 = await invoicesStore.createInvoice({
       clientName: "Acme Corp",
-      currency: "AUD",
       items: [{ description: "Phase 2", quantity: 1, unitPriceCents: 150_000 }],
     });
     expect(inv1.status).toBe("draft");
@@ -818,7 +809,6 @@ test("calculates and persists GST, GST Free, and Part GST payment allocations (1
   try {
     const account = await bankingStore.createAccount({
       name: "Business Account",
-      currency: "AUD",
     });
     const materialsCat = bankingStore
       .listCategories("payment")
@@ -924,7 +914,6 @@ test("marks statement lines as private and excludes them from business totals", 
   try {
     const account = await bankingStore.createAccount({
       name: "Mixed Account",
-      currency: "AUD",
     });
     const materialsCat = bankingStore
       .listCategories("payment")
@@ -1066,7 +1055,6 @@ test("bulk allocates, clears, and sets private status across multiple statement 
   try {
     const account = await store.createAccount({
       name: "Business Account",
-      currency: "AUD",
     });
     const materialsCat = store
       .listCategories("payment")
@@ -1190,7 +1178,6 @@ test("calculates current and previous Australian financial year summaries (July 
   const account = normalizeBankAccountDocument({
     id: "acc_aud",
     name: "Operating",
-    currency: "AUD",
   });
   const customerReceiptsCat = normalizeBankCategoryDocument({
     id: "cat_receipts",
@@ -1328,7 +1315,6 @@ test("calculates current and previous Australian financial year summaries (July 
   ];
 
   const { currentFinancialYear, previousFinancialYear } = summarizeBankingFinancialYears({
-    accounts: [account],
     categories,
     statementLines,
     referenceDate: "2026-10-25",
@@ -1336,7 +1322,6 @@ test("calculates current and previous Australian financial year summaries (July 
 
   // Current FY assertions (2026–27)
   expect(currentFinancialYear.financialYear.label).toBe("FY 2026–27");
-  expect(currentFinancialYear.currency).toBe("AUD");
   expect(currentFinancialYear.gstCollectedCents).toBe(20_000);
   expect(currentFinancialYear.gstPaidCents).toBe(10_800);
   expect(currentFinancialYear.gstDifferenceCents).toBe(9_200);
@@ -1382,7 +1367,6 @@ test("calculates current and previous Australian financial year summaries (July 
 
   // Previous FY assertions (2025–26)
   expect(previousFinancialYear.financialYear.label).toBe("FY 2025–26");
-  expect(previousFinancialYear.currency).toBe("AUD");
   expect(previousFinancialYear.gstCollectedCents).toBe(10_000);
   expect(previousFinancialYear.gstPaidCents).toBe(3_000);
   expect(previousFinancialYear.gstDifferenceCents).toBe(7_000);
@@ -1402,29 +1386,20 @@ test("calculates current and previous Australian financial year summaries (July 
     { name: "Materials & Supplies", amountExGstCents: 30_000 },
   ]);
 
-  // Direct summarizeFinancialYear call with explicit currency override
+  // Direct summarizeFinancialYear call with empty inputs
   const direct = summarizeFinancialYear({
     financialYear: fyOct2026,
     statementLines: [],
     categories: [],
-    currency: "NZD",
   });
-  expect(direct.currency).toBe("NZD");
   expect(direct.totalCollectedIncGstCents).toBe(0);
 
-  // Resolves currency from accounts referenced by lines in the financial year and ignores unknown categories
-  const unusedUsdAccount = normalizeBankAccountDocument({
-    id: "acc_usd",
-    name: "AAA USD Account",
-    currency: "USD",
-  });
+  // Ignores allocations referencing unknown categories
   const subsetSummary = summarizeFinancialYear({
     financialYear: fyOct2026,
-    accounts: [unusedUsdAccount, account],
     statementLines,
     categories: [customerReceiptsCat],
   });
-  expect(subsetSummary.currency).toBe("AUD");
   expect(subsetSummary.totalCollectedIncGstCents).toBe(220_000);
   expect(subsetSummary.totalPaidIncGstCents).toBe(0);
   expect(subsetSummary.categorySummaries).toHaveLength(1);

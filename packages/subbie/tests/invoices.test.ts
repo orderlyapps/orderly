@@ -4,7 +4,7 @@ import {
   addDaysToDateString,
   createInvoicePdfFilename,
   createInvoicesStore,
-  formatCurrency,
+  formatAmount,
   invoiceStatusColor,
   invoiceStatusLabel,
   invoiceTotalCents,
@@ -31,7 +31,6 @@ function sampleInput(): CreateInvoiceInput {
   return {
     clientName: "Acme Corp",
     clientEmail: "billing@acme.com",
-    currency: "USD",
     items: [
       { description: "Design work", quantity: 2, unitPriceCents: 125_000 },
       { description: "Consulting", quantity: 1.5, unitPriceCents: 40_000 },
@@ -57,8 +56,8 @@ test("validates invoice schema helpers", () => {
   expect(invoiceStatusColor("overdue")).toBe("danger");
   expect(invoiceStatusLabel("sent")).toBe("Sent");
 
-  expect(formatCurrency(125_000)).toBe("$1,250.00");
-  expect(formatCurrency(0, "EUR")).toBe("€0.00");
+  expect(formatAmount(125_000)).toBe("$1,250.00");
+  expect(formatAmount(0)).toBe("$0.00");
 
   expect(toDateString(new Date(2026, 9, 24))).toBe("2026-10-24");
   expect(addDaysToDateString("2026-10-24", 30)).toBe("2026-11-23");
@@ -106,9 +105,6 @@ test("validates create invoice input", () => {
       items: [{ description: "x", quantity: 1, unitPriceCents: -5 }],
     }),
   ).toThrow("unit price must be a non-negative integer");
-  expect(() => validateInvoiceInput({ ...sampleInput(), currency: "usd" })).toThrow(
-    "3-letter code",
-  );
   expect(() => validateInvoiceInput({ ...sampleInput(), issueDate: "10/24/2026" })).toThrow(
     "YYYY-MM-DD",
   );
@@ -141,7 +137,6 @@ test("normalizes documents and line items", () => {
   const doc = normalizeInvoiceDocument();
   expect(isValidInvoiceId(doc.id)).toBe(true);
   expect(doc.status).toBe("draft");
-  expect(doc.currency).toBe("USD");
   expect(doc.items).toEqual([]);
 
   const normalized = normalizeInvoiceDocument({
@@ -149,13 +144,11 @@ test("normalizes documents and line items", () => {
     number: "INV-2026-001",
     clientName: "Acme",
     status: "bogus" as never,
-    currency: "eur" as never,
   });
   expect(normalized.id).toBe("abc");
   expect(normalized.number).toBe("INV-2026-001");
   expect(normalized.clientName).toBe("Acme");
   expect(normalized.status).toBe("draft");
-  expect(normalized.currency).toBe("USD");
 
   const item = normalizeInvoiceLineItem({ description: "x", quantity: 0, unitPriceCents: -1 });
   expect(item.id.length).toBeGreaterThan(0);
@@ -249,7 +242,6 @@ test("renders a valid PDF document for an invoice", () => {
     number: "INV-2026-001",
     clientName: "Acme Corp",
     clientEmail: "billing@acme.com",
-    currency: "USD",
     status: "sent",
     issueDate: "2026-10-01",
     dueDate: "2026-10-31",
@@ -286,7 +278,6 @@ test("renders multi-page PDFs for long invoices", () => {
     id: "inv-big",
     number: "INV-2026-042",
     clientName: "Globex",
-    currency: "USD",
     status: "draft",
     issueDate: "2026-10-01",
     dueDate: "2026-10-31",
@@ -312,7 +303,6 @@ test("sendInvoicePdf falls back to download when sharing is unavailable", async 
     id: "inv-send",
     number: "INV-2026-007",
     clientName: "Initech",
-    currency: "USD",
     status: "draft",
     issueDate: "2026-10-01",
     dueDate: "2026-10-31",

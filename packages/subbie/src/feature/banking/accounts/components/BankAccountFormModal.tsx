@@ -15,7 +15,6 @@ import {
   IonToolbar,
 } from "@ionic/react";
 
-import { DEFAULT_INVOICE_CURRENCY, isCurrencyCode } from "../../../invoices/schema.ts";
 import { normalizeBankCsvPreset, type BankCsvPreset } from "../../statements/schema.ts";
 import type { BankAccountDocument } from "../schema.ts";
 
@@ -23,7 +22,6 @@ export interface BankAccountFormValues {
   name: string;
   institution: string;
   accountNumber: string;
-  currency: string;
   csvPreset: BankCsvPreset;
   notes: string;
 }
@@ -44,7 +42,6 @@ export const BankAccountFormModal = ({
   const [name, setName] = useState("");
   const [institution, setInstitution] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
-  const [currency, setCurrency] = useState(DEFAULT_INVOICE_CURRENCY);
   const [notes, setNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -55,13 +52,11 @@ export const BankAccountFormModal = ({
     setName(initial?.name ?? "");
     setInstitution(initial?.institution ?? "");
     setAccountNumber(initial?.accountNumber ?? "");
-    setCurrency(initial?.currency ?? DEFAULT_INVOICE_CURRENCY);
     setNotes(initial?.notes ?? "");
     setIsSaving(false);
   }, [isOpen, initial]);
 
-  const normalizedCurrency = currency.trim().toUpperCase();
-  const isValid = name.trim().length > 0 && isCurrencyCode(normalizedCurrency);
+  const isValid = name.trim().length > 0;
 
   const handleSave = async () => {
     if (!isValid || isSaving) {
@@ -73,7 +68,6 @@ export const BankAccountFormModal = ({
         name: name.trim(),
         institution: institution.trim(),
         accountNumber: accountNumber.trim(),
-        currency: normalizedCurrency,
         csvPreset: normalizeBankCsvPreset(initial?.csvPreset),
         notes,
       });
@@ -134,16 +128,6 @@ export const BankAccountFormModal = ({
               placeholder="062-000 12345678"
               value={accountNumber}
               onIonInput={(event) => setAccountNumber(event.detail.value ?? "")}
-            />
-          </IonItem>
-          <IonItem>
-            <IonInput
-              label="Currency (3-letter code)"
-              labelPlacement="stacked"
-              placeholder="USD"
-              maxlength={3}
-              value={currency}
-              onIonInput={(event) => setCurrency((event.detail.value ?? "").toUpperCase())}
             />
           </IonItem>
           <IonItem>

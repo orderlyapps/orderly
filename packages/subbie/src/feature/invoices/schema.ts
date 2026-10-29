@@ -16,7 +16,6 @@ export interface InvoiceDocument {
   number: string;
   clientName: string;
   clientEmail: string;
-  currency: string;
   status: InvoiceStatus;
   issueDate: string;
   dueDate: string;
@@ -33,7 +32,6 @@ export type InvoicePatch = Partial<Omit<InvoiceDocument, "id">>;
 export interface CreateInvoiceInput {
   clientName: string;
   clientEmail?: string;
-  currency?: string;
   issueDate?: string;
   dueDate?: string;
   items: Array<Omit<InvoiceLineItem, "id">>;
@@ -43,8 +41,6 @@ export interface CreateInvoiceInput {
 export const INVOICE_ID_MAX_LENGTH = 128;
 
 export const INVOICE_NUMBER_MAX_LENGTH = 64;
-
-export const DEFAULT_INVOICE_CURRENCY = "USD";
 
 export const DEFAULT_PAYMENT_TERMS_DAYS = 30;
 
@@ -70,8 +66,10 @@ export function invoiceStatusLabel(status: InvoiceStatus): string {
   return INVOICE_STATUS_LABELS[status];
 }
 
-export function formatCurrency(amountCents: number, currency = DEFAULT_INVOICE_CURRENCY): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amountCents / 100);
+export function formatAmount(amountCents: number): string {
+  return new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" }).format(
+    amountCents / 100,
+  );
 }
 
 export function isInvoiceStatus(value: unknown): value is InvoiceStatus {
@@ -99,10 +97,6 @@ export function isInvoiceDateString(value: unknown): value is string {
   const date = new Date(0);
   date.setFullYear(year, month - 1, day);
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
-}
-
-export function isCurrencyCode(value: unknown): value is string {
-  return typeof value === "string" && /^[A-Z]{3}$/.test(value);
 }
 
 export function isNonNegativeInteger(value: unknown): value is number {
@@ -151,7 +145,6 @@ const INVOICE_VALIDATORS: InvoiceValidatorMap = {
     value.length <= INVOICE_NUMBER_MAX_LENGTH,
   clientName: isNonEmptyString,
   clientEmail: isStringField,
-  currency: isCurrencyCode,
   status: isInvoiceStatus,
   issueDate: isInvoiceDateString,
   dueDate: isInvoiceDateString,
@@ -253,7 +246,6 @@ export function normalizeInvoiceDocument(value?: Partial<InvoiceDocument> | null
     number: "",
     clientName: "",
     clientEmail: "",
-    currency: DEFAULT_INVOICE_CURRENCY,
     status: "draft",
     issueDate: toDateString(),
     dueDate: addDaysToDateString(toDateString(), DEFAULT_PAYMENT_TERMS_DAYS),
@@ -283,9 +275,6 @@ export function validateInvoiceInput(input: CreateInvoiceInput): CreateInvoiceIn
   }
   if (input.clientEmail !== undefined && typeof input.clientEmail !== "string") {
     throw new Error("Invalid invoice: client email must be a string");
-  }
-  if (input.currency !== undefined && !isCurrencyCode(input.currency)) {
-    throw new Error("Invalid invoice: currency must be a 3-letter code");
   }
   if (input.issueDate !== undefined && !isInvoiceDateString(input.issueDate)) {
     throw new Error("Invalid invoice: issue date must be YYYY-MM-DD");

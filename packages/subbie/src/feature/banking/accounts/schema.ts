@@ -1,19 +1,18 @@
 import { z } from "zod";
 
-import { DEFAULT_INVOICE_CURRENCY, generateDocumentId } from "../../invoices/schema.ts";
+import { generateDocumentId } from "../../invoices/schema.ts";
 import {
   bankCsvPresetSchema,
   normalizeBankCsvPreset,
   type BankCsvPreset,
 } from "../statements/schema.ts";
-import { bankIdSchema, currencySchema, fieldOrDefault, nonBlankString } from "../types.ts";
+import { bankIdSchema, fieldOrDefault, nonBlankString } from "../types.ts";
 
 const bankAccountFields = {
   id: bankIdSchema,
   name: nonBlankString,
   institution: z.string(),
   accountNumber: z.string(),
-  currency: currencySchema,
   csvPreset: bankCsvPresetSchema,
   notes: z.string(),
   createdAt: nonBlankString,
@@ -29,7 +28,6 @@ export const createBankAccountInputSchema = z.object(
       .refine((value) => value.trim().length > 0, { error: "account name is required" }),
     institution: z.string({ error: "institution must be a string" }).optional(),
     accountNumber: z.string({ error: "account number must be a string" }).optional(),
-    currency: currencySchema.optional(),
     csvPreset: bankCsvPresetSchema.partial().optional(),
     notes: z.string({ error: "notes must be a string" }).optional(),
   },
@@ -59,7 +57,6 @@ export function normalizeBankAccountDocument(
     name: fieldOrDefault(bankAccountFields.name, value?.name, "").trim(),
     institution: fieldOrDefault(bankAccountFields.institution, value?.institution, "").trim(),
     accountNumber: fieldOrDefault(bankAccountFields.accountNumber, value?.accountNumber, "").trim(),
-    currency: fieldOrDefault(bankAccountFields.currency, value?.currency, DEFAULT_INVOICE_CURRENCY),
     csvPreset: normalizeBankCsvPreset(value?.csvPreset),
     notes: fieldOrDefault(bankAccountFields.notes, value?.notes, ""),
     createdAt: fieldOrDefault(bankAccountFields.createdAt, value?.createdAt, now),
