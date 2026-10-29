@@ -28,6 +28,7 @@ import {
 import {
   allocatedAmountCents,
   allocationGstAmountCents,
+  BANK_GST_RATE,
   bankGstTypeLabel,
   isLineFullyAllocated,
 } from "../gst.ts";
@@ -49,6 +50,8 @@ export interface StatementLineListProps {
   onSelectAll?: (lines: BankStatementLineDocument[]) => void;
   onClearSelection?: () => void;
   onCategoriseSelected?: () => void;
+  gstRate?: number;
+  gstRegistered?: boolean;
 }
 
 export const StatementLineList = ({
@@ -67,6 +70,8 @@ export const StatementLineList = ({
   onSelectAll,
   onClearSelection,
   onCategoriseSelected,
+  gstRate = BANK_GST_RATE,
+  gstRegistered = true,
 }: StatementLineListProps) => {
   const accountById = new Map(accounts.map((acc) => [acc.id, acc]));
   const categoryById = new Map(categories.map((cat) => [cat.id, cat]));
@@ -163,11 +168,11 @@ export const StatementLineList = ({
           const allocationNames = line.allocations
             .map((entry) => {
               const name = categoryById.get(entry.categoryId)?.name ?? "Category";
-              if (entry.gstType) {
+              if (entry.gstType && gstRegistered) {
                 if (entry.gstType === "gst-free") {
                   return `${name} (${bankGstTypeLabel("gst-free")})`;
                 }
-                const gstCents = allocationGstAmountCents(entry);
+                const gstCents = allocationGstAmountCents(entry, gstRate);
                 return `${name} (${bankGstTypeLabel(entry.gstType)} ${formatCurrency(gstCents, currency)})`;
               }
               return name;

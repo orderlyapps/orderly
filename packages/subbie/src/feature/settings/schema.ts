@@ -1,10 +1,26 @@
+import { BANK_GST_RATE, isBankGstType, type BankGstType } from "../banking/lines/gst.ts";
+import { DEFAULT_PAYMENT_TERMS_DAYS } from "../invoices/schema.ts";
+
 export const THEME_MODES = ["light", "dark", "system"] as const;
 
 export type ThemeMode = (typeof THEME_MODES)[number];
 
+export const PAYMENT_TERMS_DAYS_MAX = 365;
+
+export const INVOICE_NOTES_MAX_LENGTH = 4000;
+
+export const GST_RATE_MAX = 1;
+
+export { DEFAULT_PAYMENT_TERMS_DAYS };
+
 export interface SettingsDocument {
   id: string;
   theme: ThemeMode;
+  defaultPaymentTermsDays: number;
+  defaultInvoiceNotes: string;
+  gstRegistered: boolean;
+  gstRate: number;
+  defaultGstType: BankGstType;
 }
 
 export type SettingsKey = Exclude<keyof SettingsDocument, "id">;
@@ -18,6 +34,11 @@ export const DEFAULT_SETTINGS_ID = "default";
 export const DEFAULT_SETTINGS: SettingsDocument = {
   id: DEFAULT_SETTINGS_ID,
   theme: "system",
+  defaultPaymentTermsDays: DEFAULT_PAYMENT_TERMS_DAYS,
+  defaultInvoiceNotes: "",
+  gstRegistered: true,
+  gstRate: BANK_GST_RATE,
+  defaultGstType: "gst",
 };
 
 export function isThemeMode(value: unknown): value is ThemeMode {
@@ -28,12 +49,38 @@ export function isValidSettingsId(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= SETTINGS_ID_MAX_LENGTH;
 }
 
+export function isPaymentTermsDays(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= PAYMENT_TERMS_DAYS_MAX
+  );
+}
+
+export function isInvoiceNotes(value: unknown): value is string {
+  return typeof value === "string" && value.length <= INVOICE_NOTES_MAX_LENGTH;
+}
+
+export function isGstRegistered(value: unknown): value is boolean {
+  return typeof value === "boolean";
+}
+
+export function isGstRate(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 && value <= GST_RATE_MAX;
+}
+
 type SettingsValidatorMap = {
   [K in SettingsKey]: (value: unknown) => value is SettingsDocument[K];
 };
 
 const SETTINGS_VALIDATORS: SettingsValidatorMap = {
   theme: isThemeMode,
+  defaultPaymentTermsDays: isPaymentTermsDays,
+  defaultInvoiceNotes: isInvoiceNotes,
+  gstRegistered: isGstRegistered,
+  gstRate: isGstRate,
+  defaultGstType: isBankGstType,
 };
 
 export const SETTINGS_KEYS: readonly SettingsKey[] = Object.freeze(

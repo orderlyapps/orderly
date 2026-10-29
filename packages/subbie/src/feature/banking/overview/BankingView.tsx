@@ -1,4 +1,5 @@
 import type { InvoicesStore } from "../../invoices/index.ts";
+import type { SettingsStore } from "../../settings/index.ts";
 import { BankAccountsView } from "../accounts/BankAccountsView.tsx";
 import { BankCategoriesView } from "../categories/BankCategoriesView.tsx";
 import type { BankingStore } from "../db.ts";
@@ -12,6 +13,7 @@ export type BankingSection = "overview" | "statements" | "categorise" | "account
 export interface BankingViewProps {
   store?: BankingStore;
   invoicesStore?: InvoicesStore;
+  settingsStore?: SettingsStore;
   referenceDate?: Date | string;
   initialSection?: BankingSection;
   initialAccountId?: string;
@@ -28,6 +30,7 @@ export interface BankingViewProps {
 export const BankingView = ({
   store,
   invoicesStore,
+  settingsStore,
   referenceDate,
   initialSection = "overview",
   initialAccountId,
@@ -48,6 +51,7 @@ export const BankingView = ({
         <BankCategoriseView
           store={store}
           invoicesStore={invoicesStore}
+          settingsStore={settingsStore}
           initialAccountId={initialAccountId}
           initialCategorisationFilter={initialCategorisationFilter}
           initialTypeFilter={initialTypeFilter}
@@ -64,6 +68,7 @@ export const BankingView = ({
       return (
         <BankingOverviewView
           store={store}
+          settingsStore={settingsStore}
           referenceDate={referenceDate}
           statementsRouterLink={statementsRouterLink}
           categoriseRouterLink={categoriseRouterLink}

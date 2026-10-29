@@ -10,6 +10,7 @@ import {
   DARK_PALETTE_CLASS,
   DataSettingsSection,
   decodeSettingsBinary,
+  DEFAULT_SETTINGS,
   DEFAULT_SETTINGS_ID,
   downloadSettingsBinary,
   encodeSettingsBinary,
@@ -17,7 +18,13 @@ import {
   getSettingsStore,
   importSettingsBinary,
   importSettingsBinaryFile,
+  INVOICE_NOTES_MAX_LENGTH,
+  isGstRate,
+  isGstRegistered,
+  isInvoiceNotes,
+  isPaymentTermsDays,
   isSettingsDocument,
+  isSettingValue,
   isThemeMode,
   isValidSettingsId,
   normalizeSettingsDocument,
@@ -52,7 +59,14 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     "settings-2026-10-23_14-05-09.sub",
   );
   expect(THEME_MODES).toEqual(["light", "dark", "system"]);
-  expect(SETTINGS_KEYS).toEqual(["theme"]);
+  expect(SETTINGS_KEYS).toEqual([
+    "theme",
+    "defaultPaymentTermsDays",
+    "defaultInvoiceNotes",
+    "gstRegistered",
+    "gstRate",
+    "defaultGstType",
+  ]);
   expect(THEME_LABELS).toEqual({ light: "Light", dark: "Dark", system: "System" });
   expect(THEME_OPTIONS).toEqual([
     { value: "light", label: "Light" },
@@ -65,35 +79,55 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
   expect(isThemeMode("solarized")).toBe(false);
   expect(isThemeMode(null)).toBe(false);
 
-  expect(normalizeSettingsDocument(undefined)).toEqual({
-    id: DEFAULT_SETTINGS_ID,
-    theme: "system",
-  });
+  expect(isPaymentTermsDays(0)).toBe(true);
+  expect(isPaymentTermsDays(30)).toBe(true);
+  expect(isPaymentTermsDays(365)).toBe(true);
+  expect(isPaymentTermsDays(-1)).toBe(false);
+  expect(isPaymentTermsDays(366)).toBe(false);
+  expect(isPaymentTermsDays(1.5)).toBe(false);
+  expect(isPaymentTermsDays("30")).toBe(false);
+  expect(isInvoiceNotes("")).toBe(true);
+  expect(isInvoiceNotes("a".repeat(INVOICE_NOTES_MAX_LENGTH))).toBe(true);
+  expect(isInvoiceNotes("a".repeat(INVOICE_NOTES_MAX_LENGTH + 1))).toBe(false);
+  expect(isInvoiceNotes(42)).toBe(false);
+  expect(isGstRegistered(true)).toBe(true);
+  expect(isGstRegistered(false)).toBe(true);
+  expect(isGstRegistered("true")).toBe(false);
+  expect(isGstRate(0.1)).toBe(true);
+  expect(isGstRate(1)).toBe(true);
+  expect(isGstRate(0)).toBe(false);
+  expect(isGstRate(-0.1)).toBe(false);
+  expect(isGstRate(1.5)).toBe(false);
+  expect(isGstRate("0.1")).toBe(false);
+  expect(isSettingValue("defaultGstType", "gst-free")).toBe(true);
+  expect(isSettingValue("defaultGstType", "none")).toBe(false);
+
+  expect(normalizeSettingsDocument(undefined)).toEqual({ ...DEFAULT_SETTINGS });
   expect(normalizeSettingsDocument({ id: "", theme: "dark" })).toEqual({
-    id: DEFAULT_SETTINGS_ID,
+    ...DEFAULT_SETTINGS,
     theme: "dark",
   });
   const overlongId = "a".repeat(SETTINGS_ID_MAX_LENGTH + 1);
   expect(isValidSettingsId(DEFAULT_SETTINGS_ID)).toBe(true);
   expect(isValidSettingsId("")).toBe(false);
   expect(isValidSettingsId(overlongId)).toBe(false);
-  expect(isSettingsDocument({ id: DEFAULT_SETTINGS_ID, theme: "dark" })).toBe(true);
-  expect(isSettingsDocument({ id: overlongId, theme: "dark" })).toBe(false);
+  expect(isSettingsDocument({ ...DEFAULT_SETTINGS, theme: "dark" })).toBe(true);
+  expect(isSettingsDocument({ ...DEFAULT_SETTINGS, id: overlongId })).toBe(false);
   expect(normalizeSettingsDocument({ id: overlongId, theme: "dark" })).toEqual({
-    id: DEFAULT_SETTINGS_ID,
+    ...DEFAULT_SETTINGS,
     theme: "dark",
   });
   expect(toSettingsPatch({ id: "custom", theme: "light" })).toEqual({ theme: "light" });
   expect(
     areSettingsEqual(
-      { id: DEFAULT_SETTINGS_ID, theme: "dark" },
-      { id: DEFAULT_SETTINGS_ID, theme: "dark" },
+      { ...DEFAULT_SETTINGS, theme: "dark" },
+      { ...DEFAULT_SETTINGS, theme: "dark" },
     ),
   ).toBe(true);
   expect(
     areSettingsEqual(
-      { id: DEFAULT_SETTINGS_ID, theme: "dark" },
-      { id: DEFAULT_SETTINGS_ID, theme: "light" },
+      { ...DEFAULT_SETTINGS, theme: "dark" },
+      { ...DEFAULT_SETTINGS, theme: "light" },
     ),
   ).toBe(false);
 
@@ -108,7 +142,7 @@ test("initializes LocalStorage Collection store with default system theme and up
   const store = await createSettingsStore({ name: storeName });
   try {
     const initial = await store.getSettings();
-    expect(initial).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "system" });
+    expect(initial).toEqual({ ...DEFAULT_SETTINGS });
     expect(store.collection.get(DEFAULT_SETTINGS_ID)?.theme).toBe("system");
 
     const updatedDark = await store.setTheme("dark");
@@ -130,12 +164,39 @@ test("initializes LocalStorage Collection store with default system theme and up
     expect(updatedLight.theme).toBe("light");
     expect(store.collection.get(DEFAULT_SETTINGS_ID)?.theme).toBe("light");
 
+    const patched = await store.updateSettings({
+      defaultPaymentTermsDays: 14,
+      defaultInvoiceNotes: "Please pay by bank transfer",
+      gstRegistered: false,
+      gstRate: 0.05,
+      defaultGstType: "gst-free",
+    });
+    expect(patched.defaultPaymentTermsDays).toBe(14);
+    expect(patched.defaultInvoiceNotes).toBe("Please pay by bank transfer");
+    expect(patched.gstRegistered).toBe(false);
+    expect(patched.gstRate).toBe(0.05);
+    expect(patched.defaultGstType).toBe("gst-free");
+    expect(patched.theme).toBe("light");
+    expect((await store.getSettings()).gstRate).toBe(0.05);
+
     await expect(store.updateSettings({})).rejects.toThrow(
       "Invalid settings patch: at least one valid setting is required",
     );
     await expect(
       store.updateSettings({ theme: "bogus" } as unknown as SettingsPatch),
     ).rejects.toThrow('Invalid settings value for "theme"');
+    await expect(store.updateSettings({ gstRate: 0 })).rejects.toThrow(
+      'Invalid settings value for "gstRate"',
+    );
+    await expect(store.updateSettings({ gstRate: 1.5 })).rejects.toThrow(
+      'Invalid settings value for "gstRate"',
+    );
+    await expect(store.updateSettings({ defaultPaymentTermsDays: 30.5 })).rejects.toThrow(
+      'Invalid settings value for "defaultPaymentTermsDays"',
+    );
+    await expect(
+      store.updateSettings({ defaultGstType: "bogus" } as unknown as SettingsPatch),
+    ).rejects.toThrow('Invalid settings value for "defaultGstType"');
   } finally {
     await store.close();
   }
@@ -152,10 +213,10 @@ test("exports settings to a binary Uint8Array and imports into another store", a
     expect(binary.byteLength).toBeGreaterThan(7);
 
     const decoded = decodeSettingsBinary(binary);
-    expect(decoded).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "dark" });
+    expect(decoded).toEqual({ ...DEFAULT_SETTINGS, theme: "dark" });
 
     const imported = await importSettingsBinary(binary, targetStore);
-    expect(imported).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "dark" });
+    expect(imported).toEqual({ ...DEFAULT_SETTINGS, theme: "dark" });
     expect((await targetStore.getSettings()).theme).toBe("dark");
 
     const blob = new Blob([binary], { type: "application/octet-stream" });
@@ -169,7 +230,13 @@ test("exports settings to a binary Uint8Array and imports into another store", a
     expect(blob.size).toBeGreaterThan(0);
 
     const downloaded = await downloadSettingsBinary(targetStore, "");
-    expect(decodeSettingsBinary(downloaded)).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "light" });
+    expect(decodeSettingsBinary(downloaded)).toEqual({ ...DEFAULT_SETTINGS, theme: "light" });
+
+    await targetStore.updateSettings({ gstRate: 0.15, defaultGstType: "gst-free" });
+    const customBinary = await exportSettingsBinary(targetStore);
+    const customDecoded = decodeSettingsBinary(customBinary);
+    expect(customDecoded.gstRate).toBe(0.15);
+    expect(customDecoded.defaultGstType).toBe("gst-free");
   } finally {
     await sourceStore.close();
     await targetStore.close();
@@ -184,7 +251,7 @@ test("rejects invalid binary payloads", () => {
     "Invalid settings binary: unrecognized header",
   );
 
-  const valid = encodeSettingsBinary({ id: DEFAULT_SETTINGS_ID, theme: "dark" });
+  const valid = encodeSettingsBinary({ ...DEFAULT_SETTINGS, theme: "dark" });
   const corrupted = new Uint8Array(valid);
   corrupted[corrupted.length - 1] = 0x00;
   expect(() => decodeSettingsBinary(corrupted)).toThrow(
@@ -210,7 +277,7 @@ test("rejects invalid binary payloads", () => {
     decodeSettingsBinary(
       makeBinaryPayload({ id: "x".repeat(SETTINGS_ID_MAX_LENGTH + 5), theme: "dark" }),
     ),
-  ).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "dark" });
+  ).toEqual({ ...DEFAULT_SETTINGS, theme: "dark" });
 });
 
 test("applies dark class to target element based on theme", () => {
@@ -381,7 +448,7 @@ test("recovers from malformed or corrupt data in storage and falls back to defau
     });
     try {
       const settings = await store.getSettings();
-      expect(settings).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "dark" });
+      expect(settings).toEqual({ ...DEFAULT_SETTINGS, theme: "dark" });
     } finally {
       await store.close();
     }

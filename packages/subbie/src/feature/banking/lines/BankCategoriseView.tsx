@@ -14,6 +14,7 @@ import {
 } from "@ionic/react";
 
 import { useInvoices, type InvoicesStore } from "../../invoices/index.ts";
+import { useSettings, type SettingsStore } from "../../settings/index.ts";
 import type { BankingStore } from "../db.ts";
 import { useBanking } from "../hooks.ts";
 import { pluralize } from "../types.ts";
@@ -32,6 +33,7 @@ import {
 export interface BankCategoriseViewProps {
   store?: BankingStore;
   invoicesStore?: InvoicesStore;
+  settingsStore?: SettingsStore;
   initialAccountId?: string;
   initialCategorisationFilter?: BankingLineCategorisationFilter;
   initialTypeFilter?: BankingLineTypeFilter;
@@ -42,6 +44,7 @@ export interface BankCategoriseViewProps {
 export const BankCategoriseView = ({
   store: customStore,
   invoicesStore,
+  settingsStore,
   initialAccountId = "",
   initialCategorisationFilter = "all",
   initialTypeFilter = "all",
@@ -62,6 +65,7 @@ export const BankCategoriseView = ({
     setLinesPrivate,
   } = useBanking(customStore);
   const { invoices } = useInvoices(invoicesStore);
+  const { settings } = useSettings(settingsStore);
 
   const [accountFilterId, setAccountFilterId] = useState<string>(initialAccountId);
   const [categorisationFilter, setCategorisationFilter] = useState<BankingLineCategorisationFilter>(
@@ -446,6 +450,8 @@ export const BankCategoriseView = ({
               setSelectedLineIds(linesToSelect.map((line) => line.id))
             }
             onClearSelection={() => setSelectedLineIds([])}
+            gstRate={settings.gstRate}
+            gstRegistered={settings.gstRegistered}
             onCategoriseSelected={() => {
               if (selectedLines.length > 0) {
                 setSelectedLine(null);
@@ -472,6 +478,9 @@ export const BankCategoriseView = ({
         accounts={accounts}
         categories={categories}
         isOpen={lineCategoryOpen}
+        gstRate={settings.gstRate}
+        gstRegistered={settings.gstRegistered}
+        defaultGstType={settings.defaultGstType}
         onDismiss={() => setLineCategoryOpen(false)}
         onSelectCategory={handleSelectCategory}
         onSelectCategoryForLines={handleSelectCategoryForLines}
