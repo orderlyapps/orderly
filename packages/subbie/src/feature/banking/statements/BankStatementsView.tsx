@@ -15,6 +15,7 @@ import {
 } from "@ionic/react";
 import { add } from "ionicons/icons";
 
+import { useStatusToast } from "../../../shared/index.ts";
 import {
   BankAccountFormModal,
   type BankAccountFormValues,
@@ -51,7 +52,7 @@ export const BankStatementsView = ({
   const [accountFilterId, setAccountFilterId] = useState<string>(initialAccountId);
   const [accountFormOpen, setAccountFormOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const { toast, showSuccess, showError, dismissToast } = useStatusToast();
   const [presentAlert] = useIonAlert();
 
   useEffect(() => {
@@ -65,9 +66,9 @@ export const BankStatementsView = ({
   const handleAccountSubmit = async (values: BankAccountFormValues) => {
     try {
       const created = await createAccount(values);
-      setStatusMessage(`Added ${created.name}`);
+      showSuccess(`Added ${created.name}`);
     } catch (err) {
-      setStatusMessage(err instanceof Error ? err.message : "Failed to save bank account");
+      showError(err instanceof Error ? err.message : "Failed to save bank account");
       throw err;
     }
   };
@@ -75,11 +76,9 @@ export const BankStatementsView = ({
   const handleImportSubmit = async (values: StatementImportValues) => {
     try {
       const result = await importStatementCsv(values);
-      setStatusMessage(
-        `Imported ${pluralize(result.lines.length, "line")} into ${result.account.name}`,
-      );
+      showSuccess(`Imported ${pluralize(result.lines.length, "line")} into ${result.account.name}`);
     } catch (err) {
-      setStatusMessage(err instanceof Error ? err.message : "Failed to import statement CSV");
+      showError(err instanceof Error ? err.message : "Failed to import statement CSV");
       throw err;
     }
   };
@@ -95,8 +94,8 @@ export const BankStatementsView = ({
           role: "destructive",
           handler: () => {
             void deleteStatement(statement.id)
-              .then(() => setStatusMessage(`Deleted ${statement.filename}`))
-              .catch(() => setStatusMessage("Failed to delete statement"));
+              .then(() => showSuccess(`Deleted ${statement.filename}`))
+              .catch(() => showError("Failed to delete statement"));
           },
         },
       ],
@@ -186,11 +185,12 @@ export const BankStatementsView = ({
       />
 
       <IonToast
-        isOpen={statusMessage !== null}
-        message={statusMessage ?? undefined}
+        isOpen={toast !== null}
+        message={toast?.message}
+        color={toast?.color}
         position="top"
         duration={2500}
-        onDidDismiss={() => setStatusMessage(null)}
+        onDidDismiss={dismissToast}
       />
     </>
   );

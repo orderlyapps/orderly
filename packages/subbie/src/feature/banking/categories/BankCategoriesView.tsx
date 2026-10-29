@@ -15,6 +15,7 @@ import {
 } from "@ionic/react";
 import { add } from "ionicons/icons";
 
+import { useStatusToast } from "../../../shared/index.ts";
 import type { BankingStore } from "../db.ts";
 import { useBanking } from "../hooks.ts";
 import {
@@ -39,7 +40,7 @@ export const BankCategoriesView = ({ store: customStore }: BankCategoriesViewPro
     useBanking(customStore);
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<BankCategoryDocument | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const { toast, showSuccess, showError, dismissToast } = useStatusToast();
   const [categoryType, setCategoryType] = useState<BankTransactionType>("payment");
   const [presentAlert] = useIonAlert();
 
@@ -49,13 +50,13 @@ export const BankCategoriesView = ({ store: customStore }: BankCategoriesViewPro
     try {
       if (editingCategory) {
         await updateCategory(editingCategory.id, values);
-        setStatusMessage(`Updated ${values.name}`);
+        showSuccess(`Updated ${values.name}`);
       } else {
         await createCategory(values);
-        setStatusMessage(`Added ${values.name}`);
+        showSuccess(`Added ${values.name}`);
       }
     } catch (err) {
-      setStatusMessage(err instanceof Error ? err.message : "Failed to save category");
+      showError(err instanceof Error ? err.message : "Failed to save category");
       throw err;
     }
   };
@@ -71,8 +72,8 @@ export const BankCategoriesView = ({ store: customStore }: BankCategoriesViewPro
           role: "destructive",
           handler: () => {
             void deleteCategory(category.id)
-              .then(() => setStatusMessage(`Deleted ${category.name}`))
-              .catch(() => setStatusMessage("Failed to delete category"));
+              .then(() => showSuccess(`Deleted ${category.name}`))
+              .catch(() => showError("Failed to delete category"));
           },
         },
       ],
@@ -141,11 +142,12 @@ export const BankCategoriesView = ({ store: customStore }: BankCategoriesViewPro
       />
 
       <IonToast
-        isOpen={statusMessage !== null}
-        message={statusMessage ?? undefined}
+        isOpen={toast !== null}
+        message={toast?.message}
+        color={toast?.color}
         position="top"
         duration={2500}
-        onDidDismiss={() => setStatusMessage(null)}
+        onDidDismiss={dismissToast}
       />
     </>
   );

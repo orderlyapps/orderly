@@ -11,6 +11,7 @@ import {
 } from "@ionic/react";
 import { add } from "ionicons/icons";
 
+import { useStatusToast } from "../../shared/index.ts";
 import { useCustomers, type CustomersStore } from "../customers/index.ts";
 import { useItems, type ItemsStore } from "../items/index.ts";
 import { useSettings, type SettingsStore } from "../settings/index.ts";
@@ -51,7 +52,7 @@ export const InvoicesView = ({
   const [editing, setEditing] = useState<InvoiceDocument | null>(null);
   const [selected, setSelected] = useState<InvoiceDocument | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const { toast, showSuccess, showError, dismissToast } = useStatusToast();
 
   const openCreate = () => {
     setEditing(null);
@@ -68,13 +69,13 @@ export const InvoicesView = ({
       const gstRate = settings.gstRegistered ? settings.gstRate : 0;
       if (editing) {
         await updateInvoice(editing.id, { ...values, gstRate });
-        setStatusMessage(`Updated ${editing.number}`);
+        showSuccess(`Updated ${editing.number}`);
       } else {
         const created = await createInvoice({ ...values, gstRate });
-        setStatusMessage(`Created ${created.number}`);
+        showSuccess(`Created ${created.number}`);
       }
     } catch (err) {
-      setStatusMessage(err instanceof Error ? err.message : "Failed to save invoice");
+      showError(err instanceof Error ? err.message : "Failed to save invoice");
       throw err;
     }
   };
@@ -91,14 +92,14 @@ export const InvoicesView = ({
       if (invoice.status === "draft") {
         await setInvoiceStatus(invoice.id, "sent");
       }
-      setStatusMessage(
+      showSuccess(
         result.method === "shared" ? `Shared ${result.filename}` : `Saved ${result.filename}`,
       );
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") {
         return;
       }
-      setStatusMessage(err instanceof Error ? err.message : "Failed to send invoice");
+      showError(err instanceof Error ? err.message : "Failed to send invoice");
     }
   };
 
@@ -106,18 +107,18 @@ export const InvoicesView = ({
     try {
       const updated = await setInvoiceStatus(invoice.id, status);
       setSelected(updated);
-      setStatusMessage(`${updated.number} marked as ${status}`);
+      showSuccess(`${updated.number} marked as ${status}`);
     } catch (err) {
-      setStatusMessage(err instanceof Error ? err.message : "Failed to update status");
+      showError(err instanceof Error ? err.message : "Failed to update status");
     }
   };
 
   const handleDelete = async (invoice: InvoiceDocument) => {
     try {
       await deleteInvoice(invoice.id);
-      setStatusMessage(`Deleted ${invoice.number}`);
+      showSuccess(`Deleted ${invoice.number}`);
     } catch (err) {
-      setStatusMessage(err instanceof Error ? err.message : "Failed to delete invoice");
+      showError(err instanceof Error ? err.message : "Failed to delete invoice");
       throw err;
     }
   };
@@ -177,11 +178,12 @@ export const InvoicesView = ({
       />
 
       <IonToast
-        isOpen={statusMessage !== null}
-        message={statusMessage ?? undefined}
+        isOpen={toast !== null}
+        message={toast?.message}
+        color={toast?.color}
         position="top"
         duration={2500}
-        onDidDismiss={() => setStatusMessage(null)}
+        onDidDismiss={dismissToast}
       />
     </>
   );

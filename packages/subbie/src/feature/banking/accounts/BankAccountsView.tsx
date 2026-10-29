@@ -12,6 +12,7 @@ import {
 } from "@ionic/react";
 import { add } from "ionicons/icons";
 
+import { useStatusToast } from "../../../shared/index.ts";
 import type { BankingStore } from "../db.ts";
 import { useBanking } from "../hooks.ts";
 import {
@@ -30,20 +31,20 @@ export const BankAccountsView = ({ store: customStore }: BankAccountsViewProps) 
     useBanking(customStore);
   const [accountFormOpen, setAccountFormOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<BankAccountDocument | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const { toast, showSuccess, showError, dismissToast } = useStatusToast();
   const [presentAlert] = useIonAlert();
 
   const handleAccountSubmit = async (values: BankAccountFormValues) => {
     try {
       if (editingAccount) {
         await updateAccount(editingAccount.id, values);
-        setStatusMessage(`Updated ${values.name}`);
+        showSuccess(`Updated ${values.name}`);
       } else {
         const created = await createAccount(values);
-        setStatusMessage(`Added ${created.name}`);
+        showSuccess(`Added ${created.name}`);
       }
     } catch (err) {
-      setStatusMessage(err instanceof Error ? err.message : "Failed to save bank account");
+      showError(err instanceof Error ? err.message : "Failed to save bank account");
       throw err;
     }
   };
@@ -59,8 +60,8 @@ export const BankAccountsView = ({ store: customStore }: BankAccountsViewProps) 
           role: "destructive",
           handler: () => {
             void deleteAccount(account.id)
-              .then(() => setStatusMessage(`Deleted ${account.name}`))
-              .catch(() => setStatusMessage("Failed to delete bank account"));
+              .then(() => showSuccess(`Deleted ${account.name}`))
+              .catch(() => showError("Failed to delete bank account"));
           },
         },
       ],
@@ -110,11 +111,12 @@ export const BankAccountsView = ({ store: customStore }: BankAccountsViewProps) 
       />
 
       <IonToast
-        isOpen={statusMessage !== null}
-        message={statusMessage ?? undefined}
+        isOpen={toast !== null}
+        message={toast?.message}
+        color={toast?.color}
         position="top"
         duration={2500}
-        onDidDismiss={() => setStatusMessage(null)}
+        onDidDismiss={dismissToast}
       />
     </>
   );

@@ -13,6 +13,7 @@ import {
   IonToast,
 } from "@ionic/react";
 
+import { useStatusToast } from "../../../shared/index.ts";
 import { useInvoices, type InvoicesStore } from "../../invoices/index.ts";
 import { useSettings, type SettingsStore } from "../../settings/index.ts";
 import type { BankingStore } from "../db.ts";
@@ -78,7 +79,7 @@ export const BankCategoriseView = ({
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedLineIds, setSelectedLineIds] = useState<string[]>([]);
   const [lineCategoryOpen, setLineCategoryOpen] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const { toast, showSuccess, showError, dismissToast } = useStatusToast();
 
   useEffect(() => {
     setAccountFilterId(initialAccountId);
@@ -149,11 +150,11 @@ export const BankCategoriseView = ({
       const updated = await allocateLineToCategory(line.id, categoryId, options);
       setSelectedLine(updated);
       const matchedCategory = categories.find((cat) => cat.id === categoryId);
-      setStatusMessage(
+      showSuccess(
         matchedCategory ? `Categorised as ${matchedCategory.name}` : "Categorised statement line",
       );
     } catch (err) {
-      setStatusMessage(err instanceof Error ? err.message : "Failed to categorise statement line");
+      showError(err instanceof Error ? err.message : "Failed to categorise statement line");
       throw err;
     }
   };
@@ -183,11 +184,11 @@ export const BankCategoriseView = ({
       finishBulkAction();
       const matchedCategory = categories.find((cat) => cat.id === categoryId);
       if (linesToUpdate.length === 1) {
-        setStatusMessage(
+        showSuccess(
           matchedCategory ? `Categorised as ${matchedCategory.name}` : "Categorised statement line",
         );
       } else {
-        setStatusMessage(
+        showSuccess(
           matchedCategory
             ? `Categorised ${pluralize(linesToUpdate.length, "line")} as ${matchedCategory.name}`
             : `Categorised ${pluralize(linesToUpdate.length, "statement line")}`,
@@ -197,7 +198,7 @@ export const BankCategoriseView = ({
       if (privateIds.length > 0) {
         await setLinesPrivate(privateIds, true).catch(() => undefined);
       }
-      setStatusMessage(err instanceof Error ? err.message : "Failed to categorise statement lines");
+      showError(err instanceof Error ? err.message : "Failed to categorise statement lines");
       throw err;
     }
   };
@@ -206,9 +207,9 @@ export const BankCategoriseView = ({
     try {
       const updated = await clearLineAllocations(line.id);
       setSelectedLine(updated);
-      setStatusMessage("Cleared category allocation");
+      showSuccess("Cleared category allocation");
     } catch (err) {
-      setStatusMessage(err instanceof Error ? err.message : "Failed to clear category allocation");
+      showError(err instanceof Error ? err.message : "Failed to clear category allocation");
       throw err;
     }
   };
@@ -224,13 +225,13 @@ export const BankCategoriseView = ({
         setSelectedLine(updated[0] ?? null);
       }
       finishBulkAction();
-      setStatusMessage(
+      showSuccess(
         linesToUpdate.length === 1
           ? "Cleared category allocation"
           : `Cleared category allocation for ${pluralize(linesToUpdate.length, "line")}`,
       );
     } catch (err) {
-      setStatusMessage(err instanceof Error ? err.message : "Failed to clear category allocation");
+      showError(err instanceof Error ? err.message : "Failed to clear category allocation");
       throw err;
     }
   };
@@ -239,11 +240,9 @@ export const BankCategoriseView = ({
     try {
       const updated = await setLinePrivate(line.id, isPrivate);
       setSelectedLine(updated);
-      setStatusMessage(
-        isPrivate ? "Marked as private — excluded from totals" : "Marked as business",
-      );
+      showSuccess(isPrivate ? "Marked as private — excluded from totals" : "Marked as business");
     } catch (err) {
-      setStatusMessage(err instanceof Error ? err.message : "Failed to update private status");
+      showError(err instanceof Error ? err.message : "Failed to update private status");
       throw err;
     }
   };
@@ -266,18 +265,16 @@ export const BankCategoriseView = ({
       }
       finishBulkAction();
       if (linesToUpdate.length === 1) {
-        setStatusMessage(
-          isPrivate ? "Marked as private — excluded from totals" : "Marked as business",
-        );
+        showSuccess(isPrivate ? "Marked as private — excluded from totals" : "Marked as business");
       } else {
-        setStatusMessage(
+        showSuccess(
           isPrivate
             ? `Marked ${pluralize(linesToUpdate.length, "line")} as private — excluded from totals`
             : `Marked ${pluralize(linesToUpdate.length, "line")} as business`,
         );
       }
     } catch (err) {
-      setStatusMessage(err instanceof Error ? err.message : "Failed to update private status");
+      showError(err instanceof Error ? err.message : "Failed to update private status");
       throw err;
     }
   };
@@ -491,11 +488,12 @@ export const BankCategoriseView = ({
       />
 
       <IonToast
-        isOpen={statusMessage !== null}
-        message={statusMessage ?? undefined}
+        isOpen={toast !== null}
+        message={toast?.message}
+        color={toast?.color}
         position="top"
         duration={2500}
-        onDidDismiss={() => setStatusMessage(null)}
+        onDidDismiss={dismissToast}
       />
     </>
   );

@@ -12,6 +12,7 @@ import {
 } from "@ionic/react";
 import { add } from "ionicons/icons";
 
+import { useStatusToast } from "../../shared/index.ts";
 import { CustomerFormModal, type CustomerFormValues } from "./components/CustomerFormModal.tsx";
 import { CustomerList } from "./components/CustomerList.tsx";
 import type { CustomersStore } from "./db.ts";
@@ -27,7 +28,7 @@ export const CustomersView = ({ store: customStore }: CustomersViewProps) => {
     useCustomers(customStore);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<CustomerDocument | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const { toast, showSuccess, showError, dismissToast } = useStatusToast();
   const [presentAlert] = useIonAlert();
 
   const openCreate = () => {
@@ -39,13 +40,13 @@ export const CustomersView = ({ store: customStore }: CustomersViewProps) => {
     try {
       if (editing) {
         await updateCustomer(editing.id, values);
-        setStatusMessage(`Updated ${values.name}`);
+        showSuccess(`Updated ${values.name}`);
       } else {
         await createCustomer(values);
-        setStatusMessage(`Added ${values.name}`);
+        showSuccess(`Added ${values.name}`);
       }
     } catch (err) {
-      setStatusMessage(err instanceof Error ? err.message : "Failed to save customer");
+      showError(err instanceof Error ? err.message : "Failed to save customer");
       throw err;
     }
   };
@@ -61,8 +62,8 @@ export const CustomersView = ({ store: customStore }: CustomersViewProps) => {
           role: "destructive",
           handler: () => {
             void deleteCustomer(customer.id)
-              .then(() => setStatusMessage(`Deleted ${customer.name}`))
-              .catch(() => setStatusMessage("Failed to delete customer"));
+              .then(() => showSuccess(`Deleted ${customer.name}`))
+              .catch(() => showError("Failed to delete customer"));
           },
         },
       ],
@@ -106,11 +107,12 @@ export const CustomersView = ({ store: customStore }: CustomersViewProps) => {
       />
 
       <IonToast
-        isOpen={statusMessage !== null}
-        message={statusMessage ?? undefined}
+        isOpen={toast !== null}
+        message={toast?.message}
+        color={toast?.color}
         position="top"
         duration={2500}
-        onDidDismiss={() => setStatusMessage(null)}
+        onDidDismiss={dismissToast}
       />
     </>
   );

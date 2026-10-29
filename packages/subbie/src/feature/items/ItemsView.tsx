@@ -12,6 +12,7 @@ import {
 } from "@ionic/react";
 import { add } from "ionicons/icons";
 
+import { useStatusToast } from "../../shared/index.ts";
 import { ItemFormModal, type ItemFormValues } from "./components/ItemFormModal.tsx";
 import { ItemList } from "./components/ItemList.tsx";
 import type { ItemsStore } from "./db.ts";
@@ -26,7 +27,7 @@ export const ItemsView = ({ store: customStore }: ItemsViewProps) => {
   const { items, isLoading, error, createItem, updateItem, deleteItem } = useItems(customStore);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ItemDocument | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const { toast, showSuccess, showError, dismissToast } = useStatusToast();
   const [presentAlert] = useIonAlert();
 
   const openCreate = () => {
@@ -38,13 +39,13 @@ export const ItemsView = ({ store: customStore }: ItemsViewProps) => {
     try {
       if (editing) {
         await updateItem(editing.id, values);
-        setStatusMessage(`Updated ${values.name}`);
+        showSuccess(`Updated ${values.name}`);
       } else {
         await createItem(values);
-        setStatusMessage(`Added ${values.name}`);
+        showSuccess(`Added ${values.name}`);
       }
     } catch (err) {
-      setStatusMessage(err instanceof Error ? err.message : "Failed to save item");
+      showError(err instanceof Error ? err.message : "Failed to save item");
       throw err;
     }
   };
@@ -60,8 +61,8 @@ export const ItemsView = ({ store: customStore }: ItemsViewProps) => {
           role: "destructive",
           handler: () => {
             void deleteItem(item.id)
-              .then(() => setStatusMessage(`Deleted ${item.name}`))
-              .catch(() => setStatusMessage("Failed to delete item"));
+              .then(() => showSuccess(`Deleted ${item.name}`))
+              .catch(() => showError("Failed to delete item"));
           },
         },
       ],
@@ -105,11 +106,12 @@ export const ItemsView = ({ store: customStore }: ItemsViewProps) => {
       />
 
       <IonToast
-        isOpen={statusMessage !== null}
-        message={statusMessage ?? undefined}
+        isOpen={toast !== null}
+        message={toast?.message}
+        color={toast?.color}
         position="top"
         duration={2500}
-        onDidDismiss={() => setStatusMessage(null)}
+        onDidDismiss={dismissToast}
       />
     </>
   );
