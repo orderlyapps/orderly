@@ -11,11 +11,13 @@ export {
 } from "./binary.ts";
 export {
   AppearanceSettingsSection,
+  BusinessSettingsSection,
   DataSettingsSection,
   GstSettingsSection,
   InvoicingSettingsSection,
   SettingsSection,
   type AppearanceSettingsSectionProps,
+  type BusinessSettingsSectionProps,
   type DataSettingsSectionProps,
   type GstSettingsSectionProps,
   type InvoicingSettingsSectionProps,
@@ -36,12 +38,22 @@ export {
 } from "./db.ts";
 export { useSettings, useThemeEffect, type UseSettingsResult } from "./hooks.ts";
 export {
+  ABN_MAX_LENGTH,
   areSettingsEqual,
+  BANK_ACCOUNT_NAME_MAX_LENGTH,
+  BANK_ACCOUNT_NUMBER_MAX_LENGTH,
+  BANK_BSB_MAX_LENGTH,
+  BUSINESS_NAME_MAX_LENGTH,
   DEFAULT_PAYMENT_TERMS_DAYS,
   DEFAULT_SETTINGS,
   DEFAULT_SETTINGS_ID,
   GST_RATE_MAX,
   INVOICE_NOTES_MAX_LENGTH,
+  isAbn,
+  isBankAccountName,
+  isBankAccountNumber,
+  isBankBsb,
+  isBusinessName,
   isGstRate,
   isGstRegistered,
   isInvoiceNotes,

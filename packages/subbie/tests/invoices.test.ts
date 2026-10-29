@@ -254,7 +254,13 @@ test("renders a valid PDF document for an invoice", () => {
     updatedAt: "2026-10-01T00:00:00.000Z",
   });
 
-  const bytes = renderInvoicePdf(invoice);
+  const bytes = renderInvoicePdf(invoice, {
+    businessName: "Bright Sparks Electrical",
+    abn: "51 824 753 556",
+    bankAccountName: "Acme Pty Ltd",
+    bankBsb: "062-001",
+    bankAccountNumber: "1234 5678",
+  });
   expect(bytes).toBeInstanceOf(Uint8Array);
   const text = new TextDecoder("latin1").decode(bytes);
   expect(text.startsWith("%PDF-1.4")).toBe(true);
@@ -265,6 +271,12 @@ test("renders a valid PDF document for an invoice", () => {
   expect(text).toContain("(Acme Corp)");
   expect(text).toContain("(Design work)");
   expect(text).toContain("($2,500.00)");
+  expect(text).toContain("(Bright Sparks Electrical)");
+  expect(text).toContain("(ABN 51 824 753 556)");
+  expect(text).toContain("(Payment Details)");
+  expect(text).toContain("(Account Name: Acme Pty Ltd)");
+  expect(text).toContain("(BSB: 062-001)");
+  expect(text).toContain("(Account Number: 1234 5678)");
   // Reserved PDF string characters are escaped, non-ASCII replaced.
   expect(text).toContain("Tricky \\(chars\\) \\\\");
   expect(text).not.toContain("ünïcode");
@@ -296,6 +308,7 @@ test("renders multi-page PDFs for long invoices", () => {
   expect(text).toContain("/Count 2");
   expect((text.match(/\/Type \/Page[^s]/g) ?? []).length).toBe(2);
   expect(text).toContain("($600.00)");
+  expect(text).not.toContain("(Payment Details)");
 });
 
 test("sendInvoicePdf falls back to download when sharing is unavailable", async () => {

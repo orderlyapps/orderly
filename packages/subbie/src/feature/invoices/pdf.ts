@@ -90,6 +90,10 @@ class PdfPageBuilder {
 export interface RenderInvoicePdfOptions {
   businessName?: string;
   businessEmail?: string;
+  abn?: string;
+  bankAccountName?: string;
+  bankBsb?: string;
+  bankAccountNumber?: string;
 }
 
 const COLUMN_X = {
@@ -136,8 +140,14 @@ export function renderInvoicePdf(
   y -= 30;
 
   page.text(MARGIN, y, businessName, { size: 11, bold: true });
+  let businessDetailY = y - 14;
   if (options.businessEmail) {
-    page.text(MARGIN, y - 14, options.businessEmail, { size: 9 });
+    page.text(MARGIN, businessDetailY, options.businessEmail, { size: 9 });
+    businessDetailY -= 13;
+  }
+  const abn = options.abn?.trim() ?? "";
+  if (abn) {
+    page.text(MARGIN, businessDetailY, `ABN ${abn}`, { size: 9 });
   }
 
   page.text(MARGIN, y - 40, "Bill To", { size: 9 });
@@ -192,6 +202,28 @@ export function renderInvoicePdf(
     align: "right",
   });
   y -= 30;
+
+  const paymentLines = (
+    [
+      ["Account Name", options.bankAccountName],
+      ["BSB", options.bankBsb],
+      ["Account Number", options.bankAccountNumber],
+    ] as const
+  )
+    .map(([label, value]) => [label, value?.trim() ?? ""] as const)
+    .filter((entry) => entry[1].length > 0);
+
+  if (paymentLines.length > 0) {
+    ensureSpace(20 + paymentLines.length * 13);
+    page.text(MARGIN, y, "Payment Details", { size: 9, bold: true });
+    y -= 14;
+    for (const [label, value] of paymentLines) {
+      ensureSpace(14);
+      page.text(MARGIN, y, `${label}: ${value}`, { size: 9 });
+      y -= 13;
+    }
+    y -= 6;
+  }
 
   if (invoice.notes.trim().length > 0) {
     ensureSpace(50);

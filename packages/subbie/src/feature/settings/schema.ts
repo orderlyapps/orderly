@@ -11,6 +11,16 @@ export const INVOICE_NOTES_MAX_LENGTH = 4000;
 
 export const GST_RATE_MAX = 1;
 
+export const BUSINESS_NAME_MAX_LENGTH = 64;
+
+export const ABN_MAX_LENGTH = 14;
+
+export const BANK_ACCOUNT_NAME_MAX_LENGTH = 64;
+
+export const BANK_BSB_MAX_LENGTH = 7;
+
+export const BANK_ACCOUNT_NUMBER_MAX_LENGTH = 16;
+
 export { DEFAULT_PAYMENT_TERMS_DAYS };
 
 export interface SettingsDocument {
@@ -21,6 +31,11 @@ export interface SettingsDocument {
   gstRegistered: boolean;
   gstRate: number;
   defaultGstType: BankGstType;
+  businessName: string;
+  abn: string;
+  bankAccountName: string;
+  bankBsb: string;
+  bankAccountNumber: string;
 }
 
 export type SettingsKey = Exclude<keyof SettingsDocument, "id">;
@@ -39,6 +54,11 @@ export const DEFAULT_SETTINGS: SettingsDocument = {
   gstRegistered: true,
   gstRate: BANK_GST_RATE,
   defaultGstType: "gst",
+  businessName: "",
+  abn: "",
+  bankAccountName: "",
+  bankBsb: "",
+  bankAccountNumber: "",
 };
 
 export function isThemeMode(value: unknown): value is ThemeMode {
@@ -70,6 +90,26 @@ export function isGstRate(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value > 0 && value <= GST_RATE_MAX;
 }
 
+export function isBusinessName(value: unknown): value is string {
+  return typeof value === "string" && value.length <= BUSINESS_NAME_MAX_LENGTH;
+}
+
+export function isAbn(value: unknown): value is string {
+  return typeof value === "string" && value.length <= ABN_MAX_LENGTH;
+}
+
+export function isBankAccountName(value: unknown): value is string {
+  return typeof value === "string" && value.length <= BANK_ACCOUNT_NAME_MAX_LENGTH;
+}
+
+export function isBankBsb(value: unknown): value is string {
+  return typeof value === "string" && value.length <= BANK_BSB_MAX_LENGTH;
+}
+
+export function isBankAccountNumber(value: unknown): value is string {
+  return typeof value === "string" && value.length <= BANK_ACCOUNT_NUMBER_MAX_LENGTH;
+}
+
 type SettingsValidatorMap = {
   [K in SettingsKey]: (value: unknown) => value is SettingsDocument[K];
 };
@@ -81,6 +121,11 @@ const SETTINGS_VALIDATORS: SettingsValidatorMap = {
   gstRegistered: isGstRegistered,
   gstRate: isGstRate,
   defaultGstType: isBankGstType,
+  businessName: isBusinessName,
+  abn: isAbn,
+  bankAccountName: isBankAccountName,
+  bankBsb: isBankBsb,
+  bankAccountNumber: isBankAccountNumber,
 };
 
 export const SETTINGS_KEYS: readonly SettingsKey[] = Object.freeze(
