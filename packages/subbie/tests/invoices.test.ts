@@ -5,10 +5,13 @@ import {
   createInvoicePdfFilename,
   createInvoicesStore,
   formatAmount,
+  invoiceGrandTotalCents,
+  invoiceGstCents,
   invoiceStatusColor,
   invoiceStatusLabel,
   invoiceTotalCents,
   isInvoiceDocument,
+  isInvoiceGstRate,
   isInvoiceStatus,
   isValidInvoiceId,
   nextInvoiceNumber,
@@ -77,6 +80,22 @@ test("validates invoice schema helpers", () => {
       ],
     }),
   ).toBe(310_000);
+
+  expect(isInvoiceGstRate(0)).toBe(true);
+  expect(isInvoiceGstRate(0.1)).toBe(true);
+  expect(isInvoiceGstRate(1)).toBe(true);
+  expect(isInvoiceGstRate(-0.1)).toBe(false);
+  expect(isInvoiceGstRate(1.5)).toBe(false);
+  expect(isInvoiceGstRate("0.1")).toBe(false);
+
+  const gstInvoice = {
+    items: [{ id: "a", description: "x", quantity: 2, unitPriceCents: 125_000 }],
+    gstRate: 0.1,
+  };
+  expect(invoiceGstCents(gstInvoice)).toBe(25_000);
+  expect(invoiceGrandTotalCents(gstInvoice)).toBe(275_000);
+  expect(invoiceGstCents({ ...gstInvoice, gstRate: 0 })).toBe(0);
+  expect(invoiceGrandTotalCents({ ...gstInvoice, gstRate: 0 })).toBe(250_000);
 });
 
 test("validates create invoice input", () => {
@@ -111,6 +130,9 @@ test("validates create invoice input", () => {
   expect(() => validateInvoiceInput({ ...sampleInput(), issueDate: "2026-02-31" })).toThrow(
     "YYYY-MM-DD",
   );
+  expect(() => validateInvoiceInput({ ...sampleInput(), gstRate: 0.1 })).not.toThrow();
+  expect(() => validateInvoiceInput({ ...sampleInput(), gstRate: -0.1 })).toThrow("GST rate");
+  expect(() => validateInvoiceInput({ ...sampleInput(), gstRate: 1.5 })).toThrow("GST rate");
   expect(() =>
     validateInvoiceInput({
       ...sampleInput(),
@@ -138,6 +160,7 @@ test("normalizes documents and line items", () => {
   expect(isValidInvoiceId(doc.id)).toBe(true);
   expect(doc.status).toBe("draft");
   expect(doc.items).toEqual([]);
+  expect(doc.gstRate).toBe(0);
 
   const normalized = normalizeInvoiceDocument({
     id: "abc",
@@ -176,12 +199,15 @@ test("creates, reads, updates and deletes invoices in the rxdb-backed store", as
   try {
     expect(store.listInvoices()).toEqual([]);
 
-    const created = await store.createInvoice(sampleInput());
+    const created = await store.createInvoice({ ...sampleInput(), gstRate: 0.1 });
     expect(isInvoiceDocument(created)).toBe(true);
     expect(created.number).toMatch(/^INV-\d{4}-001$/);
     expect(created.status).toBe("draft");
     expect(created.items).toHaveLength(2);
+    expect(created.gstRate).toBe(0.1);
     expect(invoiceTotalCents(created)).toBe(310_000);
+    expect(invoiceGstCents(created)).toBe(31_000);
+    expect(invoiceGrandTotalCents(created)).toBe(341_000);
 
     const second = await store.createInvoice(sampleInput());
     expect(second.number).not.toBe(created.number);
@@ -212,8 +238,15 @@ test("creates, reads, updates and deletes invoices in the rxdb-backed store", as
     const paid = await store.setInvoiceStatus(created.id, "paid");
     expect(paid.status).toBe("paid");
 
+    const unregistered = await store.updateInvoice(created.id, { gstRate: 0 });
+    expect(unregistered.gstRate).toBe(0);
+    expect(invoiceGrandTotalCents(unregistered)).toBe(250_000);
+
     await expect(store.updateInvoice(created.id, { status: "bogus" as never })).rejects.toThrow(
       'Invalid invoice value for "status"',
+    );
+    await expect(store.updateInvoice(created.id, { gstRate: 1.5 })).rejects.toThrow(
+      'Invalid invoice value for "gstRate"',
     );
     await expect(store.updateInvoice(created.id, { items: [] })).rejects.toThrow(
       'Invalid invoice value for "items"',
@@ -283,6 +316,37 @@ test("renders a valid PDF document for an invoice", () => {
 
   expect(createInvoicePdfFilename(invoice)).toBe("inv-2026-001.pdf");
   expect(createInvoicePdfFilename(normalizeInvoiceDocument({ number: "  " }))).toBe("invoice.pdf");
+});
+
+test("renders a tax invoice with GST on top when the invoice has a GST rate", () => {
+  const invoice = normalizeInvoiceDocument({
+    id: "inv-gst",
+    number: "INV-2026-009",
+    clientName: "Acme Corp",
+    status: "sent",
+    issueDate: "2026-10-01",
+    dueDate: "2026-10-31",
+    items: [{ id: "i1", description: "Design work", quantity: 2, unitPriceCents: 125_000 }],
+    gstRate: 0.1,
+    createdAt: "2026-10-01T00:00:00.000Z",
+    updatedAt: "2026-10-01T00:00:00.000Z",
+  });
+
+  const text = new TextDecoder("latin1").decode(renderInvoicePdf(invoice));
+  expect(text).toContain("(TAX INVOICE)");
+  expect(text).not.toContain("(INVOICE)");
+  expect(text).toContain("(Subtotal)");
+  expect(text).toContain("(GST 10%)");
+  // $2,500.00 ex GST + $250.00 GST = $2,750.00 total
+  expect(text).toContain("($2,500.00)");
+  expect(text).toContain("($250.00)");
+  expect(text).toContain("($2,750.00)");
+
+  const plainInvoice = normalizeInvoiceDocument({ ...invoice, gstRate: 0 });
+  const plain = new TextDecoder("latin1").decode(renderInvoicePdf(plainInvoice));
+  expect(plain).toContain("(INVOICE)");
+  expect(plain).not.toContain("(TAX INVOICE)");
+  expect(plain).not.toContain("(GST");
 });
 
 test("renders multi-page PDFs for long invoices", () => {

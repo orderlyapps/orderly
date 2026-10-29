@@ -35,7 +35,7 @@ export const INVOICES_DATABASE_NAME = "subbie";
 export const INVOICES_COLLECTION_NAME = "invoices";
 
 export const invoiceJsonSchema: RxJsonSchema<InvoiceDocument> = {
-  version: 2,
+  version: 3,
   primaryKey: "id",
   type: "object",
   properties: {
@@ -60,6 +60,7 @@ export const invoiceJsonSchema: RxJsonSchema<InvoiceDocument> = {
         },
       },
     },
+    gstRate: { type: "number" },
     notes: { type: "string" },
     createdAt: { type: "string" },
     updatedAt: { type: "string" },
@@ -109,6 +110,10 @@ export async function createInvoicesStore(options: CreateInvoicesStoreOptions = 
             const { currency: _currency, ...doc } = oldDoc;
             return doc;
           },
+          3: (oldDoc: InvoiceDocument & { gstRate?: number }) => ({
+            ...oldDoc,
+            gstRate: typeof oldDoc.gstRate === "number" ? oldDoc.gstRate : 0,
+          }),
         },
       },
     });
@@ -158,6 +163,7 @@ export async function createInvoicesStore(options: CreateInvoicesStoreOptions = 
       issueDate,
       dueDate: validated.dueDate ?? addDaysToDateString(issueDate, 30),
       items: validated.items.map((item) => normalizeInvoiceLineItem(item)),
+      gstRate: validated.gstRate ?? 0,
       notes: validated.notes ?? "",
       createdAt: now,
       updatedAt: now,

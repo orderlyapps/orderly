@@ -1,5 +1,8 @@
+import { bankGstRateLabel } from "../banking/lines/gst.ts";
 import {
   formatAmount,
+  invoiceGrandTotalCents,
+  invoiceGstCents,
   invoiceStatusLabel,
   invoiceTotalCents,
   type InvoiceDocument,
@@ -130,8 +133,9 @@ export function renderInvoicePdf(
   };
 
   const businessName = options.businessName?.trim() || "Subbie";
+  const includeGst = invoice.gstRate > 0;
 
-  page.text(MARGIN, y, "INVOICE", { size: 26, bold: true });
+  page.text(MARGIN, y, includeGst ? "TAX INVOICE" : "INVOICE", { size: 26, bold: true });
   page.text(PAGE_WIDTH - MARGIN, y - 2, invoice.number, { size: 13, bold: true, align: "right" });
   page.text(PAGE_WIDTH - MARGIN, y - 18, invoiceStatusLabel(invoice.status), {
     size: 10,
@@ -191,12 +195,26 @@ export function renderInvoicePdf(
     }
   }
 
-  ensureSpace(36);
+  const subtotalCents = invoiceTotalCents(invoice);
+  const gstCents = invoiceGstCents(invoice);
+  const grandTotalCents = invoiceGrandTotalCents(invoice);
+  ensureSpace(includeGst ? 52 : 36);
   y -= 6;
   page.line(MARGIN, y, PAGE_WIDTH - MARGIN, y, 0.75);
   y -= 20;
+  if (includeGst) {
+    page.text(COLUMN_X.unitPrice - 40, y, "Subtotal", { size: 10, align: "right" });
+    page.text(COLUMN_X.amount, y, formatAmount(subtotalCents), { size: 10, align: "right" });
+    y -= 15;
+    page.text(COLUMN_X.unitPrice - 40, y, `GST ${bankGstRateLabel(invoice.gstRate)}`, {
+      size: 10,
+      align: "right",
+    });
+    page.text(COLUMN_X.amount, y, formatAmount(gstCents), { size: 10, align: "right" });
+    y -= 15;
+  }
   page.text(COLUMN_X.unitPrice - 40, y, "Total", { size: 11, bold: true, align: "right" });
-  page.text(COLUMN_X.amount, y, formatAmount(invoiceTotalCents(invoice)), {
+  page.text(COLUMN_X.amount, y, formatAmount(grandTotalCents), {
     size: 11,
     bold: true,
     align: "right",
