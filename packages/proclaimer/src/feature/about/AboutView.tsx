@@ -1,13 +1,18 @@
 import { IonItem, IonLabel, IonList, IonListHeader, IonNote } from "@ionic/react";
 
-import { APP_VERSION, CHANGELOG, type ChangelogEntry } from "./changelog.ts";
+import { APP_VERSION, BUILD_ID, CHANGELOG, type ChangelogEntry } from "./changelog.ts";
 
 export interface AboutViewProps {
   version?: string;
+  buildId?: string;
   entries?: ChangelogEntry[];
 }
 
-export const AboutView = ({ version = APP_VERSION, entries = CHANGELOG }: AboutViewProps) => (
+export const AboutView = ({
+  version = APP_VERSION,
+  buildId = BUILD_ID,
+  entries = CHANGELOG,
+}: AboutViewProps) => (
   <>
     <IonList inset>
       <IonItem>
@@ -16,6 +21,16 @@ export const AboutView = ({ version = APP_VERSION, entries = CHANGELOG }: AboutV
         </IonLabel>
         <IonNote slot="end">{version}</IonNote>
       </IonItem>
+      {buildId && (
+        <IonItem>
+          <IonLabel>
+            <h2>Build</h2>
+          </IonLabel>
+          <IonNote slot="end" className="ion-text-wrap">
+            {buildId}
+          </IonNote>
+        </IonItem>
+      )}
     </IonList>
 
     {entries.map((entry) => (

@@ -24,3 +24,7 @@ export const CHANGELOG: ChangelogEntry[] = [
 ];
 
 export const APP_VERSION = CHANGELOG[0]?.version ?? "0.0.0";
+
+declare const __APP_BUILD_ID__: string | undefined;
+
+export const BUILD_ID = typeof __APP_BUILD_ID__ === "string" ? __APP_BUILD_ID__ : undefined;

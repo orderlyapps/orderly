@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { execSync, spawn, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { defineConfig, type Plugin } from "vite-plus";
@@ -34,7 +34,29 @@ function ionicCoreWatch(): Plugin {
   };
 }
 
+function buildId(): string {
+  let commit: string | undefined;
+  try {
+    const branch = execSync("git branch --show-current", {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    const sha = execSync("git rev-parse --short HEAD", {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    commit = branch ? `${branch}@${sha}` : sha;
+  } catch {
+    commit = undefined;
+  }
+  const time = new Date().toISOString().slice(0, 16).replace("T", " ");
+  return [process.env.APP_CHANNEL, commit, `${time} UTC`].filter(Boolean).join(" · ");
+}
+
 const config = defineConfig(({ command }) => ({
+  define: {
+    __APP_BUILD_ID__: JSON.stringify(buildId()),
+  },
   resolve:
     command === "serve"
       ? {

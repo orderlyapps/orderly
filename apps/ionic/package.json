@@ -7,7 +7,8 @@
     "dev": "vp run ionic-core#build && vp dev --port 4220 --open",
     "build": "vp run games#build && vp run ionic-core#build && tsc && vp build",
     "preview": "vp preview",
-    "deploy": "vp run games#build && vp run ionic-core#build && tsc && vp build && wrangler deploy"
+    "deploy": "vp run games#build && vp run ionic-core#build && tsc && vp build && wrangler deploy",
+    "deploy:preview": "vp run games#build && vp run ionic-core#build && tsc && APP_CHANNEL=preview vp build && wrangler preview --name preview"
   },
   "dependencies": {
     "@ionic/react": "^9.0.9",
