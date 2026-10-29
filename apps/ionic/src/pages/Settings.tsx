@@ -1,6 +1,8 @@
 import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from "@ionic/react";
 import { SettingsView } from "ionic-core";
 
+import { version } from "../../package.json";
+
 const Settings = () => {
   return (
     <IonPage>
@@ -15,7 +17,7 @@ const Settings = () => {
             <IonTitle size="large">Settings</IonTitle>
           </IonToolbar>
         </IonHeader>
-        <SettingsView />
+        <SettingsView version={version} />
       </IonContent>
     </IonPage>
   );

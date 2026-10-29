@@ -2,16 +2,21 @@ import { type ReactNode, useState } from "react";
 
 import { IonList } from "@ionic/react";
 
-import { AppearanceSettingsSection, DataSettingsSection } from "./components/index.ts";
+import {
+  AboutSettingsSection,
+  AppearanceSettingsSection,
+  DataSettingsSection,
+} from "./components/index.ts";
 import type { SettingsStore } from "./db.ts";
 import { useSettings } from "./hooks.ts";
 
 export interface SettingsViewProps {
   store?: SettingsStore;
+  version?: string;
   children?: ReactNode;
 }
 
-export const SettingsView = ({ store: customStore, children }: SettingsViewProps) => {
+export const SettingsView = ({ store: customStore, version, children }: SettingsViewProps) => {
   const { theme, setTheme, store } = useSettings(customStore);
   const [appearanceStatus, setAppearanceStatus] = useState<string | null>(null);
   const [dataStatus, setDataStatus] = useState<string | null>(null);
@@ -31,6 +36,7 @@ export const SettingsView = ({ store: customStore, children }: SettingsViewProps
         statusMessage={dataStatus}
         onStatusChange={setDataStatus}
       />
+      <AboutSettingsSection version={version} />
     </IonList>
   );
 };

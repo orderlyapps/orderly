@@ -9,7 +9,12 @@ Deploys the proclaimer app (`apps/proclaimer`) to Cloudflare Workers as `orderly
 
 ## Steps
 
-1. From the repo root, run the app's deploy script:
+1. Update the version and changelog before deploying:
+
+   - Bump `version` in `apps/proclaimer/package.json` using semantic versioning (patch for fixes, minor for new features, major for breaking changes).
+   - Add a matching entry at the top of `CHANGELOG` in `packages/proclaimer/src/feature/about/changelog.ts` with the new version, today's date (`YYYY-MM-DD`), and a `changes` list summarising what shipped. Keep entries newest-first; the first entry's version must equal the `package.json` version.
+
+2. From the repo root, run the app's deploy script:
 
    ```
    pnpm --dir apps/proclaimer run deploy
@@ -17,7 +22,7 @@ Deploys the proclaimer app (`apps/proclaimer`) to Cloudflare Workers as `orderly
 
    This builds `proclaimer-core`, runs `tsc`, builds the app with `vp build` (output in `apps/proclaimer/dist`), and runs `wrangler deploy`.
 
-2. Verify the output reports `Deployed orderly-proclaimer triggers` and note the Version ID.
+3. Verify the output reports `Deployed orderly-proclaimer triggers` and note the Version ID.
 
 ## Details
 

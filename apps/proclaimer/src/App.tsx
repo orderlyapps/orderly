@@ -27,6 +27,7 @@ import Schedule from "./pages/ministry/Schedule";
 import Publishers from "./pages/Publishers";
 import Schedules from "./pages/Schedules";
 import Settings from "./pages/Settings";
+import SettingsAbout from "./pages/settings/About";
 import Cleaning from "./pages/schedules/Cleaning";
 import Events from "./pages/schedules/Events";
 import Midweek from "./pages/schedules/Midweek";
@@ -87,6 +88,7 @@ const App = () => {
             <Route path="/schedules/events" element={<Events />} />
             <Route path="/publishers" element={<Publishers />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/about" element={<SettingsAbout />} />
             <Route path="/" element={<Navigate to="/home" replace />} />
           </IonRouterOutlet>
           <IonTabBar slot="bottom">

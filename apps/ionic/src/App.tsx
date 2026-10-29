@@ -21,6 +21,7 @@ import { useThemeEffect } from "ionic-core";
 
 import Games from "./pages/Games";
 import Settings from "./pages/Settings";
+import SettingsAbout from "./pages/settings/About";
 import Snake from "./pages/Snake";
 import Tab1 from "./pages/Tab1";
 import Tab2 from "./pages/Tab2";
@@ -75,6 +76,7 @@ const App = () => {
             <Route path="/tab2" element={<Tab2 />} />
             <Route path="/tab3" element={<Tab3 />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/about" element={<SettingsAbout />} />
             <Route path="/" element={<Navigate to="/tab1" replace />} />
           </IonRouterOutlet>
           <IonTabBar slot="bottom">
