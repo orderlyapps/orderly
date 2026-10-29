@@ -7,8 +7,9 @@ import {
   IonTitle,
   IonToolbar,
 } from "@ionic/react";
+import { MapView } from "proclaimer-core";
 
-import ExploreContainer from "../../components/ExploreContainer";
+import { mapboxAccessToken } from "../../config";
 
 const Map = () => {
   return (
@@ -21,13 +22,13 @@ const Map = () => {
           <IonTitle>Map</IonTitle>
         </IonToolbar>
       </IonHeader>
-      <IonContent fullscreen>
+      <IonContent fullscreen scrollY={false}>
         <IonHeader collapse="condense">
           <IonToolbar>
             <IonTitle size="large">Map</IonTitle>
           </IonToolbar>
         </IonHeader>
-        <ExploreContainer name="Map page" />
+        <MapView accessToken={mapboxAccessToken} />
       </IonContent>
     </IonPage>
   );
