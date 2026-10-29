@@ -23,11 +23,6 @@ const Map = () => {
         </IonToolbar>
       </IonHeader>
       <IonContent fullscreen scrollY={false}>
-        <IonHeader collapse="condense">
-          <IonToolbar>
-            <IonTitle size="large">Map</IonTitle>
-          </IonToolbar>
-        </IonHeader>
         <MapView accessToken={mapboxAccessToken} />
       </IonContent>
     </IonPage>
