@@ -1,3 +1,4 @@
+export { AboutSettingsSection, type AboutSettingsSectionProps } from "./AboutSettingsSection.tsx";
 export {
   AppearanceSettingsSection,
   type AppearanceSettingsSectionProps,

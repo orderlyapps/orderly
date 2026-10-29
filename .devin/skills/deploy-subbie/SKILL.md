@@ -9,7 +9,12 @@ Deploys the subbie app (`apps/subbie`) to Cloudflare Workers as `orderly-subbie`
 
 ## Steps
 
-1. From the repo root, run the app's deploy script:
+1. Update the version and changelog before deploying:
+
+   - Bump `version` in `apps/subbie/package.json` using semantic versioning (patch for fixes, minor for new features, major for breaking changes).
+   - Add a matching entry at the top of `CHANGELOG` in `packages/subbie/src/feature/about/changelog.ts` with the new version, today's date (`YYYY-MM-DD`), and a `changes` list summarising what shipped. Keep entries newest-first; the first entry's version must equal the `package.json` version.
+
+2. From the repo root, run the app's deploy script:
 
    ```
    pnpm --dir apps/subbie run deploy
@@ -17,7 +22,7 @@ Deploys the subbie app (`apps/subbie`) to Cloudflare Workers as `orderly-subbie`
 
    This builds `subbie-core`, runs `tsc`, builds the app with `vp build` (output in `apps/subbie/dist`), and runs `wrangler deploy`.
 
-2. Verify the output reports `Deployed orderly-subbie triggers` and note the Version ID.
+3. Verify the output reports `Deployed orderly-subbie triggers` and note the Version ID.
 
 ## Details
 

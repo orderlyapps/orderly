@@ -27,6 +27,7 @@ import BankingStatements from "./pages/banking/Statements";
 import Directory from "./pages/Directory";
 import Invoices from "./pages/Invoices";
 import Settings from "./pages/Settings";
+import SettingsAbout from "./pages/settings/About";
 
 /* Core CSS required for Ionic components to work properly */
 import "@ionic/react/css/core.css";
@@ -79,6 +80,7 @@ const App = () => {
             <Route path="/banking/categories" element={<BankingCategories />} />
             <Route path="/directory" element={<Directory />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/about" element={<SettingsAbout />} />
             <Route path="/" element={<Navigate to="/invoices" replace />} />
           </IonRouterOutlet>
           <IonTabBar slot="bottom">
