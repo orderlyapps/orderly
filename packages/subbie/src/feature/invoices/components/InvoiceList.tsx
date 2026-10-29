@@ -2,9 +2,9 @@ import { IonBadge, IonItem, IonLabel, IonList, IonNote } from "@ionic/react";
 
 import {
   formatAmount,
+  invoiceGrandTotalCents,
   invoiceStatusColor,
   invoiceStatusLabel,
-  invoiceTotalCents,
   type InvoiceDocument,
 } from "../schema.ts";
 
@@ -40,7 +40,7 @@ export const InvoiceList = ({
               {invoice.number} · {invoice.issueDate}
             </IonNote>
           </IonLabel>
-          <IonNote slot="end">{formatAmount(invoiceTotalCents(invoice))}</IonNote>
+          <IonNote slot="end">{formatAmount(invoiceGrandTotalCents(invoice))}</IonNote>
           <IonBadge slot="end" color={invoiceStatusColor(invoice.status)}>
             {invoiceStatusLabel(invoice.status)}
           </IonBadge>

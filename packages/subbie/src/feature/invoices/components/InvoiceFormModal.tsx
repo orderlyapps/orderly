@@ -23,6 +23,7 @@ import {
 } from "@ionic/react";
 import { trashOutline } from "ionicons/icons";
 
+import { bankGstRateLabel } from "../../banking/lines/gst.ts";
 import type { CustomerDocument } from "../../customers/schema.ts";
 import type { ItemDocument } from "../../items/schema.ts";
 import {
@@ -53,6 +54,7 @@ export interface InvoiceFormModalProps {
   items?: ItemDocument[];
   paymentTermsDays?: number;
   defaultNotes?: string;
+  gstRate?: number;
   onDismiss: () => void;
   onSubmit: (values: InvoiceFormValues) => Promise<void> | void;
 }
@@ -91,6 +93,7 @@ export const InvoiceFormModal = ({
   items = [],
   paymentTermsDays = DEFAULT_PAYMENT_TERMS_DAYS,
   defaultNotes = "",
+  gstRate = 0,
   onDismiss,
   onSubmit,
 }: InvoiceFormModalProps) => {
@@ -294,6 +297,13 @@ export const InvoiceFormModal = ({
 
         <IonList inset>
           <IonListHeader>Items</IonListHeader>
+          {gstRate > 0 ? (
+            <IonItem lines="none">
+              <IonNote color="medium">
+                Prices are ex GST — GST {bankGstRateLabel(gstRate)} is added to the total
+              </IonNote>
+            </IonItem>
+          ) : null}
           {draftItems.map((item) => (
             <IonItem key={item.id} lines="full">
               <IonGrid className="ion-no-padding">

@@ -65,11 +65,12 @@ export const InvoicesView = ({
 
   const handleSubmit = async (values: InvoiceFormValues) => {
     try {
+      const gstRate = settings.gstRegistered ? settings.gstRate : 0;
       if (editing) {
-        await updateInvoice(editing.id, values);
+        await updateInvoice(editing.id, { ...values, gstRate });
         setStatusMessage(`Updated ${editing.number}`);
       } else {
-        const created = await createInvoice(values);
+        const created = await createInvoice({ ...values, gstRate });
         setStatusMessage(`Created ${created.number}`);
       }
     } catch (err) {
@@ -157,6 +158,7 @@ export const InvoicesView = ({
         items={items}
         paymentTermsDays={settings.defaultPaymentTermsDays}
         defaultNotes={settings.defaultInvoiceNotes}
+        gstRate={settings.gstRegistered ? settings.gstRate : 0}
         onDismiss={() => setFormOpen(false)}
         onSubmit={handleSubmit}
       />

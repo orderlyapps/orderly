@@ -17,8 +17,11 @@ import {
   useIonAlert,
 } from "@ionic/react";
 
+import { bankGstRateLabel } from "../../banking/lines/gst.ts";
 import {
   formatAmount,
+  invoiceGrandTotalCents,
+  invoiceGstCents,
   invoiceStatusColor,
   invoiceStatusLabel,
   invoiceTotalCents,
@@ -150,12 +153,24 @@ export const InvoiceDetailModal = ({
                   </IonNote>
                 </IonItem>
               ))}
+              {invoice.gstRate > 0 ? (
+                <>
+                  <IonItem lines="none">
+                    <IonLabel>Subtotal</IonLabel>
+                    <IonNote slot="end">{formatAmount(invoiceTotalCents(invoice))}</IonNote>
+                  </IonItem>
+                  <IonItem lines="none">
+                    <IonLabel>GST {bankGstRateLabel(invoice.gstRate)}</IonLabel>
+                    <IonNote slot="end">{formatAmount(invoiceGstCents(invoice))}</IonNote>
+                  </IonItem>
+                </>
+              ) : null}
               <IonItem lines="none">
                 <IonLabel>
                   <strong>Total</strong>
                 </IonLabel>
                 <IonNote slot="end">
-                  <strong>{formatAmount(invoiceTotalCents(invoice))}</strong>
+                  <strong>{formatAmount(invoiceGrandTotalCents(invoice))}</strong>
                 </IonNote>
               </IonItem>
             </IonList>

@@ -29,9 +29,9 @@ import { trashOutline } from "ionicons/icons";
 import {
   formatAmount,
   generateDocumentId,
+  invoiceGrandTotalCents,
   invoiceStatusColor,
   invoiceStatusLabel,
-  invoiceTotalCents,
   type InvoiceDocument,
 } from "../../../invoices/schema.ts";
 import type { BankAccountDocument } from "../../accounts/schema.ts";
@@ -420,7 +420,7 @@ export const StatementLineDetailModal = ({
                           {invoice.number} — {invoice.clientName}
                         </h3>
                         <IonNote>
-                          {formatAmount(invoiceTotalCents(invoice))} · {invoice.issueDate}
+                          {formatAmount(invoiceGrandTotalCents(invoice))} · {invoice.issueDate}
                         </IonNote>
                       </IonLabel>
                       <IonBadge slot="end" color={invoiceStatusColor(invoice.status)}>
@@ -468,7 +468,7 @@ export const StatementLineDetailModal = ({
                     {invoices.map((invoice) => (
                       <IonSelectOption key={invoice.id} value={invoice.id}>
                         {invoice.number} · {invoice.clientName} (
-                        {formatAmount(invoiceTotalCents(invoice))})
+                        {formatAmount(invoiceGrandTotalCents(invoice))})
                       </IonSelectOption>
                     ))}
                   </IonSelect>

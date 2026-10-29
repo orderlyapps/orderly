@@ -20,6 +20,7 @@ export interface InvoiceDocument {
   issueDate: string;
   dueDate: string;
   items: InvoiceLineItem[];
+  gstRate: number;
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -35,6 +36,7 @@ export interface CreateInvoiceInput {
   issueDate?: string;
   dueDate?: string;
   items: Array<Omit<InvoiceLineItem, "id">>;
+  gstRate?: number;
   notes?: string;
 }
 
@@ -99,6 +101,10 @@ export function isInvoiceDateString(value: unknown): value is string {
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 }
 
+export function isInvoiceGstRate(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
 export function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
@@ -149,6 +155,7 @@ const INVOICE_VALIDATORS: InvoiceValidatorMap = {
   issueDate: isInvoiceDateString,
   dueDate: isInvoiceDateString,
   items: isInvoiceItems,
+  gstRate: isInvoiceGstRate,
   notes: isStringField,
   createdAt: isNonEmptyString,
   updatedAt: isNonEmptyString,
@@ -223,6 +230,19 @@ export function invoiceTotalCents(invoice: Pick<InvoiceDocument, "items">): numb
   );
 }
 
+export function invoiceGstCents(invoice: Pick<InvoiceDocument, "items" | "gstRate">): number {
+  if (!isInvoiceGstRate(invoice.gstRate) || invoice.gstRate <= 0) {
+    return 0;
+  }
+  return Math.round(invoiceTotalCents(invoice) * invoice.gstRate);
+}
+
+export function invoiceGrandTotalCents(
+  invoice: Pick<InvoiceDocument, "items" | "gstRate">,
+): number {
+  return invoiceTotalCents(invoice) + invoiceGstCents(invoice);
+}
+
 export function normalizeInvoiceLineItem(value?: Partial<InvoiceLineItem> | null): InvoiceLineItem {
   const normalized: InvoiceLineItem = {
     id: typeof value?.id === "string" && value.id.length > 0 ? value.id : generateDocumentId(),
@@ -250,6 +270,7 @@ export function normalizeInvoiceDocument(value?: Partial<InvoiceDocument> | null
     issueDate: toDateString(),
     dueDate: addDaysToDateString(toDateString(), DEFAULT_PAYMENT_TERMS_DAYS),
     items: [],
+    gstRate: 0,
     notes: "",
     createdAt: now,
     updatedAt: now,
@@ -301,6 +322,9 @@ export function validateInvoiceInput(input: CreateInvoiceInput): CreateInvoiceIn
     if (item.notes !== undefined && typeof item.notes !== "string") {
       throw new Error("Invalid invoice: line item notes must be a string");
     }
+  }
+  if (input.gstRate !== undefined && !isInvoiceGstRate(input.gstRate)) {
+    throw new Error("Invalid invoice: GST rate must be a number between 0 and 1");
   }
   if (input.notes !== undefined && typeof input.notes !== "string") {
     throw new Error("Invalid invoice: notes must be a string");
