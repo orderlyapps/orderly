@@ -112,6 +112,7 @@ export const BankAccountsView = ({ store: customStore }: BankAccountsViewProps) 
       <IonToast
         isOpen={statusMessage !== null}
         message={statusMessage ?? undefined}
+        position="top"
         duration={2500}
         onDidDismiss={() => setStatusMessage(null)}
       />

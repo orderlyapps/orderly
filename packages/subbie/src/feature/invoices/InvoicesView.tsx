@@ -179,6 +179,7 @@ export const InvoicesView = ({
       <IonToast
         isOpen={statusMessage !== null}
         message={statusMessage ?? undefined}
+        position="top"
         duration={2500}
         onDidDismiss={() => setStatusMessage(null)}
       />

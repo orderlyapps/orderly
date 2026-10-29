@@ -108,6 +108,7 @@ export const CustomersView = ({ store: customStore }: CustomersViewProps) => {
       <IonToast
         isOpen={statusMessage !== null}
         message={statusMessage ?? undefined}
+        position="top"
         duration={2500}
         onDidDismiss={() => setStatusMessage(null)}
       />
