@@ -13,6 +13,7 @@ import { add } from "ionicons/icons";
 
 import { useCustomers, type CustomersStore } from "../customers/index.ts";
 import { useItems, type ItemsStore } from "../items/index.ts";
+import { useSettings, type SettingsStore } from "../settings/index.ts";
 import { InvoiceDetailModal } from "./components/InvoiceDetailModal.tsx";
 import { InvoiceFormModal, type InvoiceFormValues } from "./components/InvoiceFormModal.tsx";
 import { InvoiceList } from "./components/InvoiceList.tsx";
@@ -25,12 +26,14 @@ export interface InvoicesViewProps {
   store?: InvoicesStore;
   customersStore?: CustomersStore;
   itemsStore?: ItemsStore;
+  settingsStore?: SettingsStore;
 }
 
 export const InvoicesView = ({
   store: customStore,
   customersStore,
   itemsStore,
+  settingsStore,
 }: InvoicesViewProps) => {
   const {
     invoices,
@@ -43,6 +46,7 @@ export const InvoicesView = ({
   } = useInvoices(customStore);
   const { customers } = useCustomers(customersStore);
   const { items } = useItems(itemsStore);
+  const { settings } = useSettings(settingsStore);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<InvoiceDocument | null>(null);
   const [selected, setSelected] = useState<InvoiceDocument | null>(null);
@@ -145,6 +149,8 @@ export const InvoicesView = ({
         initial={editing}
         customers={customers}
         items={items}
+        paymentTermsDays={settings.defaultPaymentTermsDays}
+        defaultNotes={settings.defaultInvoiceNotes}
         onDismiss={() => setFormOpen(false)}
         onSubmit={handleSubmit}
       />

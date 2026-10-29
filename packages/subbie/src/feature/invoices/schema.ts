@@ -46,6 +46,8 @@ export const INVOICE_NUMBER_MAX_LENGTH = 64;
 
 export const DEFAULT_INVOICE_CURRENCY = "USD";
 
+export const DEFAULT_PAYMENT_TERMS_DAYS = 30;
+
 const INVOICE_STATUS_COLORS: Record<InvoiceStatus, string> = {
   draft: "medium",
   sent: "warning",
@@ -254,7 +256,7 @@ export function normalizeInvoiceDocument(value?: Partial<InvoiceDocument> | null
     currency: DEFAULT_INVOICE_CURRENCY,
     status: "draft",
     issueDate: toDateString(),
-    dueDate: addDaysToDateString(toDateString(), 30),
+    dueDate: addDaysToDateString(toDateString(), DEFAULT_PAYMENT_TERMS_DAYS),
     items: [],
     notes: "",
     createdAt: now,

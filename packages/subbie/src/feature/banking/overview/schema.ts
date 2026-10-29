@@ -1,7 +1,7 @@
 import { DEFAULT_INVOICE_CURRENCY } from "../../invoices/schema.ts";
 import type { BankAccountDocument } from "../accounts/schema.ts";
 import type { BankCategoryDocument } from "../categories/schema.ts";
-import { allocationGstAmountCents, allocationNetAmountCents } from "../lines/gst.ts";
+import { allocationGstAmountCents, allocationNetAmountCents, BANK_GST_RATE } from "../lines/gst.ts";
 import type { BankStatementLineDocument } from "../lines/schema.ts";
 
 export interface AustralianFinancialYear {
@@ -42,6 +42,7 @@ export interface SummarizeFinancialYearInput {
   categories: readonly BankCategoryDocument[];
   accounts?: readonly BankAccountDocument[];
   currency?: string;
+  gstRate?: number;
 }
 
 export interface SummarizeBankingFinancialYearsInput {
@@ -49,6 +50,7 @@ export interface SummarizeBankingFinancialYearsInput {
   categories: readonly BankCategoryDocument[];
   accounts?: readonly BankAccountDocument[];
   currency?: string;
+  gstRate?: number;
   referenceDate?: Date | string;
 }
 
@@ -116,6 +118,7 @@ function compareCategories(a: BankCategoryDocument, b: BankCategoryDocument): nu
 
 export function summarizeFinancialYear(input: SummarizeFinancialYearInput): FinancialYearSummary {
   const { financialYear, statementLines, categories, accounts = [] } = input;
+  const gstRate = input.gstRate ?? BANK_GST_RATE;
 
   const linesInYear = statementLines.filter(
     (line) => !line.isPrivate && isDateInFinancialYear(line.date, financialYear),
@@ -158,8 +161,8 @@ export function summarizeFinancialYear(input: SummarizeFinancialYearInput): Fina
         continue;
       }
       const amountIncGst = allocation.amountCents;
-      const gstAmount = allocationGstAmountCents(allocation);
-      const amountExGst = allocationNetAmountCents(allocation);
+      const gstAmount = allocationGstAmountCents(allocation, gstRate);
+      const amountExGst = allocationNetAmountCents(allocation, gstRate);
 
       if (!seenCategoriesOnLine.has(allocation.categoryId)) {
         seenCategoriesOnLine.add(allocation.categoryId);
@@ -219,6 +222,7 @@ export function summarizeBankingFinancialYears(
       categories: input.categories,
       accounts: input.accounts,
       currency: input.currency,
+      gstRate: input.gstRate,
     }),
     previousFinancialYear: summarizeFinancialYear({
       financialYear: previousFy,
@@ -226,6 +230,7 @@ export function summarizeBankingFinancialYears(
       categories: input.categories,
       accounts: input.accounts,
       currency: input.currency,
+      gstRate: input.gstRate,
     }),
   };
 }

@@ -30,7 +30,9 @@ import {
   allocationGstAmountCents,
   allocationNetAmountCents,
   allocationTaxableAmountCents,
+  BANK_GST_RATE,
   BANK_GST_TYPES,
+  bankGstRateLabel,
   bankGstTypeLabel,
   isBankGstType,
   type BankGstType,
@@ -44,6 +46,9 @@ export interface StatementLineCategoryModalProps {
   accounts?: readonly BankAccountDocument[];
   categories: BankCategoryDocument[];
   isOpen: boolean;
+  gstRate?: number;
+  gstRegistered?: boolean;
+  defaultGstType?: BankGstType;
   onDismiss: () => void;
   onSelectCategory?: (
     line: BankStatementLineDocument,
@@ -71,6 +76,9 @@ export const StatementLineCategoryModal = ({
   accounts,
   categories,
   isOpen,
+  gstRate = BANK_GST_RATE,
+  gstRegistered = true,
+  defaultGstType = "gst",
   onDismiss,
   onSelectCategory,
   onSelectCategoryForLines,
@@ -108,6 +116,15 @@ export const StatementLineCategoryModal = ({
     .map((item) => `${item.id}:${item.isPrivate}:${JSON.stringify(item.allocations)}`)
     .join("|");
 
+  const availableGstTypes: readonly BankGstType[] =
+    isMultiLine || lineType === "receipt" ? (["gst", "gst-free"] as const) : BANK_GST_TYPES;
+
+  const fallbackGstType: BankGstType = availableGstTypes.includes(defaultGstType)
+    ? defaultGstType
+    : "gst";
+
+  const effectiveGstType: BankGstType = gstRegistered ? gstType : "gst-free";
+
   useEffect(() => {
     if (!isOpen || targetLines.length === 0) {
       return;
@@ -119,7 +136,7 @@ export const StatementLineCategoryModal = ({
         primaryAllocation?.gstType &&
         (singleLine.type === "payment" || primaryAllocation.gstType !== "part-gst")
           ? primaryAllocation.gstType
-          : "gst";
+          : fallbackGstType;
       setSelectedCategoryId(primaryAllocation?.categoryId ?? "");
       setGstType(initialGstType);
       setGstFreeAmount(
@@ -142,7 +159,7 @@ export const StatementLineCategoryModal = ({
         firstAlloc.gstType !== "part-gst" &&
         targetLines.every((item) => (item.allocations[0]?.gstType ?? "gst") === firstAlloc.gstType)
           ? firstAlloc.gstType
-          : "gst";
+          : fallbackGstType;
       const sharedNotes =
         firstAlloc &&
         targetLines.every((item) => (item.allocations[0]?.notes ?? "") === (firstAlloc.notes ?? ""))
@@ -153,10 +170,7 @@ export const StatementLineCategoryModal = ({
       setGstFreeAmount("0");
       setNotes(sharedNotes);
     }
-  }, [isOpen, targetKey]);
-
-  const availableGstTypes: readonly BankGstType[] =
-    isMultiLine || lineType === "receipt" ? (["gst", "gst-free"] as const) : BANK_GST_TYPES;
+  }, [isOpen, targetKey, fallbackGstType]);
 
   const trimmedGstFree = gstFreeAmount.trim();
   const parsedGstFreeCents =
@@ -165,16 +179,16 @@ export const StatementLineCategoryModal = ({
   const isGstFreeValid =
     singleLine === null ||
     singleLine.type !== "payment" ||
-    gstType !== "part-gst" ||
+    effectiveGstType !== "part-gst" ||
     (Number.isInteger(parsedGstFreeCents) &&
       parsedGstFreeCents >= 0 &&
       parsedGstFreeCents <= singleLine.amountCents);
 
   const effectiveGstFreeCents = singleLine
-    ? gstType === "gst-free"
+    ? effectiveGstType === "gst-free"
       ? singleLine.amountCents
       : singleLine.type === "payment" &&
-          gstType === "part-gst" &&
+          effectiveGstType === "part-gst" &&
           Number.isInteger(parsedGstFreeCents) &&
           parsedGstFreeCents >= 0
         ? Math.min(singleLine.amountCents, parsedGstFreeCents)
@@ -189,14 +203,14 @@ export const StatementLineCategoryModal = ({
     const itemCurrency = accountById.get(item.accountId)?.currency ?? DEFAULT_INVOICE_CURRENCY;
     const preview = {
       amountCents: item.amountCents,
-      gstType,
+      gstType: effectiveGstType,
       gstFreeAmountCents: singleLine ? effectiveGstFreeCents : 0,
     };
     const entry = totalsByCurrency.get(itemCurrency) ?? { total: 0, gst: 0, taxable: 0, net: 0 };
     entry.total += item.amountCents;
-    entry.gst += allocationGstAmountCents(preview);
+    entry.gst += allocationGstAmountCents(preview, gstRate);
     entry.taxable += allocationTaxableAmountCents(preview);
-    entry.net += allocationNetAmountCents(preview);
+    entry.net += allocationNetAmountCents(preview, gstRate);
     totalsByCurrency.set(itemCurrency, entry);
   }
 
@@ -233,8 +247,8 @@ export const StatementLineCategoryModal = ({
     try {
       const trimmedNotes = notes.trim();
       const options: AllocateLineToCategoryOptions = {
-        gstType,
-        ...(singleLine && singleLine.type === "payment" && gstType === "part-gst"
+        gstType: effectiveGstType,
+        ...(singleLine && singleLine.type === "payment" && effectiveGstType === "part-gst"
           ? { gstFreeAmountCents: parsedGstFreeCents }
           : {}),
         ...(trimmedNotes.length > 0 ? { notes: trimmedNotes } : {}),
@@ -431,62 +445,64 @@ export const StatementLineCategoryModal = ({
                   )}
                 </IonList>
 
-                <IonList inset>
-                  <IonListHeader>GST (10%)</IonListHeader>
-                  <IonItem
-                    lines={
-                      singleLine && singleLine.type === "payment" && gstType === "part-gst"
-                        ? "full"
-                        : "none"
-                    }
-                  >
-                    <IonSegment
-                      value={gstType}
-                      onIonChange={(event) => {
-                        const value = event.detail.value;
-                        if (isBankGstType(value) && availableGstTypes.includes(value)) {
-                          setGstType(value);
-                        }
-                      }}
+                {gstRegistered ? (
+                  <IonList inset>
+                    <IonListHeader>GST ({bankGstRateLabel(gstRate)})</IonListHeader>
+                    <IonItem
+                      lines={
+                        singleLine && singleLine.type === "payment" && gstType === "part-gst"
+                          ? "full"
+                          : "none"
+                      }
                     >
-                      {availableGstTypes.map((typeOption) => (
-                        <IonSegmentButton key={typeOption} value={typeOption}>
-                          <IonLabel>{bankGstTypeLabel(typeOption)}</IonLabel>
-                        </IonSegmentButton>
-                      ))}
-                    </IonSegment>
-                  </IonItem>
-
-                  {singleLine && singleLine.type === "payment" && gstType === "part-gst" ? (
-                    <IonItem>
-                      <IonInput
-                        label="GST Free Amount"
-                        labelPlacement="stacked"
-                        type="number"
-                        inputmode="decimal"
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={gstFreeAmount}
-                        onIonInput={(event) => setGstFreeAmount(event.detail.value ?? "")}
-                      />
+                      <IonSegment
+                        value={gstType}
+                        onIonChange={(event) => {
+                          const value = event.detail.value;
+                          if (isBankGstType(value) && availableGstTypes.includes(value)) {
+                            setGstType(value);
+                          }
+                        }}
+                      >
+                        {availableGstTypes.map((typeOption) => (
+                          <IonSegmentButton key={typeOption} value={typeOption}>
+                            <IonLabel>{bankGstTypeLabel(typeOption)}</IonLabel>
+                          </IonSegmentButton>
+                        ))}
+                      </IonSegment>
                     </IonItem>
-                  ) : null}
 
-                  <IonItem lines="none">
-                    <IonLabel>
-                      <IonNote color={!isGstFreeValid ? "danger" : undefined}>
-                        {!isGstFreeValid && singleLine
-                          ? `Enter a GST free amount between ${formatCurrency(0, currency)} and ${formatCurrency(singleLine.amountCents, currency)}`
-                          : gstType === "gst"
-                            ? `GST (10%): ${formatTotals((entry) => entry.gst)} · Net (ex-GST): ${formatTotals((entry) => entry.net)}`
-                            : gstType === "gst-free"
-                              ? `GST Free: ${formatTotals((entry) => entry.total)} · GST: ${formatTotals((entry) => entry.gst)}`
-                              : `GST Free: ${formatCurrency(effectiveGstFreeCents, currency)} · Taxable: ${formatTotals((entry) => entry.taxable)} · GST (10%): ${formatTotals((entry) => entry.gst)}`}
-                      </IonNote>
-                    </IonLabel>
-                  </IonItem>
-                </IonList>
+                    {singleLine && singleLine.type === "payment" && gstType === "part-gst" ? (
+                      <IonItem>
+                        <IonInput
+                          label="GST Free Amount"
+                          labelPlacement="stacked"
+                          type="number"
+                          inputmode="decimal"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={gstFreeAmount}
+                          onIonInput={(event) => setGstFreeAmount(event.detail.value ?? "")}
+                        />
+                      </IonItem>
+                    ) : null}
+
+                    <IonItem lines="none">
+                      <IonLabel>
+                        <IonNote color={!isGstFreeValid ? "danger" : undefined}>
+                          {!isGstFreeValid && singleLine
+                            ? `Enter a GST free amount between ${formatCurrency(0, currency)} and ${formatCurrency(singleLine.amountCents, currency)}`
+                            : gstType === "gst"
+                              ? `GST (${bankGstRateLabel(gstRate)}): ${formatTotals((entry) => entry.gst)} · Net (ex-GST): ${formatTotals((entry) => entry.net)}`
+                              : gstType === "gst-free"
+                                ? `GST Free: ${formatTotals((entry) => entry.total)} · GST: ${formatTotals((entry) => entry.gst)}`
+                                : `GST Free: ${formatCurrency(effectiveGstFreeCents, currency)} · Taxable: ${formatTotals((entry) => entry.taxable)} · GST (${bankGstRateLabel(gstRate)}): ${formatTotals((entry) => entry.gst)}`}
+                        </IonNote>
+                      </IonLabel>
+                    </IonItem>
+                  </IonList>
+                ) : null}
 
                 <IonList inset>
                   <IonItem>

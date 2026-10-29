@@ -40,7 +40,9 @@ import type { BankCategoryDocument } from "../../categories/schema.ts";
 import { bankTransactionTypeColor, bankTransactionTypeLabel, pluralize } from "../../types.ts";
 import {
   allocationGstAmountCents,
+  BANK_GST_RATE,
   BANK_GST_TYPES,
+  bankGstRateLabel,
   bankGstTypeLabel,
   isBankGstType,
   type BankGstType,
@@ -71,6 +73,9 @@ export interface StatementLineDetailModalProps {
   ) => Promise<unknown>;
   onSetPrivate?: (line: BankStatementLineDocument, isPrivate: boolean) => Promise<unknown>;
   onDelete: (line: BankStatementLineDocument) => Promise<unknown>;
+  gstRate?: number;
+  gstRegistered?: boolean;
+  defaultGstType?: BankGstType;
 }
 
 export const StatementLineDetailModal = ({
@@ -79,6 +84,9 @@ export const StatementLineDetailModal = ({
   categories,
   invoices,
   isOpen,
+  gstRate = BANK_GST_RATE,
+  gstRegistered = true,
+  defaultGstType = "gst",
   onDismiss,
   onLinkInvoices,
   onSaveAllocations,
@@ -97,6 +105,12 @@ export const StatementLineDetailModal = ({
 
   const allocationsKey = line ? JSON.stringify(line.allocations) : "";
 
+  const resolvedDefaultGstType: BankGstType = !gstRegistered
+    ? "gst-free"
+    : line?.type === "receipt" && defaultGstType === "part-gst"
+      ? "gst"
+      : defaultGstType;
+
   useEffect(() => {
     if (!isOpen || !line) {
       return;
@@ -106,7 +120,7 @@ export const StatementLineDetailModal = ({
         id: entry.id,
         categoryId: entry.categoryId,
         amount: (entry.amountCents / 100).toString(),
-        gstType: entry.gstType ?? "gst",
+        gstType: gstRegistered ? (entry.gstType ?? resolvedDefaultGstType) : "gst-free",
         gstFreeAmount:
           entry.gstType === "part-gst" && entry.gstFreeAmountCents !== undefined
             ? (entry.gstFreeAmountCents / 100).toString()
@@ -116,7 +130,7 @@ export const StatementLineDetailModal = ({
     );
     setIsSavingAllocations(false);
     setIsSavingPrivate(false);
-  }, [isOpen, line?.id, allocationsKey]);
+  }, [isOpen, line?.id, allocationsKey, gstRegistered, resolvedDefaultGstType]);
 
   const availableGstTypes: readonly BankGstType[] =
     line?.type === "receipt" ? (["gst", "gst-free"] as const) : BANK_GST_TYPES;
@@ -128,8 +142,11 @@ export const StatementLineDetailModal = ({
     const trimmedGstFree = entry.gstFreeAmount.trim();
     const numericGstFree = trimmedGstFree.length > 0 ? Number(trimmedGstFree) : Number.NaN;
     const gstFreeAmountCents = Math.round(numericGstFree * 100);
-    const effectiveGstType: BankGstType =
-      line?.type === "receipt" && entry.gstType === "part-gst" ? "gst" : entry.gstType;
+    const effectiveGstType: BankGstType = !gstRegistered
+      ? "gst-free"
+      : line?.type === "receipt" && entry.gstType === "part-gst"
+        ? "gst"
+        : entry.gstType;
     return {
       id: entry.id,
       categoryId: entry.categoryId,
@@ -151,7 +168,7 @@ export const StatementLineDetailModal = ({
     (sum, entry) =>
       sum +
       (Number.isFinite(entry.amountCents) && entry.amountCents >= 0
-        ? allocationGstAmountCents(entry)
+        ? allocationGstAmountCents(entry, gstRate)
         : 0),
     0,
   );
@@ -197,12 +214,14 @@ export const StatementLineDetailModal = ({
     if (!line || !categoryId || isSavingAllocations) {
       return;
     }
+    const quickGstType: BankGstType =
+      resolvedDefaultGstType === "part-gst" ? "gst" : resolvedDefaultGstType;
     const nextAllocations: BankLineAllocationInput[] = [
       {
         id: generateDocumentId(),
         categoryId,
         amountCents: line.amountCents,
-        gstType: "gst",
+        gstType: quickGstType,
       },
     ];
     setDraftAllocations([
@@ -210,7 +229,7 @@ export const StatementLineDetailModal = ({
         id: nextAllocations[0].id ?? generateDocumentId(),
         categoryId,
         amount: (line.amountCents / 100).toString(),
-        gstType: "gst",
+        gstType: quickGstType,
         gstFreeAmount: "0",
         notes: "",
       },
@@ -234,7 +253,7 @@ export const StatementLineDetailModal = ({
         id: generateDocumentId(),
         categoryId: defaultCategory?.id ?? "",
         amount: (remainingCents / 100).toString(),
-        gstType: "gst",
+        gstType: resolvedDefaultGstType,
         gstFreeAmount: "0",
         notes: "",
       },
@@ -553,33 +572,37 @@ export const StatementLineDetailModal = ({
                           </IonButton>
                         </IonCol>
                       </IonRow>
-                      <IonRow>
-                        <IonCol size="12">
-                          <IonSelect
-                            label="GST (10%)"
-                            labelPlacement="stacked"
-                            interface="action-sheet"
-                            value={
-                              line.type === "receipt" && allocation.gstType === "part-gst"
-                                ? "gst"
-                                : allocation.gstType
-                            }
-                            onIonChange={(event) => {
-                              const value = event.detail.value;
-                              if (isBankGstType(value) && availableGstTypes.includes(value)) {
-                                updateDraftAllocation(allocation.id, { gstType: value });
+                      {gstRegistered ? (
+                        <IonRow>
+                          <IonCol size="12">
+                            <IonSelect
+                              label={`GST (${bankGstRateLabel(gstRate)})`}
+                              labelPlacement="stacked"
+                              interface="action-sheet"
+                              value={
+                                line.type === "receipt" && allocation.gstType === "part-gst"
+                                  ? "gst"
+                                  : allocation.gstType
                               }
-                            }}
-                          >
-                            {availableGstTypes.map((gstOption) => (
-                              <IonSelectOption key={gstOption} value={gstOption}>
-                                {bankGstTypeLabel(gstOption)}
-                              </IonSelectOption>
-                            ))}
-                          </IonSelect>
-                        </IonCol>
-                      </IonRow>
-                      {line.type === "payment" && allocation.gstType === "part-gst" ? (
+                              onIonChange={(event) => {
+                                const value = event.detail.value;
+                                if (isBankGstType(value) && availableGstTypes.includes(value)) {
+                                  updateDraftAllocation(allocation.id, { gstType: value });
+                                }
+                              }}
+                            >
+                              {availableGstTypes.map((gstOption) => (
+                                <IonSelectOption key={gstOption} value={gstOption}>
+                                  {bankGstTypeLabel(gstOption)}
+                                </IonSelectOption>
+                              ))}
+                            </IonSelect>
+                          </IonCol>
+                        </IonRow>
+                      ) : null}
+                      {gstRegistered &&
+                      line.type === "payment" &&
+                      allocation.gstType === "part-gst" ? (
                         <IonRow>
                           <IonCol size="12">
                             <IonInput
@@ -625,7 +648,7 @@ export const StatementLineDetailModal = ({
                       {overAllocatedCents > 0
                         ? `Over-allocated by ${formatCurrency(overAllocatedCents, currency)}`
                         : `Remaining: ${formatCurrency(remainingCents, currency)}`}
-                      {allocatedTotalCents > 0
+                      {allocatedTotalCents > 0 && gstRegistered
                         ? ` · GST: ${formatCurrency(totalGstCents, currency)}`
                         : ""}
                     </IonNote>

@@ -23,6 +23,11 @@ export function isBankGstType(value: unknown): value is BankGstType {
   return typeof value === "string" && (BANK_GST_TYPES as readonly string[]).includes(value);
 }
 
+export function bankGstRateLabel(gstRate: number): string {
+  const percent = Math.round(gstRate * 10000) / 100;
+  return `${percent}%`;
+}
+
 export interface BankLineAllocation {
   id: string;
   categoryId: string;
@@ -183,24 +188,29 @@ export function calculateGstFromInclusiveCents(
 
 export function allocationGstAmountCents(
   allocation: Pick<BankLineAllocation, "amountCents" | "gstType" | "gstFreeAmountCents">,
+  gstRate = BANK_GST_RATE,
 ): number {
-  return calculateGstFromInclusiveCents(allocationTaxableAmountCents(allocation));
+  return calculateGstFromInclusiveCents(allocationTaxableAmountCents(allocation), gstRate);
 }
 
 export function allocationNetAmountCents(
   allocation: Pick<BankLineAllocation, "amountCents" | "gstType" | "gstFreeAmountCents">,
+  gstRate = BANK_GST_RATE,
 ): number {
-  return Math.max(0, allocation.amountCents - allocationGstAmountCents(allocation));
+  return Math.max(0, allocation.amountCents - allocationGstAmountCents(allocation, gstRate));
 }
 
-export function lineGstAmountCents(line: {
-  allocations: readonly Pick<
-    BankLineAllocation,
-    "amountCents" | "gstType" | "gstFreeAmountCents"
-  >[];
-}): number {
+export function lineGstAmountCents(
+  line: {
+    allocations: readonly Pick<
+      BankLineAllocation,
+      "amountCents" | "gstType" | "gstFreeAmountCents"
+    >[];
+  },
+  gstRate = BANK_GST_RATE,
+): number {
   return line.allocations.reduce(
-    (total, allocation) => total + allocationGstAmountCents(allocation),
+    (total, allocation) => total + allocationGstAmountCents(allocation, gstRate),
     0,
   );
 }

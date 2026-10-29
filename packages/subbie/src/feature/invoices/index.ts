@@ -35,6 +35,7 @@ export {
 export {
   addDaysToDateString,
   DEFAULT_INVOICE_CURRENCY,
+  DEFAULT_PAYMENT_TERMS_DAYS,
   formatCurrency,
   generateDocumentId,
   INVOICE_ID_MAX_LENGTH,

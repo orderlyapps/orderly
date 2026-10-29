@@ -27,6 +27,7 @@ import type { CustomerDocument } from "../../customers/schema.ts";
 import type { ItemDocument } from "../../items/schema.ts";
 import {
   DEFAULT_INVOICE_CURRENCY,
+  DEFAULT_PAYMENT_TERMS_DAYS,
   formatCurrency,
   generateDocumentId,
   isInvoiceDateString,
@@ -52,6 +53,8 @@ export interface InvoiceFormModalProps {
   initial?: InvoiceDocument | null;
   customers?: CustomerDocument[];
   items?: ItemDocument[];
+  paymentTermsDays?: number;
+  defaultNotes?: string;
   onDismiss: () => void;
   onSubmit: (values: InvoiceFormValues) => Promise<void> | void;
 }
@@ -88,23 +91,31 @@ export const InvoiceFormModal = ({
   initial,
   customers = [],
   items = [],
+  paymentTermsDays = DEFAULT_PAYMENT_TERMS_DAYS,
+  defaultNotes = "",
   onDismiss,
   onSubmit,
 }: InvoiceFormModalProps) => {
   const [customerId, setCustomerId] = useState("");
   const [currency, setCurrency] = useState(DEFAULT_INVOICE_CURRENCY);
   const [issueDate, setIssueDate] = useState(toDateString());
-  const [dueDate, setDueDate] = useState(addDaysToDateString(toDateString(), 30));
+  const [dueDate, setDueDate] = useState(addDaysToDateString(toDateString(), paymentTermsDays));
   const [notes, setNotes] = useState("");
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const customersRef = useRef(customers);
   customersRef.current = customers;
+  const wasOpenRef = useRef(false);
 
   useEffect(() => {
     if (!isOpen) {
+      wasOpenRef.current = false;
       return;
     }
+    if (wasOpenRef.current) {
+      return;
+    }
+    wasOpenRef.current = true;
     const matchedCustomer = initial
       ? customersRef.current.find(
           (entry) => entry.name === initial.clientName && entry.email === initial.clientEmail,
@@ -114,11 +125,11 @@ export const InvoiceFormModal = ({
     setCurrency(initial?.currency ?? DEFAULT_INVOICE_CURRENCY);
     const nextIssueDate = initial?.issueDate ?? toDateString();
     setIssueDate(nextIssueDate);
-    setDueDate(initial?.dueDate ?? addDaysToDateString(nextIssueDate, 30));
-    setNotes(initial?.notes ?? "");
+    setDueDate(initial?.dueDate ?? addDaysToDateString(nextIssueDate, paymentTermsDays));
+    setNotes(initial?.notes ?? defaultNotes);
     setDraftItems(toDraftItems(initial));
     setIsSaving(false);
-  }, [isOpen, initial]);
+  }, [isOpen, initial, paymentTermsDays, defaultNotes]);
 
   const updateDraftItem = (id: string, patch: Partial<DraftItem>) => {
     setDraftItems((current) =>
