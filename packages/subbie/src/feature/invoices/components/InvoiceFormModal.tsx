@@ -14,12 +14,15 @@ import {
   IonListHeader,
   IonModal,
   IonNote,
+  IonReorder,
+  IonReorderGroup,
   IonRow,
   IonSelect,
   IonSelectOption,
   IonTextarea,
   IonTitle,
   IonToolbar,
+  type ItemReorderEventDetail,
 } from "@ionic/react";
 import { trashOutline } from "ionicons/icons";
 
@@ -138,6 +141,17 @@ export const InvoiceFormModal = ({
 
   const removeDraftItem = (id: string) => {
     setDraftItems((current) => current.filter((item) => item.id !== id));
+  };
+
+  const reorderDraftItems = (event: CustomEvent<ItemReorderEventDetail>) => {
+    const { from, to } = event.detail;
+    setDraftItems((current) => {
+      const next = current.slice();
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+    event.detail.complete();
   };
 
   const addItemFromCatalog = (id: string) => {
@@ -304,81 +318,84 @@ export const InvoiceFormModal = ({
               </IonNote>
             </IonItem>
           ) : null}
-          {draftItems.map((item) => (
-            <IonItem key={item.id} lines="full">
-              <IonGrid className="ion-no-padding">
-                <IonRow>
-                  <IonCol size="12">
-                    <IonInput
-                      readonly
-                      label="Item"
-                      labelPlacement="stacked"
-                      value={item.description}
-                    />
-                  </IonCol>
-                </IonRow>
-                <IonRow>
-                  <IonCol size="4">
-                    <IonInput
-                      label="Qty"
-                      labelPlacement="stacked"
-                      type="number"
-                      inputmode="decimal"
-                      min="0"
-                      value={item.quantity}
-                      onIonInput={(event) =>
-                        updateDraftItem(item.id, { quantity: event.detail.value ?? "" })
-                      }
-                    />
-                  </IonCol>
-                  <IonCol size="5">
-                    <IonInput
-                      readonly
-                      label="Unit price"
-                      labelPlacement="stacked"
-                      value={formatAmount(Math.round(Number(item.unitPrice) * 100) || 0)}
-                    />
-                  </IonCol>
-                  <IonCol size="3" className="ion-align-self-end ion-text-end">
-                    <IonButton
-                      fill="clear"
-                      color="danger"
-                      onClick={() => removeDraftItem(item.id)}
-                      aria-label="Remove item"
-                    >
-                      <IonIcon slot="icon-only" icon={trashOutline} />
-                    </IonButton>
-                  </IonCol>
-                </IonRow>
-                <IonRow>
-                  <IonCol size="12">
-                    <IonInput
-                      label="Date (optional)"
-                      labelPlacement="stacked"
-                      type="date"
-                      value={item.date}
-                      onIonInput={(event) =>
-                        updateDraftItem(item.id, { date: event.detail.value ?? "" })
-                      }
-                    />
-                  </IonCol>
-                </IonRow>
-                <IonRow>
-                  <IonCol size="12">
-                    <IonInput
-                      label="Notes (optional)"
-                      labelPlacement="stacked"
-                      placeholder="Additional details..."
-                      value={item.notes}
-                      onIonInput={(event) =>
-                        updateDraftItem(item.id, { notes: event.detail.value ?? "" })
-                      }
-                    />
-                  </IonCol>
-                </IonRow>
-              </IonGrid>
-            </IonItem>
-          ))}
+          <IonReorderGroup disabled={false} onIonItemReorder={reorderDraftItems}>
+            {draftItems.map((item) => (
+              <IonItem key={item.id} lines="full">
+                <IonGrid className="ion-no-padding">
+                  <IonRow>
+                    <IonCol size="12">
+                      <IonInput
+                        readonly
+                        label="Item"
+                        labelPlacement="stacked"
+                        value={item.description}
+                      />
+                    </IonCol>
+                  </IonRow>
+                  <IonRow>
+                    <IonCol size="4">
+                      <IonInput
+                        label="Qty"
+                        labelPlacement="stacked"
+                        type="number"
+                        inputmode="decimal"
+                        min="0"
+                        value={item.quantity}
+                        onIonInput={(event) =>
+                          updateDraftItem(item.id, { quantity: event.detail.value ?? "" })
+                        }
+                      />
+                    </IonCol>
+                    <IonCol size="5">
+                      <IonInput
+                        readonly
+                        label="Unit price"
+                        labelPlacement="stacked"
+                        value={formatAmount(Math.round(Number(item.unitPrice) * 100) || 0)}
+                      />
+                    </IonCol>
+                    <IonCol size="3" className="ion-align-self-end ion-text-end">
+                      <IonButton
+                        fill="clear"
+                        color="danger"
+                        onClick={() => removeDraftItem(item.id)}
+                        aria-label="Remove item"
+                      >
+                        <IonIcon slot="icon-only" icon={trashOutline} />
+                      </IonButton>
+                    </IonCol>
+                  </IonRow>
+                  <IonRow>
+                    <IonCol size="12">
+                      <IonInput
+                        label="Date (optional)"
+                        labelPlacement="stacked"
+                        type="date"
+                        value={item.date}
+                        onIonInput={(event) =>
+                          updateDraftItem(item.id, { date: event.detail.value ?? "" })
+                        }
+                      />
+                    </IonCol>
+                  </IonRow>
+                  <IonRow>
+                    <IonCol size="12">
+                      <IonInput
+                        label="Notes (optional)"
+                        labelPlacement="stacked"
+                        placeholder="Additional details..."
+                        value={item.notes}
+                        onIonInput={(event) =>
+                          updateDraftItem(item.id, { notes: event.detail.value ?? "" })
+                        }
+                      />
+                    </IonCol>
+                  </IonRow>
+                </IonGrid>
+                <IonReorder slot="end" />
+              </IonItem>
+            ))}
+          </IonReorderGroup>
           {items.length > 0 ? (
             <IonItem lines="none">
               <IonSelect
