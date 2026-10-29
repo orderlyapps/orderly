@@ -5,3 +5,5 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const supabaseConfig: SupabaseConfig | null =
   supabaseUrl && supabaseAnonKey ? { url: supabaseUrl, anonKey: supabaseAnonKey } : null;
+
+export const mapboxAccessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN ?? null;
