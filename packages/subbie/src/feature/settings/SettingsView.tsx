@@ -3,6 +3,7 @@ import { type ReactNode, useState } from "react";
 import { IonList } from "@ionic/react";
 
 import {
+  AboutSettingsSection,
   AppearanceSettingsSection,
   BusinessSettingsSection,
   DataSettingsSection,
@@ -14,10 +15,11 @@ import { useSettings } from "./hooks.ts";
 
 export interface SettingsViewProps {
   store?: SettingsStore;
+  version?: string;
   children?: ReactNode;
 }
 
-export const SettingsView = ({ store: customStore, children }: SettingsViewProps) => {
+export const SettingsView = ({ store: customStore, version, children }: SettingsViewProps) => {
   const { settings, theme, setTheme, updateSettings, store } = useSettings(customStore);
   const [appearanceStatus, setAppearanceStatus] = useState<string | null>(null);
   const [businessStatus, setBusinessStatus] = useState<string | null>(null);
@@ -65,6 +67,7 @@ export const SettingsView = ({ store: customStore, children }: SettingsViewProps
         statusMessage={dataStatus}
         onStatusChange={setDataStatus}
       />
+      <AboutSettingsSection version={version} />
     </IonList>
   );
 };

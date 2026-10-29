@@ -10,12 +10,14 @@ export {
   SETTINGS_BINARY_FILENAME,
 } from "./binary.ts";
 export {
+  AboutSettingsSection,
   AppearanceSettingsSection,
   BusinessSettingsSection,
   DataSettingsSection,
   GstSettingsSection,
   InvoicingSettingsSection,
   SettingsSection,
+  type AboutSettingsSectionProps,
   type AppearanceSettingsSectionProps,
   type BusinessSettingsSectionProps,
   type DataSettingsSectionProps,
