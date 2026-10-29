@@ -6,6 +6,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.2.0",
+    date: "2026-10-29",
+    changes: ["About page shows a build stamp (channel, branch@commit, build time)"],
+  },
+  {
     version: "0.1.0",
     date: "2026-10-29",
     changes: [
