@@ -11,8 +11,16 @@ Deploys the ionic app (`apps/ionic`) to Cloudflare Workers as `orderly-ionic`.
 
 1. Update the version and changelog before deploying:
 
-   - Bump `version` in `apps/ionic/package.json` using semantic versioning (patch for fixes, minor for new features, major for breaking changes).
-   - Add a matching entry at the top of `CHANGELOG` in `packages/ionic/src/feature/about/changelog.ts` with the new version, today's date (`YYYY-MM-DD`), and a `changes` list summarising what shipped. Keep entries newest-first; the first entry's version must equal the `package.json` version.
+   - Find the commit that added the last changelog entry, then list every commit since:
+
+     ```
+     git log -1 --format=%H -- packages/ionic/src/feature/about/changelog.json
+     git log --oneline <sha>..HEAD
+     ```
+
+   - From those commits, collect all user-facing changes relevant to ionic — new features, fixes, and visible improvements in `apps/ionic` or the workspace packages it uses (`packages/ionic`, `packages/games`). Use `git show <sha> --stat` to inspect ambiguous commits. Skip commits for other apps, chores, refactors, merges, and `Cascade snapshot` commits.
+   - Bump `version` in `apps/ionic/package.json` using semantic versioning (patch for fixes, minor for new features, major for breaking changes) based on the changes collected.
+   - Add a matching entry at the top of `packages/ionic/src/feature/about/changelog.json` with the new version, today's date (`YYYY-MM-DD`), and a `changes` list with one concise user-facing bullet per change (group related commits into a single bullet). Keep entries newest-first; the first entry's version must equal the `package.json` version.
 
 2. From the repo root, run the app's deploy script:
 
