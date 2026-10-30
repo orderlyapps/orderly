@@ -1,12 +1,4 @@
-import {
-  IonItem,
-  IonItemDivider,
-  IonLabel,
-  IonList,
-  IonListHeader,
-  IonNote,
-  IonSpinner,
-} from "@ionic/react";
+import { IonItem, IonLabel, IonList, IonListHeader, IonNote, IonSpinner } from "@ionic/react";
 
 import { formatAmount } from "../../invoices/schema.ts";
 import { useSettings, type SettingsStore } from "../../settings/index.ts";
@@ -76,9 +68,9 @@ const FinancialYearSummarySection = ({
 
       {categorySummaries.length > 0 ? (
         <>
-          <IonItemDivider>
+          <IonListHeader>
             <IonLabel>{showGst ? "Categories (Excl. GST)" : "Categories"}</IonLabel>
-          </IonItemDivider>
+          </IonListHeader>
           {categorySummaries.map((item) => (
             <IonItem key={item.category.id}>
               <IonLabel>
@@ -97,9 +89,9 @@ const FinancialYearSummarySection = ({
 
       {showGst ? (
         <>
-          <IonItemDivider>
+          <IonListHeader>
             <IonLabel>GST</IonLabel>
-          </IonItemDivider>
+          </IonListHeader>
           <IonItem>
             <IonLabel>
               <h3>Total GST Collected</h3>
@@ -127,9 +119,9 @@ const FinancialYearSummarySection = ({
         </>
       ) : null}
 
-      <IonItemDivider>
+      <IonListHeader>
         <IonLabel>{showGst ? "Totals (Incl. GST)" : "Totals"}</IonLabel>
-      </IonItemDivider>
+      </IonListHeader>
       <IonItem>
         <IonLabel>
           <h3>Total Collected{showGst ? " (Incl. GST)" : ""}</h3>
@@ -149,9 +141,9 @@ const FinancialYearSummarySection = ({
 
       {showGst ? (
         <>
-          <IonItemDivider>
+          <IonListHeader>
             <IonLabel>Totals (Excl. GST)</IonLabel>
-          </IonItemDivider>
+          </IonListHeader>
           <IonItem>
             <IonLabel>
               <h3>Total Collected (Excl. GST)</h3>
