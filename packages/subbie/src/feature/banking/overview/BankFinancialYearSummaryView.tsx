@@ -56,21 +56,17 @@ const FinancialYearSummarySection = ({
   return (
     <IonList inset>
       <IonListHeader>
-        <IonLabel>
-          {title} ({financialYear.label})
-          <p>
-            <IonNote>
-              1 Jul {financialYear.startYear} – 30 Jun {financialYear.endYear}
-            </IonNote>
-          </p>
-        </IonLabel>
+        {title} ({financialYear.label})
+        <p>
+          <IonNote>
+            1 Jul {financialYear.startYear} – 30 Jun {financialYear.endYear}
+          </IonNote>
+        </p>
       </IonListHeader>
 
       {categorySummaries.length > 0 ? (
         <>
-          <IonListHeader>
-            <IonLabel>{showGst ? "Categories (Excl. GST)" : "Categories"}</IonLabel>
-          </IonListHeader>
+          <IonListHeader>{showGst ? "Categories (Excl. GST)" : "Categories"}</IonListHeader>
           {categorySummaries.map((item) => (
             <IonItem key={item.category.id}>
               <IonLabel>
@@ -89,9 +85,7 @@ const FinancialYearSummarySection = ({
 
       {showGst ? (
         <>
-          <IonListHeader>
-            <IonLabel>GST</IonLabel>
-          </IonListHeader>
+          <IonListHeader>GST</IonListHeader>
           <IonItem>
             <IonLabel>
               <h3>Total GST Collected</h3>
@@ -119,9 +113,7 @@ const FinancialYearSummarySection = ({
         </>
       ) : null}
 
-      <IonListHeader>
-        <IonLabel>{showGst ? "Totals (Incl. GST)" : "Totals"}</IonLabel>
-      </IonListHeader>
+      <IonListHeader>{showGst ? "Totals (Incl. GST)" : "Totals"}</IonListHeader>
       <IonItem>
         <IonLabel>
           <h3>Total Collected{showGst ? " (Incl. GST)" : ""}</h3>
@@ -141,9 +133,7 @@ const FinancialYearSummarySection = ({
 
       {showGst ? (
         <>
-          <IonListHeader>
-            <IonLabel>Totals (Excl. GST)</IonLabel>
-          </IonListHeader>
+          <IonListHeader>Totals (Excl. GST)</IonListHeader>
           <IonItem>
             <IonLabel>
               <h3>Total Collected (Excl. GST)</h3>
