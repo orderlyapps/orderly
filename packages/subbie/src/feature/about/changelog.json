@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.6.0",
+    "date": "2026-10-31",
+    "changes": ["Banking: financial year summary moved to its own page"]
+  },
+  {
     "version": "0.5.1",
     "date": "2026-10-30",
     "changes": [
