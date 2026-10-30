@@ -17,7 +17,7 @@ import {
   popoverLeaveAnimation,
 } from "@rdlabo/ionic-theme-ios27";
 import { card, people, receipt, settings } from "ionicons/icons";
-import { useThemeEffect } from "subbie-core";
+import { OnboardingGate, useThemeEffect } from "subbie-core";
 
 import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
 import Banking from "./pages/Banking";
@@ -27,6 +27,7 @@ import BankingCategorise from "./pages/banking/Categorise";
 import BankingStatements from "./pages/banking/Statements";
 import Directory from "./pages/Directory";
 import Invoices from "./pages/Invoices";
+import Onboarding from "./pages/Onboarding";
 import Settings from "./pages/Settings";
 import SettingsAbout from "./pages/settings/About";
 
@@ -71,40 +72,42 @@ const App = () => {
   return (
     <IonApp>
       <PwaUpdatePrompt />
-      <IonReactRouter>
-        <IonTabs>
-          <IonRouterOutlet>
-            <Route path="/invoices" element={<Invoices />} />
-            <Route path="/banking" element={<Banking />} />
-            <Route path="/banking/statements" element={<BankingStatements />} />
-            <Route path="/banking/categorise" element={<BankingCategorise />} />
-            <Route path="/banking/accounts" element={<BankingAccounts />} />
-            <Route path="/banking/categories" element={<BankingCategories />} />
-            <Route path="/directory" element={<Directory />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/settings/about" element={<SettingsAbout />} />
-            <Route path="/" element={<Navigate to="/invoices" replace />} />
-          </IonRouterOutlet>
-          <IonTabBar slot="bottom">
-            <IonTabButton tab="invoices" href="/invoices">
-              <IonIcon aria-hidden="true" icon={receipt} />
-              <IonLabel>Invoices</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="banking" href="/banking">
-              <IonIcon aria-hidden="true" icon={card} />
-              <IonLabel>Banking</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="directory" href="/directory">
-              <IonIcon aria-hidden="true" icon={people} />
-              <IonLabel>Directory</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="settings" href="/settings">
-              <IonIcon aria-hidden="true" icon={settings} />
-              <IonLabel>Settings</IonLabel>
-            </IonTabButton>
-          </IonTabBar>
-        </IonTabs>
-      </IonReactRouter>
+      <OnboardingGate onboarding={<Onboarding />}>
+        <IonReactRouter>
+          <IonTabs>
+            <IonRouterOutlet>
+              <Route path="/invoices" element={<Invoices />} />
+              <Route path="/banking" element={<Banking />} />
+              <Route path="/banking/statements" element={<BankingStatements />} />
+              <Route path="/banking/categorise" element={<BankingCategorise />} />
+              <Route path="/banking/accounts" element={<BankingAccounts />} />
+              <Route path="/banking/categories" element={<BankingCategories />} />
+              <Route path="/directory" element={<Directory />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/settings/about" element={<SettingsAbout />} />
+              <Route path="/" element={<Navigate to="/invoices" replace />} />
+            </IonRouterOutlet>
+            <IonTabBar slot="bottom">
+              <IonTabButton tab="invoices" href="/invoices">
+                <IonIcon aria-hidden="true" icon={receipt} />
+                <IonLabel>Invoices</IonLabel>
+              </IonTabButton>
+              <IonTabButton tab="banking" href="/banking">
+                <IonIcon aria-hidden="true" icon={card} />
+                <IonLabel>Banking</IonLabel>
+              </IonTabButton>
+              <IonTabButton tab="directory" href="/directory">
+                <IonIcon aria-hidden="true" icon={people} />
+                <IonLabel>Directory</IonLabel>
+              </IonTabButton>
+              <IonTabButton tab="settings" href="/settings">
+                <IonIcon aria-hidden="true" icon={settings} />
+                <IonLabel>Settings</IonLabel>
+              </IonTabButton>
+            </IonTabBar>
+          </IonTabs>
+        </IonReactRouter>
+      </OnboardingGate>
     </IonApp>
   );
 };
