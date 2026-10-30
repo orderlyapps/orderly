@@ -281,7 +281,7 @@ export const InvoiceFormModal = ({
               <IonNote color="medium">
                 {initial
                   ? initial.clientName
-                  : "Add a customer in the Directory tab to invoice them"}
+                  : "Add a customer in the Customers tab to invoice them"}
               </IonNote>
             </IonItem>
           )}
@@ -419,7 +419,7 @@ export const InvoiceFormModal = ({
             </IonItem>
           ) : (
             <IonItem lines="none">
-              <IonNote color="medium">Add items in the Directory tab to include them here</IonNote>
+              <IonNote color="medium">Add items in the Items tab to include them here</IonNote>
             </IonItem>
           )}
         </IonList>

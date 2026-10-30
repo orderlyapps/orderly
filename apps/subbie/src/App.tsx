@@ -16,7 +16,7 @@ import {
   popoverEnterAnimation,
   popoverLeaveAnimation,
 } from "@rdlabo/ionic-theme-ios27";
-import { card, people, receipt, settings } from "ionicons/icons";
+import { card, receipt, settings } from "ionicons/icons";
 import { OnboardingGate, useThemeEffect } from "subbie-core";
 
 import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
@@ -26,7 +26,6 @@ import BankingCategories from "./pages/banking/Categories";
 import BankingCategorise from "./pages/banking/Categorise";
 import BankingFinancialYear from "./pages/banking/FinancialYear";
 import BankingStatements from "./pages/banking/Statements";
-import Directory from "./pages/Directory";
 import Invoices from "./pages/Invoices";
 import Onboarding from "./pages/Onboarding";
 import Settings from "./pages/Settings";
@@ -90,7 +89,7 @@ const App = () => {
               <Route path="/banking/accounts" element={<BankingAccounts />} />
               <Route path="/banking/categories" element={<BankingCategories />} />
               <Route path="/banking/financial-year" element={<BankingFinancialYear />} />
-              <Route path="/directory" element={<Directory />} />
+              <Route path="/directory" element={<Navigate to="/invoices" replace />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/about" element={<SettingsAbout />} />
               <Route path="/settings/appearance" element={<SettingsAppearance />} />
@@ -108,10 +107,6 @@ const App = () => {
               <IonTabButton tab="banking" href="/banking">
                 <IonIcon aria-hidden="true" icon={card} />
                 <IonLabel>Banking</IonLabel>
-              </IonTabButton>
-              <IonTabButton tab="directory" href="/directory">
-                <IonIcon aria-hidden="true" icon={people} />
-                <IonLabel>Directory</IonLabel>
               </IonTabButton>
               <IonTabButton tab="settings" href="/settings">
                 <IonIcon aria-hidden="true" icon={settings} />
