@@ -7,6 +7,7 @@ import { createItemsStore } from "../src/feature/items/index.ts";
 import {
   BACKUP_PBKDF2_ITERATIONS,
   createDataBackupFilename,
+  createSettingsStore,
   DATA_BACKUP_EXTENSION,
   DATA_BACKUP_FILENAME,
   decodeDataBackup,
@@ -44,12 +45,14 @@ async function createTestStores(prefix: string): Promise<{
     name: nextStoreName(`${prefix}_items`),
     storage: getRxStorageMemory(),
   });
+  const settings = await createSettingsStore({ name: nextStoreName(`${prefix}_settings`) });
   return {
-    stores: { banking, customers, items },
+    stores: { banking, customers, items, settings },
     close: async () => {
       await banking.close();
       await customers.close();
       await items.close();
+      await settings.close();
     },
   };
 }
@@ -104,6 +107,7 @@ test("encrypts bank statements, customers, and items and restores them into anot
       unitPriceCents: 15_000,
       unit: "hour",
     });
+    await source.stores.settings.updateSettings({ theme: "dark", businessName: "Acme Pty Ltd" });
 
     const bytes = await exportDataBackup("s3cret password", source.stores);
     expect(bytes).toBeInstanceOf(Uint8Array);
@@ -127,6 +131,7 @@ test("encrypts bank statements, customers, and items and restores them into anot
     expect(decrypted.bankStatementLines).toHaveLength(2);
     expect(decrypted.customers.map((doc) => doc.id)).toEqual([customer.id]);
     expect(decrypted.items.map((doc) => doc.id)).toEqual([item.id]);
+    expect(decrypted.settings).toMatchObject({ theme: "dark", businessName: "Acme Pty Ltd" });
 
     const summary = await importDataBackup(bytes, "s3cret password", target.stores);
     expect(summary).toEqual({
@@ -136,6 +141,7 @@ test("encrypts bank statements, customers, and items and restores them into anot
       bankStatementLines: 2,
       customers: 1,
       items: 1,
+      settings: true,
     });
 
     expect(target.stores.banking.listAccounts().map((doc) => doc.id)).toEqual([account.id]);
@@ -147,6 +153,9 @@ test("encrypts bank statements, customers, and items and restores them into anot
     ).toEqual(["Bunnings Trade Tools", "Acme Corp INV-2026-001"]);
     expect(target.stores.customers.getCustomer(customer.id)?.email).toBe("billing@acme.com");
     expect(target.stores.items.getItem(item.id)?.unitPriceCents).toBe(15_000);
+    const restoredSettings = await target.stores.settings.getSettings();
+    expect(restoredSettings.theme).toBe("dark");
+    expect(restoredSettings.businessName).toBe("Acme Pty Ltd");
   } finally {
     await source.close();
     await target.close();
@@ -225,7 +234,40 @@ test("restores legacy unencrypted backups without a password", async () => {
 
     const summary = await importDataBackup(bytes, undefined, target.stores);
     expect(summary.items).toBe(1);
+    expect(summary.settings).toBe(false);
     expect(target.stores.items.getItem("item_1")?.unitPriceCents).toBe(8_000);
+  } finally {
+    await target.close();
+  }
+});
+
+test("merges partial settings from a backup without resetting unspecified settings", async () => {
+  const target = await createTestStores("subbie_backup_partial_settings");
+
+  try {
+    await target.stores.settings.updateSettings({
+      theme: "light",
+      businessName: "Acme Pty Ltd",
+    });
+
+    const payload: DataBackupPayload = {
+      ...EMPTY_PAYLOAD,
+      settings: { theme: "dark" },
+    };
+    const summary = await importDataBackup(encodeDataBackup(payload), undefined, target.stores);
+
+    expect(summary.settings).toBe(true);
+    const restored = await target.stores.settings.getSettings();
+    expect(restored.theme).toBe("dark");
+    expect(restored.businessName).toBe("Acme Pty Ltd");
+
+    const emptySettings = await importDataBackup(
+      encodeDataBackup({ ...EMPTY_PAYLOAD, settings: {} }),
+      undefined,
+      target.stores,
+    );
+    expect(emptySettings.settings).toBe(false);
+    expect((await target.stores.settings.getSettings()).businessName).toBe("Acme Pty Ltd");
   } finally {
     await target.close();
   }
@@ -306,6 +348,12 @@ test("rejects invalid backup payloads", async () => {
   );
   expect(() => decodeDataBackup(makeBackupPayload({ customers: [{ id: 42 }] }))).toThrow(
     "Invalid backup: invalid customers entry at index 0",
+  );
+  expect(() => decodeDataBackup(makeBackupPayload({ settings: "nope" }))).toThrow(
+    'Invalid backup: "settings" must be an object',
+  );
+  expect(() => decodeDataBackup(makeBackupPayload({ settings: { theme: "bogus" } }))).toThrow(
+    'Invalid backup: invalid settings "theme" value',
   );
 
   const target = await createTestStores("subbie_backup_invalid");

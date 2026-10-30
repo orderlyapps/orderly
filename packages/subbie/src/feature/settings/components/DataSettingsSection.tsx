@@ -8,9 +8,7 @@ import {
   isDataBackupEncrypted,
   type DataBackupStores,
 } from "../backup.ts";
-import { downloadSettingsBinary, importSettingsBinaryFile } from "../binary.ts";
 import type { SettingsStore } from "../db.ts";
-import { THEME_LABELS } from "../theme.ts";
 import { SettingsSection } from "./SettingsSection.tsx";
 
 export interface DataSettingsSectionProps {
@@ -26,13 +24,14 @@ export const DataSettingsSection = ({
   statusMessage,
   onStatusChange,
 }: DataSettingsSectionProps) => {
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const backupInputRef = useRef<HTMLInputElement | null>(null);
   const [presentAlert] = useIonAlert();
 
+  const resolveStores = (): DataBackupStores => ({ settings: store, ...stores });
+
   const runBackup = async (password: string) => {
     try {
-      const bytes = await downloadDataBackup(password, stores);
+      const bytes = await downloadDataBackup(password, resolveStores());
       onStatusChange?.(`Encrypted backup saved (${formatByteSize(bytes.byteLength)})`);
     } catch (error) {
       onStatusChange?.(error instanceof Error ? error.message : "Backup failed");
@@ -41,11 +40,18 @@ export const DataSettingsSection = ({
 
   const runRestore = async (bytes: Uint8Array, password?: string) => {
     try {
-      const summary = await importDataBackup(bytes, password, stores);
+      const summary = await importDataBackup(bytes, password, resolveStores());
       const statementsPart = `${pluralize(summary.bankStatements, "statement")} (${pluralize(summary.bankStatementLines, "line")})`;
-      onStatusChange?.(
-        `Restored ${pluralize(summary.bankAccounts, "account")}, ${statementsPart}, ${pluralize(summary.customers, "customer")}, ${pluralize(summary.items, "item")}`,
-      );
+      const parts = [
+        pluralize(summary.bankAccounts, "account"),
+        statementsPart,
+        pluralize(summary.customers, "customer"),
+        pluralize(summary.items, "item"),
+      ];
+      if (summary.settings) {
+        parts.push("settings");
+      }
+      onStatusChange?.(`Restored ${parts.join(", ")}`);
     } catch (error) {
       onStatusChange?.(error instanceof Error ? error.message : "Restore failed");
     }
@@ -125,33 +131,6 @@ export const DataSettingsSection = ({
     }
   };
 
-  const handleExport = async () => {
-    try {
-      await downloadSettingsBinary(store);
-      onStatusChange?.("Settings exported");
-    } catch (error) {
-      onStatusChange?.(error instanceof Error ? error.message : "Export failed");
-    }
-  };
-
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileSelected = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) {
-      return;
-    }
-    try {
-      const imported = await importSettingsBinaryFile(file, store);
-      onStatusChange?.(`Imported theme: ${THEME_LABELS[imported.theme]}`);
-    } catch (error) {
-      onStatusChange?.(error instanceof Error ? error.message : "Import failed");
-    }
-  };
-
   return (
     <>
       <SettingsSection title="Data" statusMessage={statusMessage}>
@@ -160,18 +139,6 @@ export const DataSettingsSection = ({
         </IonItem>
         <IonItem button detail={false} onClick={handleRestoreClick}>
           <IonLabel color="primary">Restore Data</IonLabel>
-        </IonItem>
-        <IonItem
-          button
-          detail={false}
-          onClick={() => {
-            void handleExport();
-          }}
-        >
-          <IonLabel color="primary">Export Settings</IonLabel>
-        </IonItem>
-        <IonItem button detail={false} onClick={handleImportClick}>
-          <IonLabel color="primary">Import Settings</IonLabel>
         </IonItem>
       </SettingsSection>
 
@@ -182,15 +149,6 @@ export const DataSettingsSection = ({
         style={{ display: "none" }}
         onChange={(event) => {
           void handleBackupFileSelected(event);
-        }}
-      />
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".sub,.SUB,application/octet-stream"
-        style={{ display: "none" }}
-        onChange={(event) => {
-          void handleFileSelected(event);
         }}
       />
     </>

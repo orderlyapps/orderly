@@ -15,20 +15,13 @@ import {
   BUSINESS_NAME_MAX_LENGTH,
   BusinessSettingsSection,
   BusinessSettingsView,
-  createSettingsBinaryFilename,
   createSettingsStore,
   DARK_PALETTE_CLASS,
   DataSettingsSection,
   DataSettingsView,
-  decodeSettingsBinary,
   DEFAULT_SETTINGS,
   DEFAULT_SETTINGS_ID,
-  downloadSettingsBinary,
-  encodeSettingsBinary,
-  exportSettingsBinary,
   getSettingsStore,
-  importSettingsBinary,
-  importSettingsBinaryFile,
   INVOICE_NOTES_MAX_LENGTH,
   InvoiceSettingsView,
   isAbn,
@@ -46,8 +39,6 @@ import {
   isValidSettingsId,
   normalizeSettingsDocument,
   resetDefaultSettingsStoreForTesting,
-  SETTINGS_BINARY_EXTENSION,
-  SETTINGS_BINARY_FILENAME,
   SETTINGS_ID_MAX_LENGTH,
   SETTINGS_KEYS,
   SETTINGS_STORAGE_KEY,
@@ -69,12 +60,7 @@ function nextStoreName() {
   return `subbie_test_${Date.now()}_${storeCounter}`;
 }
 
-test("validates theme modes, schema helpers, and binary filename formatting", () => {
-  expect(SETTINGS_BINARY_EXTENSION).toBe(".sub");
-  expect(SETTINGS_BINARY_FILENAME).toBe("settings.sub");
-  expect(createSettingsBinaryFilename(new Date(2026, 9, 23, 14, 5, 9))).toBe(
-    "settings-2026-10-23_14-05-09.sub",
-  );
+test("validates theme modes and schema helpers", () => {
   expect(THEME_MODES).toEqual(["light", "dark", "system"]);
   expect(SETTINGS_KEYS).toEqual([
     "theme",
@@ -266,84 +252,6 @@ test("initializes LocalStorage Collection store with default system theme and up
   } finally {
     await store.close();
   }
-});
-
-test("exports settings to a binary Uint8Array and imports into another store", async () => {
-  const sourceStore = await createSettingsStore({ name: nextStoreName() });
-  const targetStore = await createSettingsStore({ name: nextStoreName() });
-
-  try {
-    await sourceStore.setTheme("dark");
-    const binary = await exportSettingsBinary(sourceStore);
-    expect(binary).toBeInstanceOf(Uint8Array);
-    expect(binary.byteLength).toBeGreaterThan(7);
-
-    const decoded = decodeSettingsBinary(binary);
-    expect(decoded).toEqual({ ...DEFAULT_SETTINGS, theme: "dark" });
-
-    const imported = await importSettingsBinary(binary, targetStore);
-    expect(imported).toEqual({ ...DEFAULT_SETTINGS, theme: "dark" });
-    expect((await targetStore.getSettings()).theme).toBe("dark");
-
-    const blob = new Blob([binary], { type: "application/octet-stream" });
-    await sourceStore.setTheme("light");
-    const lightBinary = await exportSettingsBinary(sourceStore);
-    const lightBlob = new Blob([lightBinary], { type: "application/octet-stream" });
-
-    const fileImported = await importSettingsBinaryFile(lightBlob, targetStore);
-    expect(fileImported.theme).toBe("light");
-    expect((await targetStore.getSettings()).theme).toBe("light");
-    expect(blob.size).toBeGreaterThan(0);
-
-    const downloaded = await downloadSettingsBinary(targetStore, "");
-    expect(decodeSettingsBinary(downloaded)).toEqual({ ...DEFAULT_SETTINGS, theme: "light" });
-
-    await targetStore.updateSettings({ gstRate: 0.15, defaultGstType: "gst-free" });
-    const customBinary = await exportSettingsBinary(targetStore);
-    const customDecoded = decodeSettingsBinary(customBinary);
-    expect(customDecoded.gstRate).toBe(0.15);
-    expect(customDecoded.defaultGstType).toBe("gst-free");
-  } finally {
-    await sourceStore.close();
-    await targetStore.close();
-  }
-});
-
-test("rejects invalid binary payloads", () => {
-  expect(() => decodeSettingsBinary(new Uint8Array([1, 2, 3]))).toThrow(
-    "Invalid settings binary: file is too short",
-  );
-  expect(() => decodeSettingsBinary(new Uint8Array([0, 0, 0, 0, 0, 0, 0, 123, 125]))).toThrow(
-    "Invalid settings binary: unrecognized header",
-  );
-
-  const valid = encodeSettingsBinary({ ...DEFAULT_SETTINGS, theme: "dark" });
-  const corrupted = new Uint8Array(valid);
-  corrupted[corrupted.length - 1] = 0x00;
-  expect(() => decodeSettingsBinary(corrupted)).toThrow(
-    "Invalid settings binary: corrupted payload",
-  );
-
-  const magic = valid.subarray(0, 7);
-  const makeBinaryPayload = (payload: unknown) => {
-    const body = new TextEncoder().encode(JSON.stringify(payload));
-    const out = new Uint8Array(magic.length + body.length);
-    out.set(magic, 0);
-    out.set(body, magic.length);
-    return out;
-  };
-
-  expect(() => decodeSettingsBinary(makeBinaryPayload({ theme: "invalid" }))).toThrow(
-    "Invalid settings binary: invalid theme value",
-  );
-  expect(() => decodeSettingsBinary(makeBinaryPayload({}))).toThrow(
-    "Invalid settings binary: no valid settings found",
-  );
-  expect(
-    decodeSettingsBinary(
-      makeBinaryPayload({ id: "x".repeat(SETTINGS_ID_MAX_LENGTH + 5), theme: "dark" }),
-    ),
-  ).toEqual({ ...DEFAULT_SETTINGS, theme: "dark" });
 });
 
 test("applies dark class to target element based on theme", () => {

@@ -29,6 +29,14 @@ import {
 } from "../customers/schema.ts";
 import { getItemsStore, type ItemsStore } from "../items/db.ts";
 import { isItemDocument, normalizeItemDocument, type ItemDocument } from "../items/schema.ts";
+import { getSettingsStore, type SettingsStore } from "./db.ts";
+import {
+  isSettingValue,
+  SETTINGS_KEYS,
+  toSettingsPatch,
+  type SettingsDocument,
+  type SettingsPatch,
+} from "./schema.ts";
 
 const BACKUP_MAGIC_PREFIX = new Uint8Array([0x53, 0x55, 0x42, 0x42, 0x49, 0x45]);
 const BACKUP_VERSION_PLAIN = 0x02;
@@ -53,6 +61,7 @@ export interface DataBackupContent {
   bankStatementLines: BankStatementLineDocument[];
   customers: CustomerDocument[];
   items: ItemDocument[];
+  settings?: SettingsPatch;
 }
 
 export interface DataBackupPayload extends DataBackupContent {
@@ -67,12 +76,14 @@ export interface DataBackupSummary {
   bankStatementLines: number;
   customers: number;
   items: number;
+  settings: boolean;
 }
 
 export interface DataBackupStores {
   banking?: BankingStore;
   customers?: CustomersStore;
   items?: ItemsStore;
+  settings?: SettingsStore;
 }
 
 function pad2(value: number): string {
@@ -97,6 +108,7 @@ function summarizeBackupContent(content: DataBackupContent): DataBackupSummary {
     bankStatementLines: content.bankStatementLines.length,
     customers: content.customers.length,
     items: content.items.length,
+    settings: content.settings !== undefined,
   };
 }
 
@@ -154,6 +166,24 @@ function parseBackupEntries<T>(
   });
 }
 
+function parseBackupSettings(record: Record<string, unknown>): SettingsPatch | undefined {
+  const value = record.settings;
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error('Invalid backup: "settings" must be an object');
+  }
+  const candidate = value as Record<string, unknown>;
+  for (const key of SETTINGS_KEYS) {
+    if (candidate[key] !== undefined && !isSettingValue(key, candidate[key])) {
+      throw new Error(`Invalid backup: invalid settings "${key}" value`);
+    }
+  }
+  const patch = toSettingsPatch(candidate as Partial<SettingsDocument>);
+  return Object.keys(patch).length > 0 ? patch : undefined;
+}
+
 function parseDataBackupRecord(parsed: unknown): DataBackupPayload {
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new Error("Invalid backup: expected an object");
@@ -197,6 +227,11 @@ function parseDataBackupRecord(parsed: unknown): DataBackupPayload {
     ),
     items: parseBackupEntries(record, "items", isItemDocument, normalizeItemDocument),
   };
+
+  const settings = parseBackupSettings(record);
+  if (settings) {
+    content.settings = settings;
+  }
 
   return {
     version: 1,
@@ -330,13 +365,15 @@ async function resolveBackupStores(stores?: DataBackupStores): Promise<{
   banking: BankingStore;
   customers: CustomersStore;
   items: ItemsStore;
+  settings: SettingsStore;
 }> {
-  const [banking, customers, items] = await Promise.all([
+  const [banking, customers, items, settings] = await Promise.all([
     stores?.banking ? Promise.resolve(stores.banking) : getBankingStore(),
     stores?.customers ? Promise.resolve(stores.customers) : getCustomersStore(),
     stores?.items ? Promise.resolve(stores.items) : getItemsStore(),
+    stores?.settings ? Promise.resolve(stores.settings) : getSettingsStore(),
   ]);
-  return { banking, customers, items };
+  return { banking, customers, items, settings };
 }
 
 export async function exportDataBackup(
@@ -353,6 +390,7 @@ export async function exportDataBackup(
     bankStatementLines: resolved.banking.listStatementLines(),
     customers: resolved.customers.listCustomers(),
     items: resolved.items.listItems(),
+    settings: await resolved.settings.getSettings(),
   };
   return encryptDataBackup(payload, password);
 }
@@ -415,6 +453,7 @@ export async function importDataBackup(
     upsertStatementLines(resolved.banking.linesCollection, payload.bankStatementLines),
     upsertDocuments(resolved.customers.customersCollection, payload.customers),
     upsertDocuments(resolved.items.itemsCollection, payload.items),
+    payload.settings ? resolved.settings.updateSettings(payload.settings) : Promise.resolve(),
   ]);
 
   return summarizeBackupContent(payload);

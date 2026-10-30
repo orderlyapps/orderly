@@ -18,17 +18,6 @@ export {
   type DataBackupSummary,
 } from "./backup.ts";
 export {
-  createSettingsBinaryFilename,
-  decodeSettingsBinary,
-  downloadSettingsBinary,
-  encodeSettingsBinary,
-  exportSettingsBinary,
-  importSettingsBinary,
-  importSettingsBinaryFile,
-  SETTINGS_BINARY_EXTENSION,
-  SETTINGS_BINARY_FILENAME,
-} from "./binary.ts";
-export {
   AboutSettingsSection,
   AppearanceSettingsSection,
   BankSettingsSection,
