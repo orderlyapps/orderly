@@ -24,6 +24,7 @@ import Banking from "./pages/Banking";
 import BankingAccounts from "./pages/banking/Accounts";
 import BankingCategories from "./pages/banking/Categories";
 import BankingCategorise from "./pages/banking/Categorise";
+import BankingFinancialYear from "./pages/banking/FinancialYear";
 import BankingStatements from "./pages/banking/Statements";
 import Directory from "./pages/Directory";
 import Invoices from "./pages/Invoices";
@@ -88,6 +89,7 @@ const App = () => {
               <Route path="/banking/categorise" element={<BankingCategorise />} />
               <Route path="/banking/accounts" element={<BankingAccounts />} />
               <Route path="/banking/categories" element={<BankingCategories />} />
+              <Route path="/banking/financial-year" element={<BankingFinancialYear />} />
               <Route path="/directory" element={<Directory />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/about" element={<SettingsAbout />} />

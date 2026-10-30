@@ -110,6 +110,7 @@ export {
   type StatementLineListProps,
 } from "./lines/index.ts";
 export {
+  BankFinancialYearSummaryView,
   BankingOverviewView,
   BankingView,
   getAustralianFinancialYear,
@@ -117,6 +118,7 @@ export {
   summarizeBankingFinancialYears,
   summarizeFinancialYear,
   type AustralianFinancialYear,
+  type BankFinancialYearSummaryViewProps,
   type BankingFinancialYearsSummary,
   type BankingOverviewViewProps,
   type BankingSection,

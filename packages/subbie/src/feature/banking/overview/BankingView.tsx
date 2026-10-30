@@ -7,8 +7,15 @@ import { BankCategoriseView } from "../lines/BankCategoriseView.tsx";
 import type { BankingLineCategorisationFilter, BankingLineTypeFilter } from "../lines/schema.ts";
 import { BankStatementsView } from "../statements/BankStatementsView.tsx";
 import { BankingOverviewView } from "./BankingOverviewView.tsx";
+import { BankFinancialYearSummaryView } from "./BankFinancialYearSummaryView.tsx";
 
-export type BankingSection = "overview" | "statements" | "categorise" | "accounts" | "categories";
+export type BankingSection =
+  | "overview"
+  | "statements"
+  | "categorise"
+  | "accounts"
+  | "categories"
+  | "financial-year";
 
 export interface BankingViewProps {
   store?: BankingStore;
@@ -25,6 +32,7 @@ export interface BankingViewProps {
   categoriseRouterLink?: string;
   accountsRouterLink?: string;
   categoriesRouterLink?: string;
+  financialYearRouterLink?: string;
 }
 
 export const BankingView = ({
@@ -42,6 +50,7 @@ export const BankingView = ({
   categoriseRouterLink,
   accountsRouterLink,
   categoriesRouterLink,
+  financialYearRouterLink,
 }: BankingViewProps) => {
   switch (initialSection) {
     case "statements":
@@ -63,17 +72,23 @@ export const BankingView = ({
       return <BankAccountsView store={store} />;
     case "categories":
       return <BankCategoriesView store={store} />;
+    case "financial-year":
+      return (
+        <BankFinancialYearSummaryView
+          store={store}
+          settingsStore={settingsStore}
+          referenceDate={referenceDate}
+        />
+      );
     case "overview":
     default:
       return (
         <BankingOverviewView
-          store={store}
-          settingsStore={settingsStore}
-          referenceDate={referenceDate}
           statementsRouterLink={statementsRouterLink}
           categoriseRouterLink={categoriseRouterLink}
           accountsRouterLink={accountsRouterLink}
           categoriesRouterLink={categoriesRouterLink}
+          financialYearRouterLink={financialYearRouterLink}
         />
       );
   }
