@@ -19,6 +19,7 @@ import {
 import { ellipse, gameController, settings, square, triangle } from "ionicons/icons";
 import { useThemeEffect } from "ionic-core";
 
+import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
 import Games from "./pages/Games";
 import Settings from "./pages/Settings";
 import SettingsAbout from "./pages/settings/About";
@@ -67,6 +68,7 @@ const App = () => {
 
   return (
     <IonApp>
+      <PwaUpdatePrompt />
       <IonReactRouter>
         <IonTabs>
           <IonRouterOutlet>

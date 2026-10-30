@@ -1,4 +1,5 @@
 import { execSync, spawn, type ChildProcess } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { defineConfig, type Plugin } from "vite-plus";
@@ -53,15 +54,39 @@ function buildId(): string {
   return [process.env.APP_CHANNEL, commit, `${time} UTC`].filter(Boolean).join(" · ");
 }
 
+const buildStamp = buildId();
+
+// Emit version.json so the running app can show the incoming version's
+// changelog in the update prompt. The .json extension keeps it out of the
+// service worker's precache, so it is always fetched from the network.
+function versionJson(): Plugin {
+  const changelogPath = fileURLToPath(
+    new URL("../../packages/subbie/src/feature/about/changelog.json", import.meta.url),
+  );
+  return {
+    name: "version-json",
+    apply: "build",
+    generateBundle() {
+      const changelog = JSON.parse(readFileSync(changelogPath, "utf8")) as { version: string }[];
+      this.emitFile({
+        type: "asset",
+        fileName: "version.json",
+        source: JSON.stringify({ version: changelog[0]?.version, buildId: buildStamp, changelog }),
+      });
+    },
+  };
+}
+
 const config = defineConfig({
   define: {
-    __APP_BUILD_ID__: JSON.stringify(buildId()),
+    __APP_BUILD_ID__: JSON.stringify(buildStamp),
   },
   plugins: [
     subbieCoreWatch(),
     viteReact(),
+    versionJson(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
         name: "Subbie",

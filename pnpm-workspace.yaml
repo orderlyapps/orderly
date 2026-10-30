@@ -21,6 +21,7 @@ catalog:
   typescript: ^7.0.2
   vite: npm:@voidzero-dev/vite-plus-core@0.3.2
   vite-plugin-pwa: ^2.0.0
+  workbox-window: ^7.4.1
   vite-plus: 0.3.2
   wrangler: ^4.151.0
   zod: ^4.6.7
