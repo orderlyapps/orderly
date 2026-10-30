@@ -15,7 +15,7 @@ import {
 } from "@ionic/react";
 import { add } from "ionicons/icons";
 
-import { useStatusToast } from "../../../shared/index.ts";
+import { escapeHtml, useStatusToast } from "../../../shared/index.ts";
 import {
   BankAccountFormModal,
   type BankAccountFormValues,
@@ -86,7 +86,7 @@ export const BankStatementsView = ({
   const confirmDeleteStatement = (statement: BankStatementDocument) => {
     void presentAlert({
       header: "Delete Imported Statement",
-      message: `Delete "${statement.filename}" and its imported lines? This cannot be undone.`,
+      message: `Delete "${escapeHtml(statement.filename)}" and its imported lines? This cannot be undone.`,
       buttons: [
         { text: "Cancel", role: "cancel" },
         {

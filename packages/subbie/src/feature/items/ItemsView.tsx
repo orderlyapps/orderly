@@ -12,7 +12,7 @@ import {
 } from "@ionic/react";
 import { add } from "ionicons/icons";
 
-import { useStatusToast } from "../../shared/index.ts";
+import { escapeHtml, useStatusToast } from "../../shared/index.ts";
 import { ItemFormModal, type ItemFormValues } from "./components/ItemFormModal.tsx";
 import { ItemList } from "./components/ItemList.tsx";
 import type { ItemsStore } from "./db.ts";
@@ -53,7 +53,7 @@ export const ItemsView = ({ store: customStore }: ItemsViewProps) => {
   const confirmDelete = (item: ItemDocument) => {
     void presentAlert({
       header: "Delete Item",
-      message: `Delete ${item.name}? This cannot be undone.`,
+      message: `Delete ${escapeHtml(item.name)}? This cannot be undone.`,
       buttons: [
         { text: "Cancel", role: "cancel" },
         {

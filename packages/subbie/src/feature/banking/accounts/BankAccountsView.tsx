@@ -12,7 +12,7 @@ import {
 } from "@ionic/react";
 import { add } from "ionicons/icons";
 
-import { useStatusToast } from "../../../shared/index.ts";
+import { escapeHtml, useStatusToast } from "../../../shared/index.ts";
 import type { BankingStore } from "../db.ts";
 import { useBanking } from "../hooks.ts";
 import {
@@ -52,7 +52,7 @@ export const BankAccountsView = ({ store: customStore }: BankAccountsViewProps) 
   const confirmDeleteAccount = (account: BankAccountDocument) => {
     void presentAlert({
       header: "Delete Bank Account",
-      message: `Delete ${account.name} and its imported statements? This cannot be undone.`,
+      message: `Delete ${escapeHtml(account.name)} and its imported statements? This cannot be undone.`,
       buttons: [
         { text: "Cancel", role: "cancel" },
         {

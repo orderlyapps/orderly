@@ -61,6 +61,7 @@ setupIonicReact({
   navAnimation: iosTransitionAnimation,
   popoverEnter: popoverEnterAnimation,
   popoverLeave: popoverLeaveAnimation,
+  innerHTMLTemplatesEnabled: true,
 });
 
 const App = () => {

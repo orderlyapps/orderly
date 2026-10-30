@@ -17,6 +17,7 @@ import {
   useIonAlert,
 } from "@ionic/react";
 
+import { escapeHtml } from "../../../shared/index.ts";
 import { bankGstRateLabel } from "../../banking/lines/gst.ts";
 import {
   formatAmount,
@@ -59,7 +60,7 @@ export const InvoiceDetailModal = ({
     }
     void presentAlert({
       header: "Delete Invoice",
-      message: `Delete ${invoice.number}? This cannot be undone.`,
+      message: `Delete ${escapeHtml(invoice.number)}? This cannot be undone.`,
       buttons: [
         { text: "Cancel", role: "cancel" },
         {

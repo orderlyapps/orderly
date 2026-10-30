@@ -79,3 +79,9 @@ http://ionicframework.com/docs/theming/ */
 ion-note {
   --color: grey;
 }
+
+.pwa-update-alert .alert-message ul {
+  margin: 0;
+  padding-inline-start: 1.2em;
+  text-align: start;
+}

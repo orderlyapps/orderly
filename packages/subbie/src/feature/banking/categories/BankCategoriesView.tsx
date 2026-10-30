@@ -15,7 +15,7 @@ import {
 } from "@ionic/react";
 import { add } from "ionicons/icons";
 
-import { useStatusToast } from "../../../shared/index.ts";
+import { escapeHtml, useStatusToast } from "../../../shared/index.ts";
 import type { BankingStore } from "../db.ts";
 import { useBanking } from "../hooks.ts";
 import {
@@ -64,7 +64,7 @@ export const BankCategoriesView = ({ store: customStore }: BankCategoriesViewPro
   const confirmDeleteCategory = (category: BankCategoryDocument) => {
     void presentAlert({
       header: "Delete Category",
-      message: `Delete ${category.name}? This cannot be undone.`,
+      message: `Delete ${escapeHtml(category.name)}? This cannot be undone.`,
       buttons: [
         { text: "Cancel", role: "cancel" },
         {

@@ -26,6 +26,7 @@ import {
 } from "@ionic/react";
 import { trashOutline } from "ionicons/icons";
 
+import { escapeHtml } from "../../../../shared/index.ts";
 import {
   formatAmount,
   generateDocumentId,
@@ -301,7 +302,7 @@ export const StatementLineDetailModal = ({
     if (isPrivate && line.allocations.length > 0) {
       void presentAlert({
         header: "Mark as Private",
-        message: `Marking "${line.description}" as private will remove its ${pluralize(line.allocations.length, "category allocation")}. This cannot be undone.`,
+        message: `Marking "${escapeHtml(line.description)}" as private will remove its ${pluralize(line.allocations.length, "category allocation")}. This cannot be undone.`,
         buttons: [
           { text: "Cancel", role: "cancel" },
           {
@@ -324,7 +325,7 @@ export const StatementLineDetailModal = ({
     }
     void presentAlert({
       header: "Delete Statement Line",
-      message: `Delete "${line.description}"? This cannot be undone.`,
+      message: `Delete "${escapeHtml(line.description)}"? This cannot be undone.`,
       buttons: [
         { text: "Cancel", role: "cancel" },
         {

@@ -75,3 +75,9 @@ http://ionicframework.com/docs/theming/ */
   --ion-color-dark-shade: #292929;
   --ion-color-dark-tint: #444444;
 }
+
+.pwa-update-alert .alert-message ul {
+  margin: 0;
+  padding-inline-start: 1.2em;
+  text-align: start;
+}

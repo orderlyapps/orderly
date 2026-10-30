@@ -12,7 +12,7 @@ import {
 } from "@ionic/react";
 import { add } from "ionicons/icons";
 
-import { useStatusToast } from "../../shared/index.ts";
+import { escapeHtml, useStatusToast } from "../../shared/index.ts";
 import { CustomerFormModal, type CustomerFormValues } from "./components/CustomerFormModal.tsx";
 import { CustomerList } from "./components/CustomerList.tsx";
 import type { CustomersStore } from "./db.ts";
@@ -54,7 +54,7 @@ export const CustomersView = ({ store: customStore }: CustomersViewProps) => {
   const confirmDelete = (customer: CustomerDocument) => {
     void presentAlert({
       header: "Delete Customer",
-      message: `Delete ${customer.name}? This cannot be undone.`,
+      message: `Delete ${escapeHtml(customer.name)}? This cannot be undone.`,
       buttons: [
         { text: "Cancel", role: "cancel" },
         {

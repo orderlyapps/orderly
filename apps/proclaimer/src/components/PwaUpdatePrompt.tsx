@@ -61,15 +61,14 @@ export const PwaUpdatePrompt = () => {
   }, [needRefresh]);
 
   const parts: string[] = [];
-  if (versionInfo?.version) {
-    parts.push(`<p><strong>Version ${escapeHtml(versionInfo.version)}</strong></p>`);
+  const version = versionInfo?.version;
+  if (typeof version === "string" && version) {
+    parts.push(`<p><strong>Version ${escapeHtml(version)}</strong></p>`);
   }
-  const entry = versionInfo?.changelog?.[0];
-  if (entry?.changes.length) {
+  const changes = versionInfo?.changelog?.[0]?.changes;
+  if (Array.isArray(changes) && changes.length) {
     parts.push(
-      `<ul style="margin:0;padding-left:1.2em;text-align:start">${entry.changes
-        .map((change) => `<li>${escapeHtml(change)}</li>`)
-        .join("")}</ul>`,
+      `<ul>${changes.map((change) => `<li>${escapeHtml(String(change))}</li>`).join("")}</ul>`,
     );
   }
   const message = parts.join("") || "A new version of the app is ready.";
@@ -77,6 +76,7 @@ export const PwaUpdatePrompt = () => {
   return (
     <IonAlert
       isOpen={needRefresh}
+      cssClass="pwa-update-alert"
       header="Update available"
       message={message}
       buttons={[
