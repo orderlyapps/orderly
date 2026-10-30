@@ -52,7 +52,7 @@ export const BankSettingsSection = ({
   };
 
   return (
-    <SettingsSection title="Bank" statusMessage={statusMessage}>
+    <SettingsSection statusMessage={statusMessage}>
       <IonItem>
         <IonInput
           label="Bank account name"

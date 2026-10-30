@@ -133,7 +133,7 @@ export const DataSettingsSection = ({
 
   return (
     <>
-      <SettingsSection title="Data" statusMessage={statusMessage}>
+      <SettingsSection statusMessage={statusMessage}>
         <IonItem button detail={false} onClick={handleBackupClick}>
           <IonLabel color="primary">Backup Data</IonLabel>
         </IonItem>

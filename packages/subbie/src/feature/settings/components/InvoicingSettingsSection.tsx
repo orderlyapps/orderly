@@ -53,7 +53,7 @@ export const InvoicingSettingsSection = ({
   };
 
   return (
-    <SettingsSection title="Invoicing" statusMessage={statusMessage}>
+    <SettingsSection statusMessage={statusMessage}>
       <IonItem>
         <IonInput
           label="Payment terms (days)"

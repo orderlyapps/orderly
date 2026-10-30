@@ -12,7 +12,7 @@ export const AboutSettingsSection = ({
   version = APP_VERSION,
   routerLink = "/settings/about",
 }: AboutSettingsSectionProps) => (
-  <SettingsSection title="About">
+  <SettingsSection>
     <IonItem button detail routerLink={routerLink}>
       <IonLabel>Version</IonLabel>
       <IonNote slot="end">{version}</IonNote>

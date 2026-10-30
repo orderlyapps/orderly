@@ -62,7 +62,7 @@ export const GstSettingsSection = ({
   };
 
   return (
-    <SettingsSection title="GST" statusMessage={statusMessage}>
+    <SettingsSection statusMessage={statusMessage}>
       <IonItem>
         <IonToggle
           checked={gstRegistered}

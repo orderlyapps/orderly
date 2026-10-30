@@ -48,7 +48,7 @@ export const BusinessSettingsSection = ({
   };
 
   return (
-    <SettingsSection title="Business" statusMessage={statusMessage}>
+    <SettingsSection statusMessage={statusMessage}>
       <IonItem>
         <IonInput
           label="Business name"

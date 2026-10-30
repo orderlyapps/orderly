@@ -30,7 +30,7 @@ export const AppearanceSettingsSection = ({
   };
 
   return (
-    <SettingsSection title="Appearance" statusMessage={statusMessage}>
+    <SettingsSection statusMessage={statusMessage}>
       <IonItem>
         <IonSelect
           label="Theme"
