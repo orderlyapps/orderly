@@ -42,7 +42,13 @@ test("AboutView renders the version and every changelog entry", () => {
     expect(markup).toContain(entry.version);
     expect(markup).toContain(entry.date);
     for (const change of entry.changes) {
-      expect(markup).toContain(change);
+      const escaped = change
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#x27;");
+      expect(markup).toContain(escaped);
     }
   }
 });

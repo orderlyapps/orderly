@@ -1,4 +1,23 @@
 export {
+  BACKUP_PBKDF2_ITERATIONS,
+  createDataBackupFilename,
+  DATA_BACKUP_EXTENSION,
+  DATA_BACKUP_FILENAME,
+  decodeDataBackup,
+  decryptDataBackup,
+  downloadDataBackup,
+  encodeDataBackup,
+  encryptDataBackup,
+  exportDataBackup,
+  importDataBackup,
+  importDataBackupFile,
+  isDataBackupEncrypted,
+  type DataBackupContent,
+  type DataBackupPayload,
+  type DataBackupStores,
+  type DataBackupSummary,
+} from "./backup.ts";
+export {
   createSettingsBinaryFilename,
   decodeSettingsBinary,
   downloadSettingsBinary,

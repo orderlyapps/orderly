@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.4.0",
+    "date": "2026-10-30",
+    "changes": [
+      "Settings: grouped into dedicated pages — business, bank, invoice, appearance, backup & restore, and app details"
+    ]
+  },
+  {
     "version": "0.3.0",
     "date": "2026-10-30",
     "changes": [
