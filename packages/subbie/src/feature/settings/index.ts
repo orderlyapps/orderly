@@ -12,6 +12,7 @@ export {
 export {
   AboutSettingsSection,
   AppearanceSettingsSection,
+  BankSettingsSection,
   BusinessSettingsSection,
   DataSettingsSection,
   GstSettingsSection,
@@ -19,6 +20,7 @@ export {
   SettingsSection,
   type AboutSettingsSectionProps,
   type AppearanceSettingsSectionProps,
+  type BankSettingsSectionProps,
   type BusinessSettingsSectionProps,
   type DataSettingsSectionProps,
   type GstSettingsSectionProps,
@@ -76,6 +78,14 @@ export {
   type ThemeMode,
 } from "./schema.ts";
 export { SettingsView, type SettingsViewProps } from "./SettingsView.tsx";
+export {
+  AppearanceSettingsView,
+  type AppearanceSettingsViewProps,
+} from "./AppearanceSettingsView.tsx";
+export { BankSettingsView, type BankSettingsViewProps } from "./BankSettingsView.tsx";
+export { BusinessSettingsView, type BusinessSettingsViewProps } from "./BusinessSettingsView.tsx";
+export { DataSettingsView, type DataSettingsViewProps } from "./DataSettingsView.tsx";
+export { InvoiceSettingsView, type InvoiceSettingsViewProps } from "./InvoiceSettingsView.tsx";
 export {
   applyTheme,
   DARK_PALETTE_CLASS,

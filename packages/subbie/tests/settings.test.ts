@@ -4,17 +4,22 @@ import { expect, test } from "vite-plus/test";
 import {
   ABN_MAX_LENGTH,
   AppearanceSettingsSection,
+  AppearanceSettingsView,
   applyTheme,
   areSettingsEqual,
   BANK_ACCOUNT_NAME_MAX_LENGTH,
   BANK_ACCOUNT_NUMBER_MAX_LENGTH,
   BANK_BSB_MAX_LENGTH,
+  BankSettingsSection,
+  BankSettingsView,
   BUSINESS_NAME_MAX_LENGTH,
   BusinessSettingsSection,
+  BusinessSettingsView,
   createSettingsBinaryFilename,
   createSettingsStore,
   DARK_PALETTE_CLASS,
   DataSettingsSection,
+  DataSettingsView,
   decodeSettingsBinary,
   DEFAULT_SETTINGS,
   DEFAULT_SETTINGS_ID,
@@ -25,6 +30,7 @@ import {
   importSettingsBinary,
   importSettingsBinaryFile,
   INVOICE_NOTES_MAX_LENGTH,
+  InvoiceSettingsView,
   isAbn,
   isBankAccountName,
   isBankAccountNumber,
@@ -167,8 +173,14 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
   expect(typeof SettingsView).toBe("function");
   expect(typeof SettingsSection).toBe("function");
   expect(typeof AppearanceSettingsSection).toBe("function");
+  expect(typeof AppearanceSettingsView).toBe("function");
+  expect(typeof BankSettingsSection).toBe("function");
+  expect(typeof BankSettingsView).toBe("function");
   expect(typeof BusinessSettingsSection).toBe("function");
+  expect(typeof BusinessSettingsView).toBe("function");
   expect(typeof DataSettingsSection).toBe("function");
+  expect(typeof DataSettingsView).toBe("function");
+  expect(typeof InvoiceSettingsView).toBe("function");
 });
 
 test("initializes LocalStorage Collection store with default system theme and updates settings", async () => {

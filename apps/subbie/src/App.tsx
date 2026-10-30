@@ -30,6 +30,11 @@ import Invoices from "./pages/Invoices";
 import Onboarding from "./pages/Onboarding";
 import Settings from "./pages/Settings";
 import SettingsAbout from "./pages/settings/About";
+import SettingsAppearance from "./pages/settings/Appearance";
+import SettingsBank from "./pages/settings/Bank";
+import SettingsBusiness from "./pages/settings/Business";
+import SettingsData from "./pages/settings/Data";
+import SettingsInvoice from "./pages/settings/Invoice";
 
 /* Core CSS required for Ionic components to work properly */
 import "@ionic/react/css/core.css";
@@ -85,6 +90,11 @@ const App = () => {
               <Route path="/directory" element={<Directory />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/about" element={<SettingsAbout />} />
+              <Route path="/settings/appearance" element={<SettingsAppearance />} />
+              <Route path="/settings/bank" element={<SettingsBank />} />
+              <Route path="/settings/business" element={<SettingsBusiness />} />
+              <Route path="/settings/data" element={<SettingsData />} />
+              <Route path="/settings/invoice" element={<SettingsInvoice />} />
               <Route path="/" element={<Navigate to="/invoices" replace />} />
             </IonRouterOutlet>
             <IonTabBar slot="bottom">

@@ -3,6 +3,7 @@ export {
   AppearanceSettingsSection,
   type AppearanceSettingsSectionProps,
 } from "./AppearanceSettingsSection.tsx";
+export { BankSettingsSection, type BankSettingsSectionProps } from "./BankSettingsSection.tsx";
 export {
   BusinessSettingsSection,
   type BusinessSettingsSectionProps,

@@ -1,73 +1,81 @@
-import { type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
 
-import { IonList } from "@ionic/react";
-
+import { IonIcon, IonItem, IonLabel, IonList, IonNote } from "@ionic/react";
 import {
-  AboutSettingsSection,
-  AppearanceSettingsSection,
-  BusinessSettingsSection,
-  DataSettingsSection,
-  GstSettingsSection,
-  InvoicingSettingsSection,
-} from "./components/index.ts";
-import type { SettingsStore } from "./db.ts";
-import { useSettings } from "./hooks.ts";
+  archiveOutline,
+  briefcaseOutline,
+  colorPaletteOutline,
+  informationCircleOutline,
+  receiptOutline,
+  walletOutline,
+} from "ionicons/icons";
+
+import { APP_VERSION } from "../about/index.ts";
 
 export interface SettingsViewProps {
-  store?: SettingsStore;
   version?: string;
+  businessRouterLink?: string;
+  bankRouterLink?: string;
+  invoiceRouterLink?: string;
+  appearanceRouterLink?: string;
+  dataRouterLink?: string;
+  aboutRouterLink?: string;
   children?: ReactNode;
 }
 
-export const SettingsView = ({ store: customStore, version, children }: SettingsViewProps) => {
-  const { settings, theme, setTheme, updateSettings, store } = useSettings(customStore);
-  const [appearanceStatus, setAppearanceStatus] = useState<string | null>(null);
-  const [businessStatus, setBusinessStatus] = useState<string | null>(null);
-  const [invoicingStatus, setInvoicingStatus] = useState<string | null>(null);
-  const [gstStatus, setGstStatus] = useState<string | null>(null);
-  const [dataStatus, setDataStatus] = useState<string | null>(null);
-  const resolvedStore = customStore ?? store ?? undefined;
-
+export const SettingsView = ({
+  version = APP_VERSION,
+  businessRouterLink = "/settings/business",
+  bankRouterLink = "/settings/bank",
+  invoiceRouterLink = "/settings/invoice",
+  appearanceRouterLink = "/settings/appearance",
+  dataRouterLink = "/settings/data",
+  aboutRouterLink = "/settings/about",
+  children,
+}: SettingsViewProps) => {
   return (
-    <IonList inset>
-      <AppearanceSettingsSection
-        theme={theme}
-        onThemeChange={setTheme}
-        statusMessage={appearanceStatus}
-        onStatusChange={setAppearanceStatus}
-      />
-      <BusinessSettingsSection
-        businessName={settings.businessName}
-        abn={settings.abn}
-        bankAccountName={settings.bankAccountName}
-        bankBsb={settings.bankBsb}
-        bankAccountNumber={settings.bankAccountNumber}
-        onUpdateSettings={updateSettings}
-        statusMessage={businessStatus}
-        onStatusChange={setBusinessStatus}
-      />
-      <InvoicingSettingsSection
-        paymentTermsDays={settings.defaultPaymentTermsDays}
-        invoiceNotes={settings.defaultInvoiceNotes}
-        onUpdateSettings={updateSettings}
-        statusMessage={invoicingStatus}
-        onStatusChange={setInvoicingStatus}
-      />
-      <GstSettingsSection
-        gstRegistered={settings.gstRegistered}
-        gstRate={settings.gstRate}
-        defaultGstType={settings.defaultGstType}
-        onUpdateSettings={updateSettings}
-        statusMessage={gstStatus}
-        onStatusChange={setGstStatus}
-      />
+    <>
+      <IonList inset>
+        <IonItem button detail routerLink={businessRouterLink}>
+          <IonIcon aria-hidden="true" icon={briefcaseOutline} slot="start" />
+          <IonLabel>
+            <h2>Business Details</h2>
+          </IonLabel>
+        </IonItem>
+        <IonItem button detail routerLink={bankRouterLink}>
+          <IonIcon aria-hidden="true" icon={walletOutline} slot="start" />
+          <IonLabel>
+            <h2>Bank Details</h2>
+          </IonLabel>
+        </IonItem>
+        <IonItem button detail routerLink={invoiceRouterLink}>
+          <IonIcon aria-hidden="true" icon={receiptOutline} slot="start" />
+          <IonLabel>
+            <h2>Invoice Details</h2>
+          </IonLabel>
+        </IonItem>
+        <IonItem button detail routerLink={appearanceRouterLink}>
+          <IonIcon aria-hidden="true" icon={colorPaletteOutline} slot="start" />
+          <IonLabel>
+            <h2>Appearance</h2>
+          </IonLabel>
+        </IonItem>
+        <IonItem button detail routerLink={dataRouterLink}>
+          <IonIcon aria-hidden="true" icon={archiveOutline} slot="start" />
+          <IonLabel>
+            <h2>Backup &amp; Restore</h2>
+          </IonLabel>
+        </IonItem>
+        <IonItem button detail routerLink={aboutRouterLink}>
+          <IonIcon aria-hidden="true" icon={informationCircleOutline} slot="start" />
+          <IonLabel>
+            <h2>App Details</h2>
+          </IonLabel>
+          <IonNote slot="end">{version}</IonNote>
+        </IonItem>
+      </IonList>
+
       {children}
-      <DataSettingsSection
-        store={resolvedStore}
-        statusMessage={dataStatus}
-        onStatusChange={setDataStatus}
-      />
-      <AboutSettingsSection version={version} />
-    </IonList>
+    </>
   );
 };
