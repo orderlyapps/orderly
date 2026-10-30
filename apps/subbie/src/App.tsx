@@ -19,6 +19,7 @@ import {
 import { card, people, receipt, settings } from "ionicons/icons";
 import { useThemeEffect } from "subbie-core";
 
+import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
 import Banking from "./pages/Banking";
 import BankingAccounts from "./pages/banking/Accounts";
 import BankingCategories from "./pages/banking/Categories";
@@ -69,6 +70,7 @@ const App = () => {
 
   return (
     <IonApp>
+      <PwaUpdatePrompt />
       <IonReactRouter>
         <IonTabs>
           <IonRouterOutlet>

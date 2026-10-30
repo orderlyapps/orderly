@@ -19,6 +19,7 @@ import {
 import { briefcase, calendar, home, people, settings } from "ionicons/icons";
 import { useThemeEffect } from "proclaimer-core";
 
+import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
 import Home from "./pages/Home";
 import Ministry from "./pages/Ministry";
 import LetterWriting from "./pages/ministry/LetterWriting";
@@ -73,6 +74,7 @@ const App = () => {
 
   return (
     <IonApp>
+      <PwaUpdatePrompt />
       <IonReactRouter>
         <IonTabs>
           <IonRouterOutlet>

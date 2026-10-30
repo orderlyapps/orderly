@@ -1,0 +1,25 @@
+[
+  {
+    "version": "0.3.0",
+    "date": "2026-10-30",
+    "changes": [
+      "App updates download in the background while you use the app — update now or on next reload"
+    ]
+  },
+  {
+    "version": "0.2.0",
+    "date": "2026-10-29",
+    "changes": ["About page now shows a build stamp (channel, branch@commit, build time)"]
+  },
+  {
+    "version": "0.1.0",
+    "date": "2026-10-29",
+    "changes": [
+      "Ministry: interactive map, plus letter writing and schedule pages",
+      "Schedules: midweek, weekend, cleaning, and events pages",
+      "Publishers section",
+      "Settings: appearance and data export/import",
+      "About page showing the app version and changelog"
+    ]
+  }
+]
