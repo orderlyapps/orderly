@@ -1,0 +1,114 @@
+.taboo-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  min-height: 100%;
+  padding: 8px 16px 24px;
+}
+
+.taboo-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(90vw, 420px);
+}
+
+.taboo-status ion-progress-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+}
+
+.taboo-timer {
+  min-width: 3ch;
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.taboo-round-score {
+  min-width: 2ch;
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.taboo-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  width: min(90vw, 420px);
+  margin: auto 0;
+  padding: 32px 24px;
+  border-radius: 16px;
+  background: var(--ion-card-background, var(--ion-item-background));
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.taboo-card-word {
+  font-size: 2rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.taboo-card-forbidden {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.taboo-card-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+}
+
+.taboo-card-words {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.taboo-card-taboo {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(var(--ion-color-danger-rgb, 235, 68, 90), 0.14);
+  color: var(--ion-color-danger, #eb445a);
+  font-weight: 600;
+}
+
+.taboo-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.taboo-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 340px;
+  margin: auto;
+  text-align: center;
+}
+
+.taboo-result {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.taboo-result-score {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.taboo-hint {
+  font-size: 0.875rem;
+}

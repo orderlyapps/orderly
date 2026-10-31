@@ -21,6 +21,8 @@ import { useThemeEffect } from "ionic-core";
 
 import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
 import Games from "./pages/Games";
+import Taboo from "./pages/games/Taboo";
+import TabooCards from "./pages/games/taboo/Cards";
 import Settings from "./pages/Settings";
 import SettingsAbout from "./pages/settings/About";
 import Snake from "./pages/Snake";
@@ -72,6 +74,8 @@ const App = () => {
           <IonRouterOutlet>
             <Route path="/games" element={<Games />} />
             <Route path="/games/snake" element={<Snake />} />
+            <Route path="/games/taboo" element={<Taboo />} />
+            <Route path="/games/taboo/cards" element={<TabooCards />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/about" element={<SettingsAbout />} />
             <Route path="/" element={<Navigate to="/games" replace />} />
