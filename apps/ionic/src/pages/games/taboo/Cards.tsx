@@ -1,4 +1,4 @@
-import { type ChangeEvent, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useCallback, useMemo, useRef, useState } from "react";
 
 import {
   IonAlert,
@@ -14,12 +14,11 @@ import {
   IonList,
   IonListHeader,
   IonPage,
-  IonTextarea,
   IonTitle,
   IonToast,
   IonToolbar,
 } from "@ionic/react";
-import { add, clipboard, cloudUpload, copy, download, trash } from "ionicons/icons";
+import { add, clipboard, close, cloudUpload, copy, download, trash } from "ionicons/icons";
 import {
   downloadTabooDeck,
   parseTabooDeck,
@@ -33,17 +32,45 @@ const Cards = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [cards, setCards] = useState(() => store.listCards());
   const [word, setWord] = useState("");
-  const [tabooText, setTabooText] = useState("");
+  const nextTabooWordId = useRef(1);
+  const focusNewTabooWord = useRef(false);
+  const [tabooWords, setTabooWords] = useState<{ id: number; value: string }[]>([
+    { id: 0, value: "" },
+  ]);
   const [pasteAlertOpen, setPasteAlertOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
+  const lastTabooWordRef = useCallback((element: HTMLIonInputElement | null) => {
+    if (element && focusNewTabooWord.current) {
+      focusNewTabooWord.current = false;
+      void element.setFocus();
+    }
+  }, []);
+
+  const setTabooWord = (id: number, value: string) => {
+    setTabooWords((words) => words.map((entry) => (entry.id === id ? { ...entry, value } : entry)));
+  };
+
+  const addTabooWordInput = () => {
+    focusNewTabooWord.current = true;
+    const id = nextTabooWordId.current++;
+    setTabooWords((words) => [...words, { id, value: "" }]);
+  };
+
+  const removeTabooWordInput = (id: number) => {
+    setTabooWords((words) => (words.length > 1 ? words.filter((entry) => entry.id !== id) : words));
+  };
+
   const addCard = () => {
     try {
-      const updated = store.saveCard(word, tabooText.split(/[\n,]+/));
+      const updated = store.saveCard(
+        word,
+        tabooWords.map((entry) => entry.value),
+      );
       setCards(updated);
       setWord("");
-      setTabooText("");
+      setTabooWords([{ id: nextTabooWordId.current++, value: "" }]);
       setToast("Card saved");
     } catch (error) {
       setToast(error instanceof Error ? error.message : "Could not save card");
@@ -129,15 +156,38 @@ const Cards = () => {
               onIonInput={(event) => setWord(event.detail.value ?? "")}
             />
           </IonItem>
-          <IonItem>
-            <IonTextarea
-              label="Taboo words"
-              labelPlacement="stacked"
-              placeholder={"One per line, e.g.\nParty\nCake\nCandles"}
-              autoGrow
-              value={tabooText}
-              onIonInput={(event) => setTabooText(event.detail.value ?? "")}
-            />
+          {tabooWords.map((tabooWord, index) => (
+            <IonItem key={tabooWord.id}>
+              <IonInput
+                ref={index === tabooWords.length - 1 ? lastTabooWordRef : undefined}
+                label={`Taboo word ${index + 1}`}
+                labelPlacement="stacked"
+                placeholder="e.g. Party"
+                value={tabooWord.value}
+                onIonInput={(event) => setTabooWord(tabooWord.id, event.detail.value ?? "")}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && index === tabooWords.length - 1) {
+                    addTabooWordInput();
+                  }
+                }}
+              />
+              {tabooWords.length > 1 && (
+                <IonButton
+                  fill="clear"
+                  slot="end"
+                  aria-label={`Remove taboo word ${index + 1}`}
+                  onClick={() => removeTabooWordInput(tabooWord.id)}
+                >
+                  <IonIcon icon={close} />
+                </IonButton>
+              )}
+            </IonItem>
+          ))}
+          <IonItem lines="none">
+            <IonButton fill="clear" size="small" onClick={addTabooWordInput}>
+              <IonIcon slot="start" icon={add} />
+              Add Taboo Word
+            </IonButton>
           </IonItem>
           <IonItem lines="none">
             <IonButton slot="end" onClick={addCard}>
