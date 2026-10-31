@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { IonAlert } from "@ionic/react";
-import type { ChangelogEntry } from "subbie-core";
+import { escapeHtml, type ChangelogEntry } from "subbie-core";
 import { useRegisterSW } from "virtual:pwa-register/react";
 
 interface VersionInfo {
@@ -11,9 +11,6 @@ interface VersionInfo {
 
 const UPDATE_CHECK_INTERVAL = 60 * 60 * 1000;
 const MIN_UPDATE_CHECK_GAP = 60 * 1000;
-
-const escapeHtml = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 export const PwaUpdatePrompt = () => {
   const [registration, setRegistration] = useState<ServiceWorkerRegistration>();
