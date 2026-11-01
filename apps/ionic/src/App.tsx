@@ -16,7 +16,7 @@ import {
   popoverEnterAnimation,
   popoverLeaveAnimation,
 } from "@rdlabo/ionic-theme-ios27";
-import { ellipse, gameController, settings, square, triangle } from "ionicons/icons";
+import { gameController, settings } from "ionicons/icons";
 import { useThemeEffect } from "ionic-core";
 
 import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
@@ -24,9 +24,6 @@ import Games from "./pages/Games";
 import Settings from "./pages/Settings";
 import SettingsAbout from "./pages/settings/About";
 import Snake from "./pages/Snake";
-import Tab1 from "./pages/Tab1";
-import Tab2 from "./pages/Tab2";
-import Tab3 from "./pages/Tab3";
 
 /* Core CSS required for Ionic components to work properly */
 import "@ionic/react/css/core.css";
@@ -75,29 +72,14 @@ const App = () => {
           <IonRouterOutlet>
             <Route path="/games" element={<Games />} />
             <Route path="/games/snake" element={<Snake />} />
-            <Route path="/tab1" element={<Tab1 />} />
-            <Route path="/tab2" element={<Tab2 />} />
-            <Route path="/tab3" element={<Tab3 />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/about" element={<SettingsAbout />} />
-            <Route path="/" element={<Navigate to="/tab1" replace />} />
+            <Route path="/" element={<Navigate to="/games" replace />} />
           </IonRouterOutlet>
           <IonTabBar slot="bottom">
             <IonTabButton tab="games" href="/games">
               <IonIcon aria-hidden="true" icon={gameController} />
               <IonLabel>Games</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="tab1" href="/tab1">
-              <IonIcon aria-hidden="true" icon={triangle} />
-              <IonLabel>Tab 1</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="tab2" href="/tab2">
-              <IonIcon aria-hidden="true" icon={ellipse} />
-              <IonLabel>Tab 2</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="tab3" href="/tab3">
-              <IonIcon aria-hidden="true" icon={square} />
-              <IonLabel>Tab 3</IonLabel>
             </IonTabButton>
             <IonTabButton tab="settings" href="/settings">
               <IonIcon aria-hidden="true" icon={settings} />
