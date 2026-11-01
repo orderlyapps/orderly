@@ -1,6 +1,6 @@
-# Vite+ Monorepo Starter
+# Orderly
 
-A starter for creating a Vite+ monorepo.
+A Vite+ monorepo for the Orderly apps and shared packages.
 
 ## Development
 
