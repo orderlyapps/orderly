@@ -36,14 +36,23 @@ export const InvoiceList = ({
         >
           <IonLabel>
             <h2>{invoice.clientName}</h2>
-            <IonNote>
-              {invoice.number} · {invoice.issueDate}
-            </IonNote>
+            <p>
+              <IonNote style={{ fontSize: "0.8125rem" }}>{invoice.number}</IonNote>
+            </p>
+            <p>
+              <IonNote style={{ fontSize: "0.8125rem" }}>{invoice.issueDate}</IonNote>
+            </p>
           </IonLabel>
-          <IonNote slot="end">{formatAmount(invoiceGrandTotalCents(invoice))}</IonNote>
-          <IonBadge slot="end" color={invoiceStatusColor(invoice.status)}>
-            {invoiceStatusLabel(invoice.status)}
-          </IonBadge>
+          <div slot="end" className="ion-text-end">
+            <div style={{ marginBottom: 4 }}>
+              <IonNote>{formatAmount(invoiceGrandTotalCents(invoice))}</IonNote>
+            </div>
+            <div>
+              <IonBadge color={invoiceStatusColor(invoice.status)}>
+                {invoiceStatusLabel(invoice.status)}
+              </IonBadge>
+            </div>
+          </div>
         </IonItem>
       ))
     )}
