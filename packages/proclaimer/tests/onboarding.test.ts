@@ -429,7 +429,7 @@ test("usePublishers lists only publishers from the selected congregation, sorted
   }
 });
 
-test("renders the publisher step with publishers for the selected congregation", async () => {
+test("renders the publisher step with a search field instead of a publisher list", async () => {
   const congregationsMap = new Map<string, string>();
   const congregations = createCollection(
     localStorageCollectionOptions<Congregation, string>({
@@ -493,8 +493,10 @@ test("renders the publisher step with publishers for the selected congregation",
 
     const markup = render();
     expect(markup).toContain("Who are you?");
-    expect(markup).toContain("Smith, Alice");
-    expect(markup).toContain("Zulu, Bob");
+    expect(markup).toContain("ion-searchbar");
+    expect(markup).toContain("Start typing your name to search");
+    expect(markup).not.toContain("Smith, Alice");
+    expect(markup).not.toContain("Zulu, Bob");
     expect(markup).not.toContain("Jones");
     expect(markup).toContain("Skip");
     expect(markup).not.toContain("Finish");
@@ -503,6 +505,8 @@ test("renders the publisher step with publishers for the selected congregation",
     const selectedMarkup = render();
     expect(selectedMarkup).toContain("Finish");
     expect(selectedMarkup).not.toContain("Skip");
+    expect(selectedMarkup).toContain("Smith, Alice");
+    expect(selectedMarkup).not.toContain("Zulu, Bob");
     expect(selectedMarkup).toContain("ion-icon");
 
     // A publisher id from another congregation is not treated as selected

@@ -18,7 +18,7 @@ import { useCongregations } from "../congregation/hooks.ts";
 import { isCongregationRowId } from "../congregation/schema.ts";
 import type { PublisherCollection } from "../publisher/collection.ts";
 import { usePublishers } from "../publisher/hooks.ts";
-import { PublisherSelect } from "../publisher/PublisherSelect.tsx";
+import { PublisherAutocomplete } from "../publisher/PublisherAutocomplete.tsx";
 import { useSettings } from "../settings/hooks.ts";
 import type { SettingsStore } from "../settings/db.ts";
 import { isCongregationId, type SettingsDocument } from "../settings/schema.ts";
@@ -121,12 +121,12 @@ export const OnboardingView = ({
           <IonText>
             <h1>Who are you?</h1>
             <p>
-              Select your name to personalise your experience, or skip for now — you can always do
-              this later from Settings.
+              Search for your name to personalise your experience, or skip for now — you can always
+              do this later from Settings.
             </p>
           </IonText>
         </div>
-        <PublisherSelect
+        <PublisherAutocomplete
           publishers={publishers}
           selectedId={selectedPublisherId}
           isLoading={publishersLoading}
@@ -136,7 +136,7 @@ export const OnboardingView = ({
             void retryPublishers();
           }}
           onSelect={(id) => {
-            setPublisherId(id === publisherId ? "" : id);
+            setPublisherId(id);
           }}
         >
           {statusMessage ? (
@@ -144,7 +144,7 @@ export const OnboardingView = ({
               <IonNote>{statusMessage}</IonNote>
             </IonItem>
           ) : null}
-        </PublisherSelect>
+        </PublisherAutocomplete>
         <div className="ion-padding">
           <IonButton
             expand="block"
