@@ -389,6 +389,7 @@ export const InvoiceFormModal = ({
           {items.length > 0 ? (
             <IonItem lines="none">
               <IonSelect
+                slot="end"
                 interface="action-sheet"
                 placeholder="Add item from catalog"
                 value=""
