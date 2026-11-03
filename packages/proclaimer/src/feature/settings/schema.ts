@@ -4,10 +4,13 @@ export type ThemeMode = (typeof THEME_MODES)[number];
 
 export const CONGREGATION_ID_MAX_LENGTH = 64;
 
+export const PUBLISHER_ID_MAX_LENGTH = 64;
+
 export interface SettingsDocument {
   id: string;
   theme: ThemeMode;
   congregationId: string;
+  publisherId: string;
 }
 
 export type SettingsKey = Exclude<keyof SettingsDocument, "id">;
@@ -22,6 +25,7 @@ export const DEFAULT_SETTINGS: SettingsDocument = {
   id: DEFAULT_SETTINGS_ID,
   theme: "system",
   congregationId: "",
+  publisherId: "",
 };
 
 export function isThemeMode(value: unknown): value is ThemeMode {
@@ -32,6 +36,14 @@ export function isCongregationId(value: unknown): value is string {
   return (
     typeof value === "string" &&
     value.length <= CONGREGATION_ID_MAX_LENGTH &&
+    (value.length === 0 || value.trim().length > 0)
+  );
+}
+
+export function isPublisherId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= PUBLISHER_ID_MAX_LENGTH &&
     (value.length === 0 || value.trim().length > 0)
   );
 }
@@ -47,6 +59,7 @@ type SettingsValidatorMap = {
 const SETTINGS_VALIDATORS: SettingsValidatorMap = {
   theme: isThemeMode,
   congregationId: isCongregationId,
+  publisherId: isPublisherId,
 };
 
 export const SETTINGS_KEYS: readonly SettingsKey[] = Object.freeze(

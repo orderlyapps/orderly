@@ -13,10 +13,12 @@ export {
   AboutSettingsSection,
   AppearanceSettingsSection,
   DataSettingsSection,
+  PublisherSettingsSection,
   SettingsSection,
   type AboutSettingsSectionProps,
   type AppearanceSettingsSectionProps,
   type DataSettingsSectionProps,
+  type PublisherSettingsSectionProps,
   type SettingsSectionProps,
 } from "./components/index.ts";
 export {
@@ -33,18 +35,26 @@ export {
   type StorageEventApi,
 } from "./db.ts";
 export { useSettings, useThemeEffect, type UseSettingsResult } from "./hooks.ts";
-export { LEGACY_SELECTED_CONGREGATION_KEY, readLegacyCongregationId } from "./legacy.ts";
+export {
+  LEGACY_SELECTED_CONGREGATION_KEY,
+  LEGACY_SELECTED_PUBLISHER_KEY,
+  readLegacyCongregationId,
+  readLegacyPublisher,
+  type LegacyPublisherSelection,
+} from "./legacy.ts";
 export {
   areSettingsEqual,
   CONGREGATION_ID_MAX_LENGTH,
   DEFAULT_SETTINGS,
   DEFAULT_SETTINGS_ID,
   isCongregationId,
+  isPublisherId,
   isSettingsDocument,
   isSettingValue,
   isThemeMode,
   isValidSettingsId,
   normalizeSettingsDocument,
+  PUBLISHER_ID_MAX_LENGTH,
   SETTINGS_ID_MAX_LENGTH,
   SETTINGS_KEYS,
   THEME_MODES,

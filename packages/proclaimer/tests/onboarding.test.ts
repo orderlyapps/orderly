@@ -18,11 +18,19 @@ import {
   OnboardingView,
 } from "../src/feature/onboarding/index.ts";
 import {
+  getPublisherDisplayName,
+  usePublishers,
+  type Publisher,
+  type PublisherCollection,
+} from "../src/feature/publisher/index.ts";
+import {
   CONGREGATION_ID_MAX_LENGTH,
   createSettingsStore,
   DEFAULT_SETTINGS,
   LEGACY_SELECTED_CONGREGATION_KEY,
+  LEGACY_SELECTED_PUBLISHER_KEY,
   readLegacyCongregationId,
+  readLegacyPublisher,
   type StorageApi,
 } from "../src/feature/settings/index.ts";
 
@@ -41,9 +49,23 @@ test("detects onboarding completion and builds settings patches", () => {
 
   expect(createOnboardingPatch({ congregationId: "congregation-1" })).toEqual({
     congregationId: "congregation-1",
+    publisherId: "",
   });
   expect(createOnboardingPatch({ congregationId: "  congregation-1  " })).toEqual({
     congregationId: "congregation-1",
+    publisherId: "",
+  });
+  expect(
+    createOnboardingPatch({ congregationId: "congregation-1", publisherId: "publisher-1" }),
+  ).toEqual({
+    congregationId: "congregation-1",
+    publisherId: "publisher-1",
+  });
+  expect(
+    createOnboardingPatch({ congregationId: "congregation-1", publisherId: "  publisher-1  " }),
+  ).toEqual({
+    congregationId: "congregation-1",
+    publisherId: "publisher-1",
   });
 
   expect(createOnboardingPatch({ congregationId: "" })).toBeNull();
@@ -337,5 +359,252 @@ test("congregation collection is created lazily once supabase is initialized", a
   } finally {
     await resetCongregationCollectionForTesting();
     resetSupabaseClientForTesting();
+  }
+});
+
+test("publisher display name prefers display_name and falls back to first_name", () => {
+  expect(
+    getPublisherDisplayName({ first_name: "Alice", last_name: "Smith", display_name: "Ally" }),
+  ).toBe("Smith, Ally");
+  expect(getPublisherDisplayName({ first_name: "Alice", last_name: "Smith" })).toBe("Smith, Alice");
+  expect(
+    getPublisherDisplayName({ first_name: "Alice", last_name: "Smith", display_name: "   " }),
+  ).toBe("Smith, Alice");
+});
+
+test("usePublishers lists only publishers from the selected congregation, sorted by name", async () => {
+  const storageMap = new Map<string, string>();
+  const collection = createCollection(
+    localStorageCollectionOptions<Publisher, string>({
+      id: `publishers_test_${Date.now()}`,
+      storageKey: `publishers_test_${Date.now()}`,
+      storage: {
+        getItem: (key) => storageMap.get(key) ?? null,
+        setItem: (key, value) => {
+          storageMap.set(key, value);
+        },
+        removeItem: (key) => {
+          storageMap.delete(key);
+        },
+      },
+      getKey: (publisher) => publisher.id ?? "",
+      startSync: true,
+    }),
+  );
+
+  try {
+    await collection.preload();
+    const tx = collection.insert([
+      { id: "p2", first_name: "Bob", last_name: "Zulu", congregation_id: "c1" },
+      { id: "p1", first_name: "Alice", last_name: "Smith", congregation_id: "c1" },
+      { id: "p3", first_name: "Carol", last_name: "Jones", congregation_id: "c2" },
+      { id: "p4", first_name: "Dan", last_name: "Alpha", congregation_id: "c1" },
+    ]);
+    await tx.isPersisted.promise;
+
+    function Probe() {
+      const { publishers } = usePublishers("c1", collection as unknown as PublisherCollection);
+      return createElement(
+        "ul",
+        null,
+        publishers.map((p) => createElement("li", { key: p.id }, getPublisherDisplayName(p))),
+      );
+    }
+
+    const markup = renderToStaticMarkup(createElement(Probe));
+    expect(markup).toContain("Alpha, Dan");
+    expect(markup).toContain("Smith, Alice");
+    expect(markup).toContain("Zulu, Bob");
+    expect(markup).not.toContain("Jones");
+    expect(markup.indexOf("Alpha, Dan")).toBeLessThan(markup.indexOf("Smith, Alice"));
+    expect(markup.indexOf("Smith, Alice")).toBeLessThan(markup.indexOf("Zulu, Bob"));
+
+    function EmptyProbe() {
+      const { publishers } = usePublishers(undefined, collection as unknown as PublisherCollection);
+      return createElement("span", null, String(publishers.length));
+    }
+    expect(renderToStaticMarkup(createElement(EmptyProbe))).toBe("<span>0</span>");
+  } finally {
+    await collection.cleanup().catch(() => {});
+  }
+});
+
+test("renders the publisher step with publishers for the selected congregation", async () => {
+  const congregationsMap = new Map<string, string>();
+  const congregations = createCollection(
+    localStorageCollectionOptions<Congregation, string>({
+      id: `congregations_test_step_${Date.now()}`,
+      storageKey: `congregations_test_step_${Date.now()}`,
+      storage: {
+        getItem: (key) => congregationsMap.get(key) ?? null,
+        setItem: (key, value) => {
+          congregationsMap.set(key, value);
+        },
+        removeItem: (key) => {
+          congregationsMap.delete(key);
+        },
+      },
+      getKey: (congregation) => congregation.id ?? "",
+      startSync: true,
+    }),
+  );
+  const publishersMap = new Map<string, string>();
+  const publishers = createCollection(
+    localStorageCollectionOptions<Publisher, string>({
+      id: `publishers_test_step_${Date.now()}`,
+      storageKey: `publishers_test_step_${Date.now()}`,
+      storage: {
+        getItem: (key) => publishersMap.get(key) ?? null,
+        setItem: (key, value) => {
+          publishersMap.set(key, value);
+        },
+        removeItem: (key) => {
+          publishersMap.delete(key);
+        },
+      },
+      getKey: (publisher) => publisher.id ?? "",
+      startSync: true,
+    }),
+  );
+
+  const store = await createSettingsStore({ name: nextStoreName() });
+  try {
+    await congregations.preload();
+    await publishers.preload();
+    const congregationsTx = congregations.insert({ id: "c1", name: "Alpha Congregation" });
+    await congregationsTx.isPersisted.promise;
+    const publishersTx = publishers.insert([
+      { id: "p1", first_name: "Alice", last_name: "Smith", congregation_id: "c1" },
+      { id: "p2", first_name: "Bob", last_name: "Zulu", congregation_id: "c1" },
+      { id: "p3", first_name: "Carol", last_name: "Jones", congregation_id: "c2" },
+    ]);
+    await publishersTx.isPersisted.promise;
+    await store.updateSettings({ congregationId: "c1" });
+
+    const render = () =>
+      renderToStaticMarkup(
+        createElement(OnboardingView, {
+          store,
+          collection: congregations as unknown as CongregationCollection,
+          publisherCollection: publishers as unknown as PublisherCollection,
+          initialStep: "publisher",
+        }),
+      );
+
+    const markup = render();
+    expect(markup).toContain("Who are you?");
+    expect(markup).toContain("Smith, Alice");
+    expect(markup).toContain("Zulu, Bob");
+    expect(markup).not.toContain("Jones");
+    expect(markup).toContain("Skip");
+    expect(markup).not.toContain("Finish");
+
+    await store.updateSettings({ publisherId: "p1" });
+    const selectedMarkup = render();
+    expect(selectedMarkup).toContain("Finish");
+    expect(selectedMarkup).not.toContain("Skip");
+    expect(selectedMarkup).toContain("ion-icon");
+
+    // A publisher id from another congregation is not treated as selected
+    await store.updateSettings({ publisherId: "p3" });
+    const staleMarkup = render();
+    expect(staleMarkup).toContain("Skip");
+    expect(staleMarkup).not.toContain("Finish");
+  } finally {
+    await store.close();
+    await congregations.cleanup().catch(() => {});
+    await publishers.cleanup().catch(() => {});
+  }
+});
+
+test("reads the publisher id stored by the legacy app", () => {
+  const storageMap = new Map<string, string>();
+  const storage = createMapStorage(storageMap);
+
+  expect(readLegacyPublisher(storage)).toBeNull();
+
+  storageMap.set(LEGACY_SELECTED_PUBLISHER_KEY, "not-valid-json{");
+  expect(readLegacyPublisher(storage)).toBeNull();
+
+  storageMap.set(LEGACY_SELECTED_PUBLISHER_KEY, JSON.stringify({ first_name: "No Id" }));
+  expect(readLegacyPublisher(storage)).toBeNull();
+
+  storageMap.set(LEGACY_SELECTED_PUBLISHER_KEY, JSON.stringify({ id: "   " }));
+  expect(readLegacyPublisher(storage)).toBeNull();
+
+  storageMap.set(
+    LEGACY_SELECTED_PUBLISHER_KEY,
+    JSON.stringify({ id: "p1", first_name: "Alice", last_name: "Smith", congregation_id: "c1" }),
+  );
+  expect(readLegacyPublisher(storage)).toEqual({ id: "p1", congregationId: "c1" });
+});
+
+test("migrates the legacy publisher selection alongside the congregation", async () => {
+  const storageMap = new Map<string, string>();
+  const storage = createMapStorage(storageMap);
+  storageMap.set(
+    LEGACY_SELECTED_CONGREGATION_KEY,
+    JSON.stringify({ id: "c1", name: "Alpha Congregation" }),
+  );
+  storageMap.set(
+    LEGACY_SELECTED_PUBLISHER_KEY,
+    JSON.stringify({ id: "p1", first_name: "Alice", last_name: "Smith", congregation_id: "c1" }),
+  );
+
+  const store = await createSettingsStore({ name: nextStoreName(), storage });
+  try {
+    const settings = await store.getSettings();
+    expect(settings.congregationId).toBe("c1");
+    expect(settings.publisherId).toBe("p1");
+    expect(isOnboardingComplete(settings)).toBe(true);
+    expect(storageMap.get(LEGACY_SELECTED_PUBLISHER_KEY)).toBeTruthy();
+  } finally {
+    await store.close();
+  }
+});
+
+test("does not migrate a legacy publisher from a different congregation", async () => {
+  const storageMap = new Map<string, string>();
+  const storage = createMapStorage(storageMap);
+  storageMap.set(
+    LEGACY_SELECTED_CONGREGATION_KEY,
+    JSON.stringify({ id: "c1", name: "Alpha Congregation" }),
+  );
+  storageMap.set(
+    LEGACY_SELECTED_PUBLISHER_KEY,
+    JSON.stringify({ id: "p1", congregation_id: "c2" }),
+  );
+
+  const store = await createSettingsStore({ name: nextStoreName(), storage });
+  try {
+    const settings = await store.getSettings();
+    expect(settings.congregationId).toBe("c1");
+    expect(settings.publisherId).toBe("");
+  } finally {
+    await store.close();
+  }
+});
+
+test("migrates the legacy publisher when the congregation is already set", async () => {
+  const storageMap = new Map<string, string>();
+  const storage = createMapStorage(storageMap);
+  const storeName = nextStoreName();
+
+  const first = await createSettingsStore({ name: storeName, storage });
+  await first.updateSettings({ congregationId: "c1" });
+  await first.close();
+
+  storageMap.set(
+    LEGACY_SELECTED_PUBLISHER_KEY,
+    JSON.stringify({ id: "p1", congregation_id: "c1" }),
+  );
+
+  const second = await createSettingsStore({ name: storeName, storage });
+  try {
+    const settings = await second.getSettings();
+    expect(settings.congregationId).toBe("c1");
+    expect(settings.publisherId).toBe("p1");
+  } finally {
+    await second.close();
   }
 });

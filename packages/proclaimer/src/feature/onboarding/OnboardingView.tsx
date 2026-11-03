@@ -16,33 +16,45 @@ import {
 import type { CongregationCollection } from "../congregation/collection.ts";
 import { useCongregations } from "../congregation/hooks.ts";
 import { isCongregationRowId } from "../congregation/schema.ts";
+import type { PublisherCollection } from "../publisher/collection.ts";
+import { usePublishers } from "../publisher/hooks.ts";
+import { PublisherSelect } from "../publisher/PublisherSelect.tsx";
 import { useSettings } from "../settings/hooks.ts";
 import type { SettingsStore } from "../settings/db.ts";
 import { isCongregationId, type SettingsDocument } from "../settings/schema.ts";
 import { createOnboardingPatch } from "./completion.ts";
 
+export type OnboardingStep = "congregation" | "publisher";
+
 export interface OnboardingViewProps {
   store?: SettingsStore;
   collection?: CongregationCollection;
+  publisherCollection?: PublisherCollection;
+  initialStep?: OnboardingStep;
   onComplete?: (settings: SettingsDocument) => void;
 }
 
 export const OnboardingView = ({
   store: customStore,
   collection,
+  publisherCollection,
+  initialStep = "congregation",
   onComplete,
 }: OnboardingViewProps) => {
   const { settings, updateSettings } = useSettings(customStore);
   const { congregations, isLoading, error, retry, canRetry } = useCongregations(collection);
   const [congregationId, setCongregationId] = useState(() => settings.congregationId);
+  const [publisherId, setPublisherId] = useState(() => settings.publisherId);
   const [password, setPassword] = useState("");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [touched, setTouched] = useState(false);
+  const [step, setStep] = useState<OnboardingStep>(initialStep);
 
   useEffect(() => {
     if (!touched) {
       setCongregationId(settings.congregationId);
+      setPublisherId(settings.publisherId);
     }
   }, [settings, touched]);
 
@@ -56,23 +68,34 @@ export const OnboardingView = ({
   const passwordRequired = requiredPassword.length > 0;
   const passwordMatches = !passwordRequired || password === requiredPassword;
 
-  const canSubmit =
+  const {
+    publishers,
+    isLoading: publishersLoading,
+    error: publishersError,
+    retry: retryPublishers,
+    canRetry: canRetryPublishers,
+  } = usePublishers(selectedCongregation?.id, publisherCollection);
+
+  // Only a publisher that belongs to the selected congregation may be saved
+  const selectedPublisherId = publishers.some((p) => p.id === publisherId) ? publisherId : "";
+
+  const canContinue =
     isCongregationId(congregationId) &&
     congregationId.trim().length > 0 &&
     selectedCongregation != null &&
-    passwordMatches &&
-    !isSubmitting;
+    passwordMatches;
 
-  const handleSubmit = async () => {
-    if (!selectedCongregation) {
+  const handleContinue = () => {
+    if (!canContinue) {
       setStatusMessage("Choose your congregation to continue");
       return;
     }
-    if (!passwordMatches) {
-      setStatusMessage("Incorrect congregation password");
-      return;
-    }
-    const patch = createOnboardingPatch({ congregationId });
+    setStatusMessage(null);
+    setStep("publisher");
+  };
+
+  const handleFinish = async () => {
+    const patch = createOnboardingPatch({ congregationId, publisherId: selectedPublisherId });
     if (!patch) {
       setStatusMessage("Choose your congregation to continue");
       return;
@@ -84,12 +107,74 @@ export const OnboardingView = ({
       onComplete?.(updated);
     } catch (submitError) {
       setStatusMessage(
-        submitError instanceof Error ? submitError.message : "Failed to save your congregation",
+        submitError instanceof Error ? submitError.message : "Failed to save your selection",
       );
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (step === "publisher") {
+    return (
+      <>
+        <div className="ion-padding">
+          <IonText>
+            <h1>Who are you?</h1>
+            <p>
+              Select your name to personalise your experience, or skip for now — you can always do
+              this later from Settings.
+            </p>
+          </IonText>
+        </div>
+        <PublisherSelect
+          publishers={publishers}
+          selectedId={selectedPublisherId}
+          isLoading={publishersLoading}
+          error={publishersError}
+          canRetry={canRetryPublishers}
+          onRetry={() => {
+            void retryPublishers();
+          }}
+          onSelect={(id) => {
+            setPublisherId(id === publisherId ? "" : id);
+          }}
+        >
+          {statusMessage ? (
+            <IonItem lines="none">
+              <IonNote>{statusMessage}</IonNote>
+            </IonItem>
+          ) : null}
+        </PublisherSelect>
+        <div className="ion-padding">
+          <IonButton
+            expand="block"
+            disabled={isSubmitting || publishersLoading}
+            onClick={() => {
+              void handleFinish();
+            }}
+          >
+            {isSubmitting ? (
+              <IonSpinner name="crescent" />
+            ) : selectedPublisherId ? (
+              "Finish"
+            ) : (
+              "Skip"
+            )}
+          </IonButton>
+          <IonButton
+            expand="block"
+            fill="clear"
+            disabled={isSubmitting}
+            onClick={() => {
+              setStep("congregation");
+            }}
+          >
+            Back
+          </IonButton>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -111,6 +196,7 @@ export const OnboardingView = ({
                 if (typeof event.detail.value === "string") {
                   setTouched(true);
                   setCongregationId(event.detail.value);
+                  setPublisherId("");
                   setPassword("");
                 }
               }}
@@ -168,14 +254,8 @@ export const OnboardingView = ({
       </IonList>
       {selectedCongregation != null && passwordMatches ? (
         <div className="ion-padding">
-          <IonButton
-            expand="block"
-            disabled={!canSubmit}
-            onClick={() => {
-              void handleSubmit();
-            }}
-          >
-            {isSubmitting ? <IonSpinner name="crescent" /> : "Continue"}
+          <IonButton expand="block" disabled={!canContinue} onClick={handleContinue}>
+            Continue
           </IonButton>
         </div>
       ) : null}

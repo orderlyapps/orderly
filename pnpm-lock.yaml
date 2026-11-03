@@ -586,6 +586,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.2.0
         version: 19.3.0(@types/react@19.3.0)
+      ionicons:
+        specifier: ^8.1.0
+        version: 8.1.0
       react:
         specifier: ^19.2.0
         version: 19.3.1

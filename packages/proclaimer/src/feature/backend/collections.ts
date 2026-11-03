@@ -9,6 +9,7 @@ export interface SupabaseTableCollectionOptions<T extends Record<string, unknown
   table: string;
   id?: string;
   select?: string;
+  match?: Record<string, unknown>;
   idColumn?: keyof T & string;
   queryClient?: QueryClient;
 }
@@ -23,9 +24,19 @@ export function createSupabaseTableCollection<T extends Record<string, unknown>>
     queryCollectionOptions({
       id: options.id ?? `supabase:${options.table}`,
       queryClient: options.queryClient ?? getBackendQueryClient(),
-      queryKey: ["supabase", options.table, options.id ?? "default", options.select ?? "*"],
+      queryKey: [
+        "supabase",
+        options.table,
+        options.id ?? "default",
+        options.select ?? "*",
+        options.match ?? {},
+      ],
       queryFn: async () => {
-        const { data, error } = await table().select(options.select ?? "*");
+        let query = table().select(options.select ?? "*");
+        if (options.match) {
+          query = query.match(options.match);
+        }
+        const { data, error } = await query;
         if (error) {
           throw error;
         }

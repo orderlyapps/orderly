@@ -7,7 +7,7 @@ import {
   SETTINGS_STORAGE_KEY,
   type SettingsStore,
 } from "./db.ts";
-import { readLegacyCongregationId } from "./legacy.ts";
+import { readLegacyCongregationId, readLegacyPublisher } from "./legacy.ts";
 import {
   areSettingsEqual,
   DEFAULT_SETTINGS,
@@ -42,13 +42,20 @@ function getInitialSettings(customStore?: SettingsStore): SettingsDocument {
   const storage = customStore ? customStore.storage : getDefaultStorage();
   const storageKey = customStore ? customStore.storageKey : SETTINGS_STORAGE_KEY;
   const initial = readSettingsSnapshot(storage, storageKey) ?? { ...DEFAULT_SETTINGS };
-  if (initial.congregationId.trim().length === 0) {
+  let resolved = initial;
+  if (resolved.congregationId.trim().length === 0) {
     const legacyCongregationId = readLegacyCongregationId(storage);
     if (legacyCongregationId) {
-      return { ...initial, congregationId: legacyCongregationId };
+      resolved = { ...resolved, congregationId: legacyCongregationId };
     }
   }
-  return initial;
+  if (resolved.publisherId.trim().length === 0 && resolved.congregationId.trim().length > 0) {
+    const legacyPublisher = readLegacyPublisher(storage);
+    if (legacyPublisher?.congregationId === resolved.congregationId) {
+      resolved = { ...resolved, publisherId: legacyPublisher.id };
+    }
+  }
+  return resolved;
 }
 
 export function useSettings(customStore?: SettingsStore): UseSettingsResult {

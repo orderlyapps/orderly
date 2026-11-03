@@ -1,7 +1,13 @@
-import { isCongregationId, type SettingsDocument, type SettingsPatch } from "../settings/schema.ts";
+import {
+  isCongregationId,
+  isPublisherId,
+  type SettingsDocument,
+  type SettingsPatch,
+} from "../settings/schema.ts";
 
 export interface OnboardingDetails {
   congregationId: string;
+  publisherId?: string;
 }
 
 export function isOnboardingComplete(settings: SettingsDocument): boolean {
@@ -13,5 +19,9 @@ export function createOnboardingPatch(details: OnboardingDetails): SettingsPatch
   if (!isCongregationId(congregationId) || congregationId.length === 0) {
     return null;
   }
-  return { congregationId };
+  const publisherId = details.publisherId?.trim() ?? "";
+  return {
+    congregationId,
+    publisherId: isPublisherId(publisherId) ? publisherId : "",
+  };
 }

@@ -10,7 +10,7 @@ import {
   type StorageEventApi,
 } from "@tanstack/react-db";
 
-import { readLegacyCongregationId } from "./legacy.ts";
+import { readLegacyCongregationId, readLegacyPublisher } from "./legacy.ts";
 import {
   DEFAULT_SETTINGS,
   DEFAULT_SETTINGS_ID,
@@ -213,11 +213,25 @@ export async function createSettingsStore(options: CreateSettingsStoreOptions = 
   }
 
   const current = collection.get(DEFAULT_SETTINGS_ID);
-  if (current && normalizeSettingsDocument(current).congregationId.trim().length === 0) {
-    const legacyCongregationId = readLegacyCongregationId(storage);
+  if (current) {
+    const normalized = normalizeSettingsDocument(current);
+    const legacyCongregationId =
+      normalized.congregationId.trim().length === 0 ? readLegacyCongregationId(storage) : null;
+    const congregationId = legacyCongregationId ?? normalized.congregationId;
+    const legacyPublisher =
+      normalized.publisherId.trim().length === 0 && congregationId.trim().length > 0
+        ? readLegacyPublisher(storage)
+        : null;
+    const legacyPatch: SettingsPatch = {};
     if (legacyCongregationId) {
+      legacyPatch.congregationId = legacyCongregationId;
+    }
+    if (legacyPublisher && legacyPublisher.congregationId === congregationId) {
+      legacyPatch.publisherId = legacyPublisher.id;
+    }
+    if (Object.keys(legacyPatch).length > 0) {
       const tx = collection.update(DEFAULT_SETTINGS_ID, (draft) => {
-        draft.congregationId = legacyCongregationId;
+        Object.assign(draft, legacyPatch);
       });
       await tx.isPersisted.promise;
     }
