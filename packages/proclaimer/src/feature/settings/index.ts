@@ -33,6 +33,7 @@ export {
   type StorageEventApi,
 } from "./db.ts";
 export { useSettings, useThemeEffect, type UseSettingsResult } from "./hooks.ts";
+export { LEGACY_SELECTED_CONGREGATION_KEY, readLegacyCongregationId } from "./legacy.ts";
 export {
   areSettingsEqual,
   CONGREGATION_ID_MAX_LENGTH,

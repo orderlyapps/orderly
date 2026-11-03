@@ -21,6 +21,9 @@ import {
   CONGREGATION_ID_MAX_LENGTH,
   createSettingsStore,
   DEFAULT_SETTINGS,
+  LEGACY_SELECTED_CONGREGATION_KEY,
+  readLegacyCongregationId,
+  type StorageApi,
 } from "../src/feature/settings/index.ts";
 
 let storeCounter = 0;
@@ -191,6 +194,136 @@ test("asks for the congregation password when the selected congregation has one"
   } finally {
     await store.close();
     await collection.cleanup().catch(() => {});
+  }
+});
+
+function createMapStorage(storageMap = new Map<string, string>()): StorageApi {
+  return {
+    getItem: (key) => storageMap.get(key) ?? null,
+    setItem: (key, value) => {
+      storageMap.set(key, value);
+    },
+    removeItem: (key) => {
+      storageMap.delete(key);
+    },
+  };
+}
+
+test("reads the congregation id stored by the legacy app", () => {
+  const storageMap = new Map<string, string>();
+  const storage = createMapStorage(storageMap);
+
+  expect(readLegacyCongregationId(storage)).toBeNull();
+
+  storageMap.set(LEGACY_SELECTED_CONGREGATION_KEY, "not-valid-json{");
+  expect(readLegacyCongregationId(storage)).toBeNull();
+
+  storageMap.set(LEGACY_SELECTED_CONGREGATION_KEY, JSON.stringify({ name: "No Id" }));
+  expect(readLegacyCongregationId(storage)).toBeNull();
+
+  storageMap.set(LEGACY_SELECTED_CONGREGATION_KEY, JSON.stringify({ id: "   " }));
+  expect(readLegacyCongregationId(storage)).toBeNull();
+
+  storageMap.set(
+    LEGACY_SELECTED_CONGREGATION_KEY,
+    JSON.stringify({ id: "c1", name: "Alpha Congregation", password: "letmein" }),
+  );
+  expect(readLegacyCongregationId(storage)).toBe("c1");
+});
+
+test("migrates the legacy congregation selection into a new settings store", async () => {
+  const storageMap = new Map<string, string>();
+  const storage = createMapStorage(storageMap);
+  storageMap.set(
+    LEGACY_SELECTED_CONGREGATION_KEY,
+    JSON.stringify({ id: "c1", name: "Alpha Congregation" }),
+  );
+
+  const store = await createSettingsStore({ name: nextStoreName(), storage });
+  try {
+    const settings = await store.getSettings();
+    expect(settings.congregationId).toBe("c1");
+    expect(isOnboardingComplete(settings)).toBe(true);
+    expect(settings.theme).toBe("system");
+    // The legacy key is left in place so the previous app keeps working
+    expect(storageMap.get(LEGACY_SELECTED_CONGREGATION_KEY)).toBeTruthy();
+  } finally {
+    await store.close();
+  }
+});
+
+test("does not overwrite an existing congregation selection with the legacy value", async () => {
+  const storageMap = new Map<string, string>();
+  const storage = createMapStorage(storageMap);
+  const storeName = nextStoreName();
+
+  const first = await createSettingsStore({ name: storeName, storage });
+  await first.updateSettings({ congregationId: "c2" });
+  await first.close();
+
+  storageMap.set(
+    LEGACY_SELECTED_CONGREGATION_KEY,
+    JSON.stringify({ id: "c1", name: "Alpha Congregation" }),
+  );
+
+  const second = await createSettingsStore({ name: storeName, storage });
+  try {
+    expect((await second.getSettings()).congregationId).toBe("c2");
+  } finally {
+    await second.close();
+  }
+});
+
+test("migrates the legacy selection when settings exist without a congregation", async () => {
+  const storageMap = new Map<string, string>();
+  const storage = createMapStorage(storageMap);
+  const storeName = nextStoreName();
+
+  const first = await createSettingsStore({ name: storeName, storage });
+  await first.setTheme("dark");
+  await first.close();
+
+  storageMap.set(
+    LEGACY_SELECTED_CONGREGATION_KEY,
+    JSON.stringify({ id: "c1", name: "Alpha Congregation" }),
+  );
+
+  const second = await createSettingsStore({ name: storeName, storage });
+  try {
+    const settings = await second.getSettings();
+    expect(settings.congregationId).toBe("c1");
+    expect(settings.theme).toBe("dark");
+  } finally {
+    await second.close();
+  }
+});
+
+test("gate renders the app immediately when only the legacy selection exists", () => {
+  const storageMap = new Map<string, string>();
+  const previousLocalStorage = globalThis.localStorage;
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: createMapStorage(storageMap),
+  });
+  storageMap.set(
+    LEGACY_SELECTED_CONGREGATION_KEY,
+    JSON.stringify({ id: "c1", name: "Alpha Congregation" }),
+  );
+
+  try {
+    const markup = renderToStaticMarkup(
+      createElement(
+        OnboardingGate,
+        { onboarding: createElement("p", null, "onboarding") },
+        createElement("p", null, "app"),
+      ),
+    );
+    expect(markup).toBe("<p>app</p>");
+  } finally {
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: previousLocalStorage,
+    });
   }
 });
 

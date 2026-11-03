@@ -10,6 +10,7 @@ import {
   type StorageEventApi,
 } from "@tanstack/react-db";
 
+import { readLegacyCongregationId } from "./legacy.ts";
 import {
   DEFAULT_SETTINGS,
   DEFAULT_SETTINGS_ID,
@@ -209,6 +210,17 @@ export async function createSettingsStore(options: CreateSettingsStoreOptions = 
       Object.assign(draft, normalized);
     });
     await tx.isPersisted.promise;
+  }
+
+  const current = collection.get(DEFAULT_SETTINGS_ID);
+  if (current && normalizeSettingsDocument(current).congregationId.trim().length === 0) {
+    const legacyCongregationId = readLegacyCongregationId(storage);
+    if (legacyCongregationId) {
+      const tx = collection.update(DEFAULT_SETTINGS_ID, (draft) => {
+        draft.congregationId = legacyCongregationId;
+      });
+      await tx.isPersisted.promise;
+    }
   }
 
   const syncSettingsSnapshot = () => {
