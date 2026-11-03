@@ -159,7 +159,6 @@ export const InvoicesView = ({
         items={items}
         paymentTermsDays={settings.defaultPaymentTermsDays}
         defaultNotes={settings.defaultInvoiceNotes}
-        gstRate={settings.gstRegistered ? settings.gstRate : 0}
         onDismiss={() => setFormOpen(false)}
         onSubmit={handleSubmit}
       />
