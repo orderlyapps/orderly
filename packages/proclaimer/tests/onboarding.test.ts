@@ -76,15 +76,13 @@ test("gate renders onboarding until a congregation is saved", async () => {
   }
 });
 
-test("renders the onboarding form with a disabled continue button", async () => {
+test("renders the onboarding form with a hidden continue button", async () => {
   const store = await createSettingsStore({ name: nextStoreName() });
   try {
     const markup = renderToStaticMarkup(createElement(OnboardingView, { store }));
     expect(markup).toContain("Welcome to Proclaimer");
-    expect(markup).toContain("Congregation");
     expect(markup).toContain("<ion-select");
-    expect(markup).toContain("ion-button");
-    expect(markup).toContain("disabled");
+    expect(markup).not.toContain("ion-button");
   } finally {
     await store.close();
   }
@@ -132,6 +130,64 @@ test("renders congregation options from a provided collection", async () => {
     expect(markup).not.toContain("Placeholder Congregation");
     expect(markup).not.toContain("Anonymous Congregation");
     expect(markup).not.toContain("Retry");
+  } finally {
+    await store.close();
+    await collection.cleanup().catch(() => {});
+  }
+});
+
+test("asks for the congregation password when the selected congregation has one", async () => {
+  const storageMap = new Map<string, string>();
+  const collection = createCollection(
+    localStorageCollectionOptions<Congregation, string>({
+      id: `congregations_test_password_${Date.now()}`,
+      storageKey: `congregations_test_password_${Date.now()}`,
+      storage: {
+        getItem: (key) => storageMap.get(key) ?? null,
+        setItem: (key, value) => {
+          storageMap.set(key, value);
+        },
+        removeItem: (key) => {
+          storageMap.delete(key);
+        },
+      },
+      getKey: (congregation) => congregation.id ?? "",
+      startSync: true,
+    }),
+  );
+
+  const store = await createSettingsStore({ name: nextStoreName() });
+  try {
+    await collection.preload();
+    const tx = collection.insert([
+      { id: "c1", name: "Alpha Congregation", password: "letmein" },
+      { id: "c2", name: "Beta Congregation" },
+    ]);
+    await tx.isPersisted.promise;
+
+    const render = () =>
+      renderToStaticMarkup(
+        createElement(OnboardingView, {
+          store,
+          collection: collection as unknown as CongregationCollection,
+        }),
+      );
+
+    await store.updateSettings({ congregationId: "c1" });
+    const protectedMarkup = render();
+    expect(protectedMarkup).toContain("<ion-input");
+    expect(protectedMarkup).not.toContain("ion-button");
+
+    await store.updateSettings({ congregationId: "c2" });
+    const openMarkup = render();
+    expect(openMarkup).not.toContain("<ion-input");
+    expect(openMarkup).toContain("ion-button");
+    expect(openMarkup).not.toContain("disabled");
+
+    await store.updateSettings({ congregationId: "unknown-congregation" });
+    const unresolvedMarkup = render();
+    expect(unresolvedMarkup).not.toContain("<ion-input");
+    expect(unresolvedMarkup).not.toContain("ion-button");
   } finally {
     await store.close();
     await collection.cleanup().catch(() => {});

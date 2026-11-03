@@ -2,11 +2,10 @@ import { useEffect, useState } from "react";
 
 import {
   IonButton,
+  IonInput,
   IonItem,
   IonItemGroup,
-  IonLabel,
   IonList,
-  IonListHeader,
   IonNote,
   IonSelect,
   IonSelectOption,
@@ -36,6 +35,7 @@ export const OnboardingView = ({
   const { settings, updateSettings } = useSettings(customStore);
   const { congregations, isLoading, error, retry, canRetry } = useCongregations(collection);
   const [congregationId, setCongregationId] = useState(() => settings.congregationId);
+  const [password, setPassword] = useState("");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [touched, setTouched] = useState(false);
@@ -46,10 +46,32 @@ export const OnboardingView = ({
     }
   }, [settings, touched]);
 
+  const selectableCongregations = congregations.filter(
+    (congregation) => isCongregationRowId(congregation.id) && !congregation.congregation_id,
+  );
+  const selectedCongregation = selectableCongregations.find(
+    (congregation) => congregation.id === congregationId,
+  );
+  const requiredPassword = selectedCongregation?.password ?? "";
+  const passwordRequired = requiredPassword.length > 0;
+  const passwordMatches = !passwordRequired || password === requiredPassword;
+
   const canSubmit =
-    isCongregationId(congregationId) && congregationId.trim().length > 0 && !isSubmitting;
+    isCongregationId(congregationId) &&
+    congregationId.trim().length > 0 &&
+    selectedCongregation != null &&
+    passwordMatches &&
+    !isSubmitting;
 
   const handleSubmit = async () => {
+    if (!selectedCongregation) {
+      setStatusMessage("Choose your congregation to continue");
+      return;
+    }
+    if (!passwordMatches) {
+      setStatusMessage("Incorrect congregation password");
+      return;
+    }
     const patch = createOnboardingPatch({ congregationId });
     if (!patch) {
       setStatusMessage("Choose your congregation to continue");
@@ -79,33 +101,41 @@ export const OnboardingView = ({
       </div>
       <IonList inset>
         <IonItemGroup>
-          <IonListHeader>
-            <IonLabel>Congregation</IonLabel>
-          </IonListHeader>
           <IonItem>
             <IonSelect
-              label="Which congregation do you belong to?"
+              label="Congregation"
               labelPlacement="stacked"
+              interface="popover"
               value={congregationId}
               onIonChange={(event) => {
                 if (typeof event.detail.value === "string") {
                   setTouched(true);
                   setCongregationId(event.detail.value);
+                  setPassword("");
                 }
               }}
             >
-              {congregations
-                .filter(
-                  (congregation) =>
-                    isCongregationRowId(congregation.id) && !congregation.congregation_id,
-                )
-                .map((congregation) => (
-                  <IonSelectOption key={congregation.id} value={congregation.id}>
-                    {congregation.name}
-                  </IonSelectOption>
-                ))}
+              {selectableCongregations.map((congregation) => (
+                <IonSelectOption key={congregation.id} value={congregation.id}>
+                  {congregation.name}
+                </IonSelectOption>
+              ))}
             </IonSelect>
           </IonItem>
+          {passwordRequired ? (
+            <IonItem>
+              <IonInput
+                label="Password"
+                labelPlacement="stacked"
+                type="password"
+                value={password}
+                onIonInput={(event) => {
+                  setTouched(true);
+                  setPassword(event.detail.value ?? "");
+                }}
+              />
+            </IonItem>
+          ) : null}
           {isLoading ? (
             <IonItem lines="none">
               <IonSpinner name="crescent" />
@@ -136,17 +166,19 @@ export const OnboardingView = ({
           ) : null}
         </IonItemGroup>
       </IonList>
-      <div className="ion-padding">
-        <IonButton
-          expand="block"
-          disabled={!canSubmit}
-          onClick={() => {
-            void handleSubmit();
-          }}
-        >
-          {isSubmitting ? <IonSpinner name="crescent" /> : "Continue"}
-        </IonButton>
-      </div>
+      {selectedCongregation != null && passwordMatches ? (
+        <div className="ion-padding">
+          <IonButton
+            expand="block"
+            disabled={!canSubmit}
+            onClick={() => {
+              void handleSubmit();
+            }}
+          >
+            {isSubmitting ? <IonSpinner name="crescent" /> : "Continue"}
+          </IonButton>
+        </div>
+      ) : null}
     </>
   );
 };

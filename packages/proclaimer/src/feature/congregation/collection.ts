@@ -5,7 +5,7 @@ export function createCongregationCollection() {
   return createSupabaseTableCollection<Congregation>({
     table: CONGREGATION_TABLE,
     id: CONGREGATION_TABLE,
-    select: "id,name,congregation_id",
+    select: "id,name,congregation_id,password",
   });
 }
 
