@@ -17,7 +17,7 @@ import {
   popoverLeaveAnimation,
 } from "@rdlabo/ionic-theme-ios27";
 import { briefcase, calendar, home, people, settings } from "ionicons/icons";
-import { useThemeEffect } from "proclaimer-core";
+import { OnboardingGate, useThemeEffect } from "proclaimer-core";
 
 import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
 import Home from "./pages/Home";
@@ -25,6 +25,7 @@ import Ministry from "./pages/Ministry";
 import LetterWriting from "./pages/ministry/LetterWriting";
 import Map from "./pages/ministry/Map";
 import Schedule from "./pages/ministry/Schedule";
+import Onboarding from "./pages/Onboarding";
 import Publishers from "./pages/Publishers";
 import Schedules from "./pages/Schedules";
 import Settings from "./pages/Settings";
@@ -76,48 +77,50 @@ const App = () => {
   return (
     <IonApp>
       <PwaUpdatePrompt />
-      <IonReactRouter>
-        <IonTabs>
-          <IonRouterOutlet>
-            <Route path="/home" element={<Home />} />
-            <Route path="/ministry" element={<Ministry />} />
-            <Route path="/ministry/map" element={<Map />} />
-            <Route path="/ministry/letter-writing" element={<LetterWriting />} />
-            <Route path="/ministry/schedule" element={<Schedule />} />
-            <Route path="/schedules" element={<Schedules />} />
-            <Route path="/schedules/midweek" element={<Midweek />} />
-            <Route path="/schedules/weekend" element={<Weekend />} />
-            <Route path="/schedules/cleaning" element={<Cleaning />} />
-            <Route path="/schedules/events" element={<Events />} />
-            <Route path="/publishers" element={<Publishers />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/settings/about" element={<SettingsAbout />} />
-            <Route path="/" element={<Navigate to="/home" replace />} />
-          </IonRouterOutlet>
-          <IonTabBar slot="bottom">
-            <IonTabButton tab="home" href="/home">
-              <IonIcon aria-hidden="true" icon={home} />
-              <IonLabel>Home</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="ministry" href="/ministry">
-              <IonIcon aria-hidden="true" icon={briefcase} />
-              <IonLabel>Ministry</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="schedules" href="/schedules">
-              <IonIcon aria-hidden="true" icon={calendar} />
-              <IonLabel>Schedules</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="publishers" href="/publishers">
-              <IonIcon aria-hidden="true" icon={people} />
-              <IonLabel>Publishers</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="settings" href="/settings">
-              <IonIcon aria-hidden="true" icon={settings} />
-              <IonLabel>Settings</IonLabel>
-            </IonTabButton>
-          </IonTabBar>
-        </IonTabs>
-      </IonReactRouter>
+      <OnboardingGate onboarding={<Onboarding />}>
+        <IonReactRouter>
+          <IonTabs>
+            <IonRouterOutlet>
+              <Route path="/home" element={<Home />} />
+              <Route path="/ministry" element={<Ministry />} />
+              <Route path="/ministry/map" element={<Map />} />
+              <Route path="/ministry/letter-writing" element={<LetterWriting />} />
+              <Route path="/ministry/schedule" element={<Schedule />} />
+              <Route path="/schedules" element={<Schedules />} />
+              <Route path="/schedules/midweek" element={<Midweek />} />
+              <Route path="/schedules/weekend" element={<Weekend />} />
+              <Route path="/schedules/cleaning" element={<Cleaning />} />
+              <Route path="/schedules/events" element={<Events />} />
+              <Route path="/publishers" element={<Publishers />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/settings/about" element={<SettingsAbout />} />
+              <Route path="/" element={<Navigate to="/home" replace />} />
+            </IonRouterOutlet>
+            <IonTabBar slot="bottom">
+              <IonTabButton tab="home" href="/home">
+                <IonIcon aria-hidden="true" icon={home} />
+                <IonLabel>Home</IonLabel>
+              </IonTabButton>
+              <IonTabButton tab="ministry" href="/ministry">
+                <IonIcon aria-hidden="true" icon={briefcase} />
+                <IonLabel>Ministry</IonLabel>
+              </IonTabButton>
+              <IonTabButton tab="schedules" href="/schedules">
+                <IonIcon aria-hidden="true" icon={calendar} />
+                <IonLabel>Schedules</IonLabel>
+              </IonTabButton>
+              <IonTabButton tab="publishers" href="/publishers">
+                <IonIcon aria-hidden="true" icon={people} />
+                <IonLabel>Publishers</IonLabel>
+              </IonTabButton>
+              <IonTabButton tab="settings" href="/settings">
+                <IonIcon aria-hidden="true" icon={settings} />
+                <IonLabel>Settings</IonLabel>
+              </IonTabButton>
+            </IonTabBar>
+          </IonTabs>
+        </IonReactRouter>
+      </OnboardingGate>
     </IonApp>
   );
 };

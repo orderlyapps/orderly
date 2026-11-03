@@ -35,8 +35,10 @@ export {
 export { useSettings, useThemeEffect, type UseSettingsResult } from "./hooks.ts";
 export {
   areSettingsEqual,
+  CONGREGATION_ID_MAX_LENGTH,
   DEFAULT_SETTINGS,
   DEFAULT_SETTINGS_ID,
+  isCongregationId,
   isSettingsDocument,
   isSettingValue,
   isThemeMode,

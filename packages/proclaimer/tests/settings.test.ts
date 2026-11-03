@@ -17,6 +17,7 @@ import {
   getSettingsStore,
   importSettingsBinary,
   importSettingsBinaryFile,
+  isCongregationId,
   isSettingsDocument,
   isThemeMode,
   isValidSettingsId,
@@ -52,7 +53,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     "settings-2026-10-23_14-05-09.pro",
   );
   expect(THEME_MODES).toEqual(["light", "dark", "system"]);
-  expect(SETTINGS_KEYS).toEqual(["theme"]);
+  expect(SETTINGS_KEYS).toEqual(["theme", "congregationId"]);
   expect(THEME_LABELS).toEqual({ light: "Light", dark: "Dark", system: "System" });
   expect(THEME_OPTIONS).toEqual([
     { value: "light", label: "Light" },
@@ -68,32 +69,44 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
   expect(normalizeSettingsDocument(undefined)).toEqual({
     id: DEFAULT_SETTINGS_ID,
     theme: "system",
+    congregationId: "",
   });
   expect(normalizeSettingsDocument({ id: "", theme: "dark" })).toEqual({
     id: DEFAULT_SETTINGS_ID,
     theme: "dark",
+    congregationId: "",
   });
   const overlongId = "a".repeat(SETTINGS_ID_MAX_LENGTH + 1);
   expect(isValidSettingsId(DEFAULT_SETTINGS_ID)).toBe(true);
   expect(isValidSettingsId("")).toBe(false);
   expect(isValidSettingsId(overlongId)).toBe(false);
-  expect(isSettingsDocument({ id: DEFAULT_SETTINGS_ID, theme: "dark" })).toBe(true);
+  expect(isCongregationId("")).toBe(true);
+  expect(isCongregationId("congregation-1")).toBe(true);
+  expect(isCongregationId("   ")).toBe(false);
+  expect(isCongregationId("a".repeat(65))).toBe(false);
+  expect(isSettingsDocument({ id: DEFAULT_SETTINGS_ID, theme: "dark", congregationId: "" })).toBe(
+    true,
+  );
+  expect(isSettingsDocument({ id: DEFAULT_SETTINGS_ID, theme: "dark", congregationId: "  " })).toBe(
+    false,
+  );
   expect(isSettingsDocument({ id: overlongId, theme: "dark" })).toBe(false);
   expect(normalizeSettingsDocument({ id: overlongId, theme: "dark" })).toEqual({
     id: DEFAULT_SETTINGS_ID,
     theme: "dark",
+    congregationId: "",
   });
   expect(toSettingsPatch({ id: "custom", theme: "light" })).toEqual({ theme: "light" });
   expect(
     areSettingsEqual(
-      { id: DEFAULT_SETTINGS_ID, theme: "dark" },
-      { id: DEFAULT_SETTINGS_ID, theme: "dark" },
+      { id: DEFAULT_SETTINGS_ID, theme: "dark", congregationId: "" },
+      { id: DEFAULT_SETTINGS_ID, theme: "dark", congregationId: "" },
     ),
   ).toBe(true);
   expect(
     areSettingsEqual(
-      { id: DEFAULT_SETTINGS_ID, theme: "dark" },
-      { id: DEFAULT_SETTINGS_ID, theme: "light" },
+      { id: DEFAULT_SETTINGS_ID, theme: "dark", congregationId: "" },
+      { id: DEFAULT_SETTINGS_ID, theme: "light", congregationId: "" },
     ),
   ).toBe(false);
 
@@ -108,7 +121,7 @@ test("initializes LocalStorage Collection store with default system theme and up
   const store = await createSettingsStore({ name: storeName });
   try {
     const initial = await store.getSettings();
-    expect(initial).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "system" });
+    expect(initial).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "system", congregationId: "" });
     expect(store.collection.get(DEFAULT_SETTINGS_ID)?.theme).toBe("system");
 
     const updatedDark = await store.setTheme("dark");
@@ -152,10 +165,10 @@ test("exports settings to a binary Uint8Array and imports into another store", a
     expect(binary.byteLength).toBeGreaterThan(7);
 
     const decoded = decodeSettingsBinary(binary);
-    expect(decoded).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "dark" });
+    expect(decoded).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "dark", congregationId: "" });
 
     const imported = await importSettingsBinary(binary, targetStore);
-    expect(imported).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "dark" });
+    expect(imported).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "dark", congregationId: "" });
     expect((await targetStore.getSettings()).theme).toBe("dark");
 
     const blob = new Blob([binary], { type: "application/octet-stream" });
@@ -169,7 +182,11 @@ test("exports settings to a binary Uint8Array and imports into another store", a
     expect(blob.size).toBeGreaterThan(0);
 
     const downloaded = await downloadSettingsBinary(targetStore, "");
-    expect(decodeSettingsBinary(downloaded)).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "light" });
+    expect(decodeSettingsBinary(downloaded)).toEqual({
+      id: DEFAULT_SETTINGS_ID,
+      theme: "light",
+      congregationId: "",
+    });
   } finally {
     await sourceStore.close();
     await targetStore.close();
@@ -184,7 +201,11 @@ test("rejects invalid binary payloads", () => {
     decodeSettingsBinary(new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 123, 125])),
   ).toThrow("Invalid settings binary: unrecognized header");
 
-  const valid = encodeSettingsBinary({ id: DEFAULT_SETTINGS_ID, theme: "dark" });
+  const valid = encodeSettingsBinary({
+    id: DEFAULT_SETTINGS_ID,
+    theme: "dark",
+    congregationId: "",
+  });
   const corrupted = new Uint8Array(valid);
   corrupted[corrupted.length - 1] = 0x00;
   expect(() => decodeSettingsBinary(corrupted)).toThrow(
@@ -210,7 +231,7 @@ test("rejects invalid binary payloads", () => {
     decodeSettingsBinary(
       makeBinaryPayload({ id: "x".repeat(SETTINGS_ID_MAX_LENGTH + 5), theme: "dark" }),
     ),
-  ).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "dark" });
+  ).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "dark", congregationId: "" });
 });
 
 test("applies dark class to target element based on theme", () => {
@@ -381,7 +402,7 @@ test("recovers from malformed or corrupt data in storage and falls back to defau
     });
     try {
       const settings = await store.getSettings();
-      expect(settings).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "dark" });
+      expect(settings).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "dark", congregationId: "" });
     } finally {
       await store.close();
     }
