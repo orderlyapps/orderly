@@ -224,6 +224,7 @@ export const PublisherSignIn = ({ publisherId, client, onSignIn }: PublisherSign
           </IonItem>
           <IonItem lines="none">
             <IonInputOtp
+              style={{ margin: "0 auto" }}
               length={OTP_LENGTH}
               value={otp}
               disabled={isBusy}
