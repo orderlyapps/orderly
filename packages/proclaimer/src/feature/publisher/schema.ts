@@ -8,6 +8,7 @@ export type Publisher = {
   last_name: string;
   display_name?: string | null;
   congregation_id?: string | null;
+  auth_id?: string | null;
 };
 
 export function isPublisherRowId(value: unknown): value is string {

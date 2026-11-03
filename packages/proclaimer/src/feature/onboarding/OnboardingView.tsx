@@ -13,6 +13,7 @@ import {
   IonText,
 } from "@ionic/react";
 
+import { PublisherSignIn } from "../auth/PublisherSignIn.tsx";
 import type { CongregationCollection } from "../congregation/collection.ts";
 import { useCongregations } from "../congregation/hooks.ts";
 import { isCongregationRowId } from "../congregation/schema.ts";
@@ -24,7 +25,7 @@ import type { SettingsStore } from "../settings/db.ts";
 import { isCongregationId, type SettingsDocument } from "../settings/schema.ts";
 import { createOnboardingPatch } from "./completion.ts";
 
-export type OnboardingStep = "congregation" | "publisher";
+export type OnboardingStep = "congregation" | "publisher" | "signin";
 
 export interface OnboardingViewProps {
   store?: SettingsStore;
@@ -77,7 +78,8 @@ export const OnboardingView = ({
   } = usePublishers(selectedCongregation?.id, publisherCollection);
 
   // Only a publisher that belongs to the selected congregation may be saved
-  const selectedPublisherId = publishers.some((p) => p.id === publisherId) ? publisherId : "";
+  const selectedPublisher = publishers.find((p) => p.id === publisherId);
+  const selectedPublisherId = selectedPublisher ? publisherId : "";
 
   const canContinue =
     isCongregationId(congregationId) &&
@@ -113,6 +115,51 @@ export const OnboardingView = ({
       setIsSubmitting(false);
     }
   };
+
+  if (step === "signin" && selectedPublisher?.auth_id) {
+    return (
+      <>
+        <div className="ion-padding">
+          <IonText>
+            <h1>Sign in</h1>
+            <p>
+              This name is linked to an account. Sign in to enable account features on this device.
+            </p>
+          </IonText>
+        </div>
+        <PublisherSignIn
+          key={selectedPublisherId}
+          publisherId={selectedPublisherId}
+          onSignIn={() => {
+            void handleFinish();
+          }}
+        />
+        <div className="ion-padding">
+          {statusMessage ? <IonNote>{statusMessage}</IonNote> : null}
+          <IonButton
+            expand="block"
+            fill="clear"
+            disabled={isSubmitting}
+            onClick={() => {
+              void handleFinish();
+            }}
+          >
+            {isSubmitting ? <IonSpinner name="crescent" /> : "Continue without signing in"}
+          </IonButton>
+          <IonButton
+            expand="block"
+            fill="clear"
+            disabled={isSubmitting}
+            onClick={() => {
+              setStep("publisher");
+            }}
+          >
+            Back
+          </IonButton>
+        </div>
+      </>
+    );
+  }
 
   if (step === "publisher") {
     return (
@@ -150,11 +197,17 @@ export const OnboardingView = ({
             expand="block"
             disabled={isSubmitting || publishersLoading}
             onClick={() => {
-              void handleFinish();
+              if (selectedPublisher?.auth_id) {
+                setStep("signin");
+              } else {
+                void handleFinish();
+              }
             }}
           >
             {isSubmitting ? (
               <IonSpinner name="crescent" />
+            ) : selectedPublisher?.auth_id ? (
+              "Continue"
             ) : selectedPublisherId ? (
               "Finish"
             ) : (

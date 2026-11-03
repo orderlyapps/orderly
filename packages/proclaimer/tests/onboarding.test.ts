@@ -612,3 +612,89 @@ test("migrates the legacy publisher when the congregation is already set", async
     await second.close();
   }
 });
+
+test("offers sign-in when the selected publisher has an auth account", async () => {
+  const congregationsMap = new Map<string, string>();
+  const congregations = createCollection(
+    localStorageCollectionOptions<Congregation, string>({
+      id: `congregations_test_auth_${Date.now()}`,
+      storageKey: `congregations_test_auth_${Date.now()}`,
+      storage: {
+        getItem: (key) => congregationsMap.get(key) ?? null,
+        setItem: (key, value) => {
+          congregationsMap.set(key, value);
+        },
+        removeItem: (key) => {
+          congregationsMap.delete(key);
+        },
+      },
+      getKey: (congregation) => congregation.id ?? "",
+      startSync: true,
+    }),
+  );
+  const publishersMap = new Map<string, string>();
+  const publishers = createCollection(
+    localStorageCollectionOptions<Publisher, string>({
+      id: `publishers_test_auth_${Date.now()}`,
+      storageKey: `publishers_test_auth_${Date.now()}`,
+      storage: {
+        getItem: (key) => publishersMap.get(key) ?? null,
+        setItem: (key, value) => {
+          publishersMap.set(key, value);
+        },
+        removeItem: (key) => {
+          publishersMap.delete(key);
+        },
+      },
+      getKey: (publisher) => publisher.id ?? "",
+      startSync: true,
+    }),
+  );
+
+  const store = await createSettingsStore({ name: nextStoreName() });
+  try {
+    await congregations.preload();
+    await publishers.preload();
+    const congregationsTx = congregations.insert({ id: "c1", name: "Alpha Congregation" });
+    await congregationsTx.isPersisted.promise;
+    const publishersTx = publishers.insert([
+      { id: "p1", first_name: "Alice", last_name: "Smith", congregation_id: "c1", auth_id: "a1" },
+      { id: "p2", first_name: "Bob", last_name: "Zulu", congregation_id: "c1" },
+    ]);
+    await publishersTx.isPersisted.promise;
+    await store.updateSettings({ congregationId: "c1" });
+
+    const renderStep = (initialStep: "publisher" | "signin") =>
+      renderToStaticMarkup(
+        createElement(OnboardingView, {
+          store,
+          collection: congregations as unknown as CongregationCollection,
+          publisherCollection: publishers as unknown as PublisherCollection,
+          initialStep,
+        }),
+      );
+
+    // An auth-linked publisher continues to the sign-in screen instead of finishing
+    await store.updateSettings({ publisherId: "p1" });
+    const publisherMarkup = renderStep("publisher");
+    expect(publisherMarkup).toContain("Continue");
+    expect(publisherMarkup).not.toContain("Finish");
+    expect(publisherMarkup).not.toContain("ion-input-otp");
+
+    const signinMarkup = renderStep("signin");
+    expect(signinMarkup).toContain("<ion-input-otp");
+    expect(signinMarkup).toContain("<ion-input>");
+    expect(signinMarkup).toContain("Sign in");
+    expect(signinMarkup).toContain("Continue without signing in");
+
+    // A publisher without an auth account finishes directly
+    await store.updateSettings({ publisherId: "p2" });
+    const plainMarkup = renderStep("publisher");
+    expect(plainMarkup).toContain("Finish");
+    expect(plainMarkup).not.toContain("ion-input-otp");
+  } finally {
+    await store.close();
+    await congregations.cleanup().catch(() => {});
+    await publishers.cleanup().catch(() => {});
+  }
+});
