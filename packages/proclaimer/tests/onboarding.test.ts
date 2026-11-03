@@ -685,7 +685,7 @@ test("offers sign-in when the selected publisher has an auth account", async () 
     expect(signinMarkup).toContain("<ion-input-otp");
     expect(signinMarkup).toContain("<ion-input>");
     expect(signinMarkup).toContain("Sign in");
-    expect(signinMarkup).toContain("Continue without signing in");
+    expect(signinMarkup).toContain("Skip");
 
     // A publisher without an auth account finishes directly
     await store.updateSettings({ publisherId: "p2" });

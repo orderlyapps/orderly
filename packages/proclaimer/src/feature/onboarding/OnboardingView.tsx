@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 
 import {
   IonButton,
+  IonButtons,
+  IonContent,
+  IonHeader,
   IonInput,
   IonItem,
   IonItemGroup,
@@ -11,6 +14,8 @@ import {
   IonSelectOption,
   IonSpinner,
   IonText,
+  IonTitle,
+  IonToolbar,
 } from "@ionic/react";
 
 import { PublisherSignIn } from "../auth/PublisherSignIn.tsx";
@@ -26,6 +31,40 @@ import { isCongregationId, type SettingsDocument } from "../settings/schema.ts";
 import { createOnboardingPatch } from "./completion.ts";
 
 export type OnboardingStep = "congregation" | "publisher" | "signin";
+
+interface OnboardingHeaderProps {
+  isSubmitting: boolean;
+  onBack?: () => void;
+  onSkip?: () => void;
+  isSkipDisabled?: boolean;
+}
+
+const OnboardingHeader = ({
+  isSubmitting,
+  onBack,
+  onSkip,
+  isSkipDisabled = false,
+}: OnboardingHeaderProps) => (
+  <IonHeader>
+    <IonToolbar>
+      {onBack ? (
+        <IonButtons slot="start">
+          <IonButton disabled={isSubmitting} onClick={onBack}>
+            Back
+          </IonButton>
+        </IonButtons>
+      ) : null}
+      <IonTitle>Welcome</IonTitle>
+      {onSkip ? (
+        <IonButtons slot="end">
+          <IonButton disabled={isSubmitting || isSkipDisabled} onClick={onSkip}>
+            {isSubmitting ? <IonSpinner name="crescent" /> : "Skip"}
+          </IonButton>
+        </IonButtons>
+      ) : null}
+    </IonToolbar>
+  </IonHeader>
+);
 
 export interface OnboardingViewProps {
   store?: SettingsStore;
@@ -119,44 +158,38 @@ export const OnboardingView = ({
   if (step === "signin" && selectedPublisher?.auth_id) {
     return (
       <>
-        <div className="ion-padding">
-          <IonText>
-            <h1>Sign in</h1>
-            <p>
-              This name is linked to an account. Sign in to enable account features on this device.
-            </p>
-          </IonText>
-        </div>
-        <PublisherSignIn
-          key={selectedPublisherId}
-          publisherId={selectedPublisherId}
-          onSignIn={() => {
+        <OnboardingHeader
+          isSubmitting={isSubmitting}
+          onBack={() => {
+            setStep("publisher");
+          }}
+          onSkip={() => {
             void handleFinish();
           }}
         />
-        <div className="ion-padding">
-          {statusMessage ? <IonNote>{statusMessage}</IonNote> : null}
-          <IonButton
-            expand="block"
-            fill="clear"
-            disabled={isSubmitting}
-            onClick={() => {
+        <IonContent fullscreen>
+          <div className="ion-padding">
+            <IonText>
+              <h1>Sign in</h1>
+              <p>
+                This name is linked to an account. Sign in to enable account features on this
+                device.
+              </p>
+            </IonText>
+          </div>
+          <PublisherSignIn
+            key={selectedPublisherId}
+            publisherId={selectedPublisherId}
+            onSignIn={() => {
               void handleFinish();
             }}
-          >
-            {isSubmitting ? <IonSpinner name="crescent" /> : "Continue without signing in"}
-          </IonButton>
-          <IonButton
-            expand="block"
-            fill="clear"
-            disabled={isSubmitting}
-            onClick={() => {
-              setStep("publisher");
-            }}
-          >
-            Back
-          </IonButton>
-        </div>
+          />
+          {statusMessage ? (
+            <div className="ion-padding">
+              <IonNote>{statusMessage}</IonNote>
+            </div>
+          ) : null}
+        </IonContent>
       </>
     );
   }
@@ -164,154 +197,163 @@ export const OnboardingView = ({
   if (step === "publisher") {
     return (
       <>
-        <div className="ion-padding">
-          <IonText>
-            <h1>Who are you?</h1>
-            <p>
-              Search for your name to personalise your experience, or skip for now — you can always
-              do this later from Settings.
-            </p>
-          </IonText>
-        </div>
-        <PublisherAutocomplete
-          publishers={publishers}
-          selectedId={selectedPublisherId}
-          isLoading={publishersLoading}
-          error={publishersError}
-          canRetry={canRetryPublishers}
-          onRetry={() => {
-            void retryPublishers();
+        <OnboardingHeader
+          isSubmitting={isSubmitting}
+          onBack={() => {
+            setStep("congregation");
           }}
-          onSelect={(id) => {
-            setPublisherId(id);
-          }}
-        >
-          {statusMessage ? (
-            <IonItem lines="none">
-              <IonNote>{statusMessage}</IonNote>
-            </IonItem>
+          onSkip={
+            selectedPublisherId
+              ? undefined
+              : () => {
+                  void handleFinish();
+                }
+          }
+          isSkipDisabled={publishersLoading}
+        />
+        <IonContent fullscreen>
+          <div className="ion-padding">
+            <IonText>
+              <h1>Who are you?</h1>
+              <p>
+                Search for your name to personalise your experience, or skip for now — you can
+                always do this later from Settings.
+              </p>
+            </IonText>
+          </div>
+          <PublisherAutocomplete
+            publishers={publishers}
+            selectedId={selectedPublisherId}
+            isLoading={publishersLoading}
+            error={publishersError}
+            canRetry={canRetryPublishers}
+            onRetry={() => {
+              void retryPublishers();
+            }}
+            onSelect={(id) => {
+              setPublisherId(id);
+            }}
+          >
+            {statusMessage ? (
+              <IonItem lines="none">
+                <IonNote>{statusMessage}</IonNote>
+              </IonItem>
+            ) : null}
+          </PublisherAutocomplete>
+          {selectedPublisherId ? (
+            <div className="ion-padding">
+              <IonButton
+                expand="block"
+                disabled={isSubmitting || publishersLoading}
+                onClick={() => {
+                  if (selectedPublisher?.auth_id) {
+                    setStep("signin");
+                  } else {
+                    void handleFinish();
+                  }
+                }}
+              >
+                {isSubmitting ? (
+                  <IonSpinner name="crescent" />
+                ) : selectedPublisher?.auth_id ? (
+                  "Continue"
+                ) : (
+                  "Finish"
+                )}
+              </IonButton>
+            </div>
           ) : null}
-        </PublisherAutocomplete>
-        <div className="ion-padding">
-          <IonButton
-            expand="block"
-            disabled={isSubmitting || publishersLoading}
-            onClick={() => {
-              if (selectedPublisher?.auth_id) {
-                setStep("signin");
-              } else {
-                void handleFinish();
-              }
-            }}
-          >
-            {isSubmitting ? (
-              <IonSpinner name="crescent" />
-            ) : selectedPublisher?.auth_id ? (
-              "Continue"
-            ) : selectedPublisherId ? (
-              "Finish"
-            ) : (
-              "Skip"
-            )}
-          </IonButton>
-          <IonButton
-            expand="block"
-            fill="clear"
-            disabled={isSubmitting}
-            onClick={() => {
-              setStep("congregation");
-            }}
-          >
-            Back
-          </IonButton>
-        </div>
+        </IonContent>
       </>
     );
   }
 
   return (
     <>
-      <div className="ion-padding">
-        <IonText>
-          <h1>Welcome to Proclaimer</h1>
-          <p>Choose your congregation to get started.</p>
-        </IonText>
-      </div>
-      <IonList inset>
-        <IonItemGroup>
-          <IonItem>
-            <IonSelect
-              label="Congregation"
-              labelPlacement="stacked"
-              interface="popover"
-              value={congregationId}
-              onIonChange={(event) => {
-                if (typeof event.detail.value === "string") {
-                  setTouched(true);
-                  setCongregationId(event.detail.value);
-                  setPublisherId("");
-                  setPassword("");
-                }
-              }}
-            >
-              {selectableCongregations.map((congregation) => (
-                <IonSelectOption key={congregation.id} value={congregation.id}>
-                  {congregation.name}
-                </IonSelectOption>
-              ))}
-            </IonSelect>
-          </IonItem>
-          {passwordRequired ? (
-            <IonItem>
-              <IonInput
-                label="Password"
-                labelPlacement="stacked"
-                type="password"
-                value={password}
-                onIonInput={(event) => {
-                  setTouched(true);
-                  setPassword(event.detail.value ?? "");
-                }}
-              />
-            </IonItem>
-          ) : null}
-          {isLoading ? (
-            <IonItem lines="none">
-              <IonSpinner name="crescent" />
-              <IonNote className="ion-padding-start">Loading congregations…</IonNote>
-            </IonItem>
-          ) : null}
-          {error ? (
-            <IonItem lines="none">
-              <IonNote color="danger">{error.message || "Failed to load congregations"}</IonNote>
-              {canRetry ? (
-                <IonButton
-                  slot="end"
-                  size="small"
-                  fill="outline"
-                  onClick={() => {
-                    void retry();
-                  }}
-                >
-                  Retry
-                </IonButton>
-              ) : null}
-            </IonItem>
-          ) : null}
-          {statusMessage ? (
-            <IonItem lines="none">
-              <IonNote>{statusMessage}</IonNote>
-            </IonItem>
-          ) : null}
-        </IonItemGroup>
-      </IonList>
-      {selectedCongregation != null && passwordMatches ? (
+      <OnboardingHeader isSubmitting={isSubmitting} />
+      <IonContent fullscreen>
         <div className="ion-padding">
-          <IonButton expand="block" disabled={!canContinue} onClick={handleContinue}>
-            Continue
-          </IonButton>
+          <IonText>
+            <h1>Welcome to Proclaimer</h1>
+            <p>Choose your congregation to get started.</p>
+          </IonText>
         </div>
-      ) : null}
+        <IonList inset>
+          <IonItemGroup>
+            <IonItem>
+              <IonSelect
+                label="Congregation"
+                labelPlacement="stacked"
+                interface="popover"
+                value={congregationId}
+                onIonChange={(event) => {
+                  if (typeof event.detail.value === "string") {
+                    setTouched(true);
+                    setCongregationId(event.detail.value);
+                    setPublisherId("");
+                    setPassword("");
+                  }
+                }}
+              >
+                {selectableCongregations.map((congregation) => (
+                  <IonSelectOption key={congregation.id} value={congregation.id}>
+                    {congregation.name}
+                  </IonSelectOption>
+                ))}
+              </IonSelect>
+            </IonItem>
+            {passwordRequired ? (
+              <IonItem>
+                <IonInput
+                  label="Password"
+                  labelPlacement="stacked"
+                  type="password"
+                  value={password}
+                  onIonInput={(event) => {
+                    setTouched(true);
+                    setPassword(event.detail.value ?? "");
+                  }}
+                />
+              </IonItem>
+            ) : null}
+            {isLoading ? (
+              <IonItem lines="none">
+                <IonSpinner name="crescent" />
+                <IonNote className="ion-padding-start">Loading congregations…</IonNote>
+              </IonItem>
+            ) : null}
+            {error ? (
+              <IonItem lines="none">
+                <IonNote color="danger">{error.message || "Failed to load congregations"}</IonNote>
+                {canRetry ? (
+                  <IonButton
+                    slot="end"
+                    size="small"
+                    fill="outline"
+                    onClick={() => {
+                      void retry();
+                    }}
+                  >
+                    Retry
+                  </IonButton>
+                ) : null}
+              </IonItem>
+            ) : null}
+            {statusMessage ? (
+              <IonItem lines="none">
+                <IonNote>{statusMessage}</IonNote>
+              </IonItem>
+            ) : null}
+          </IonItemGroup>
+        </IonList>
+        {selectedCongregation != null && passwordMatches ? (
+          <div className="ion-padding">
+            <IonButton expand="block" disabled={!canContinue} onClick={handleContinue}>
+              Continue
+            </IonButton>
+          </div>
+        ) : null}
+      </IonContent>
     </>
   );
 };
