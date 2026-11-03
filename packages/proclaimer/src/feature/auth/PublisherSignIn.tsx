@@ -21,11 +21,12 @@ import { publisherAuthEmail } from "./email.ts";
 
 const OTP_LENGTH = 6;
 
-type BusyAction = "code" | "signin" | "signout";
+type BusyAction = "code" | "verify" | "password" | "signout";
 
 const BUSY_LABELS: Record<BusyAction, string> = {
   code: "Sending code…",
-  signin: "Signing in…",
+  verify: "Signing in…",
+  password: "Signing in…",
   signout: "Signing out…",
 };
 
@@ -39,7 +40,8 @@ export const PublisherSignIn = ({ publisherId, client, onSignIn }: PublisherSign
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [busyAction, setBusyAction] = useState<BusyAction | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const verifyingRef = useRef(false);
   const lastEmailRef = useRef<string | null>(null);
@@ -65,21 +67,22 @@ export const PublisherSignIn = ({ publisherId, client, onSignIn }: PublisherSign
   const sendOtp = async () => {
     const supabase = resolveClient();
     if (!supabase) {
-      setError("Sign-in is unavailable right now");
+      setOtpError("Sign-in is unavailable right now");
       return;
     }
     setBusyAction("code");
-    setError(null);
+    setOtpError(null);
     const result = await sendPublisherOtp(supabase, email);
     setBusyAction(null);
     if (result.error) {
-      setError(result.error);
+      setOtpError(result.error);
     }
   };
 
   const handleSignedIn = (session: Session | null) => {
     setBusyAction(null);
-    setError(null);
+    setOtpError(null);
+    setPasswordError(null);
     setIsSignedIn(true);
     onSignInRef.current?.(session);
   };
@@ -95,12 +98,13 @@ export const PublisherSignIn = ({ publisherId, client, onSignIn }: PublisherSign
     setIsSignedIn(false);
     setOtp("");
     setPassword("");
-    setError(null);
+    setOtpError(null);
+    setPasswordError(null);
 
     const initialise = async () => {
       const supabase = resolveClient();
       if (!supabase) {
-        setError("Sign-in is unavailable right now");
+        setOtpError("Sign-in is unavailable right now");
         return;
       }
       try {
@@ -122,20 +126,20 @@ export const PublisherSignIn = ({ publisherId, client, onSignIn }: PublisherSign
   const verifyOtp = async (token: string) => {
     const supabase = resolveClient();
     if (!supabase) {
-      setError("Sign-in is unavailable right now");
+      setOtpError("Sign-in is unavailable right now");
       return;
     }
     if (verifyingRef.current) {
       return;
     }
     verifyingRef.current = true;
-    setBusyAction("signin");
-    setError(null);
+    setBusyAction("verify");
+    setOtpError(null);
     const result = await verifyPublisherOtp(supabase, email, token);
     verifyingRef.current = false;
     if (result.error) {
       setBusyAction(null);
-      setError(result.error);
+      setOtpError(result.error);
       setOtp("");
       return;
     }
@@ -145,15 +149,15 @@ export const PublisherSignIn = ({ publisherId, client, onSignIn }: PublisherSign
   const signInWithPassword = async () => {
     const supabase = resolveClient();
     if (!supabase) {
-      setError("Sign-in is unavailable right now");
+      setPasswordError("Sign-in is unavailable right now");
       return;
     }
-    setBusyAction("signin");
-    setError(null);
+    setBusyAction("password");
+    setPasswordError(null);
     const result = await signInPublisherWithPassword(supabase, email, password);
     if (result.error) {
       setBusyAction(null);
-      setError(result.error);
+      setPasswordError(result.error);
       return;
     }
     handleSignedIn(result.session);
@@ -173,6 +177,8 @@ export const PublisherSignIn = ({ publisherId, client, onSignIn }: PublisherSign
     setIsSignedIn(false);
     setOtp("");
     setPassword("");
+    setOtpError(null);
+    setPasswordError(null);
   };
 
   if (isSignedIn) {
@@ -237,6 +243,32 @@ export const PublisherSignIn = ({ publisherId, client, onSignIn }: PublisherSign
             />
           </IonItem>
           <IonItem lines="none">
+            <IonButton
+              fill="clear"
+              size="small"
+              style={{ margin: "0 auto" }}
+              disabled={isBusy}
+              onClick={() => {
+                void sendOtp();
+              }}
+            >
+              Resend code
+            </IonButton>
+          </IonItem>
+          {busyAction === "code" || busyAction === "verify" ? (
+            <IonItem lines="none">
+              <IonSpinner name="crescent" />
+              <IonNote className="ion-padding-start">{BUSY_LABELS[busyAction]}</IonNote>
+            </IonItem>
+          ) : null}
+          {otpError ? (
+            <IonItem lines="none">
+              <IonNote color="danger">{otpError}</IonNote>
+            </IonItem>
+          ) : null}
+        </IonItemGroup>
+        <IonItemGroup>
+          <IonItem lines="none">
             <IonNote>Or sign in with your password.</IonNote>
           </IonItem>
           <IonItem>
@@ -252,15 +284,15 @@ export const PublisherSignIn = ({ publisherId, client, onSignIn }: PublisherSign
               }}
             />
           </IonItem>
-          {busyAction ? (
+          {busyAction === "password" ? (
             <IonItem lines="none">
               <IonSpinner name="crescent" />
-              <IonNote className="ion-padding-start">{BUSY_LABELS[busyAction]}</IonNote>
+              <IonNote className="ion-padding-start">{BUSY_LABELS.password}</IonNote>
             </IonItem>
           ) : null}
-          {error ? (
+          {passwordError ? (
             <IonItem lines="none">
-              <IonNote color="danger">{error}</IonNote>
+              <IonNote color="danger">{passwordError}</IonNote>
             </IonItem>
           ) : null}
         </IonItemGroup>
@@ -268,16 +300,6 @@ export const PublisherSignIn = ({ publisherId, client, onSignIn }: PublisherSign
       <div className="ion-padding">
         <IonButton expand="block" type="submit" disabled={isBusy || password.length === 0}>
           Sign in
-        </IonButton>
-        <IonButton
-          expand="block"
-          fill="clear"
-          disabled={isBusy}
-          onClick={() => {
-            void sendOtp();
-          }}
-        >
-          Resend code
         </IonButton>
       </div>
     </form>
