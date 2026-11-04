@@ -62,6 +62,7 @@ import "@rdlabo/ionic-theme-ios27/dist/css/ionic-theme-ios27-dark-class.css";
 
 /* Theme variables */
 import "./theme/variables.css";
+import "./theme/jw-colors.css";
 
 setupIonicReact({
   mode: "ios",
@@ -87,7 +88,7 @@ const App = () => {
               <Route path="/ministry/letter-writing" element={<LetterWriting />} />
               <Route path="/ministry/schedule" element={<Schedule />} />
               <Route path="/schedules" element={<Schedules />} />
-              <Route path="/schedules/midweek" element={<Midweek />} />
+              <Route path="/schedules/midweek/:weekId?" element={<Midweek />} />
               <Route path="/schedules/weekend" element={<Weekend />} />
               <Route path="/schedules/cleaning" element={<Cleaning />} />
               <Route path="/schedules/events" element={<Events />} />

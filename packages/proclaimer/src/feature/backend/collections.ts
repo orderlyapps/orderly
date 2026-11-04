@@ -12,6 +12,7 @@ export interface SupabaseTableCollectionOptions<T extends Record<string, unknown
   select?: string;
   match?: Record<string, unknown>;
   idColumn?: keyof T & string;
+  keyColumns?: (keyof T & string)[];
   queryClient?: QueryClient;
   schema?: z.ZodType<T>;
 }
@@ -20,7 +21,11 @@ export function createSupabaseTableCollection<T extends Record<string, unknown>>
   options: SupabaseTableCollectionOptions<T>,
 ) {
   const table = () => getSupabaseClient().from(options.table);
-  const idColumn: string = options.idColumn ?? "id";
+  const keyColumns: (keyof T & string)[] = options.keyColumns ?? [
+    options.idColumn ?? ("id" as keyof T & string),
+  ];
+  const matchKey = (row: T) =>
+    Object.fromEntries(keyColumns.map((column) => [column, row[column]]));
 
   return createCollection(
     queryCollectionOptions({
@@ -61,7 +66,10 @@ export function createSupabaseTableCollection<T extends Record<string, unknown>>
         }
         return data as unknown as T[];
       },
-      getKey: (item: T) => item[idColumn] as string,
+      getKey: (item: T) =>
+        keyColumns.length === 1
+          ? (item[keyColumns[0]] as string)
+          : JSON.stringify(keyColumns.map((column) => item[column])),
       onInsert: async ({ transaction }) => {
         const rows = transaction.mutations.map(
           (mutation) => mutation.modified as Record<string, unknown>,
@@ -75,17 +83,29 @@ export function createSupabaseTableCollection<T extends Record<string, unknown>>
         for (const mutation of transaction.mutations) {
           const { error } = await table()
             .update(mutation.changes as Record<string, unknown>)
-            .eq(idColumn, mutation.key);
+            .match(matchKey(mutation.original as T));
           if (error) {
             throw error;
           }
         }
       },
       onDelete: async ({ transaction }) => {
-        const keys = transaction.mutations.map((mutation) => mutation.key);
-        const { error } = await table().delete().in(idColumn, keys);
-        if (error) {
-          throw error;
+        if (keyColumns.length === 1) {
+          const idColumn: string = keyColumns[0];
+          const keys = transaction.mutations.map((mutation) => mutation.key);
+          const { error } = await table().delete().in(idColumn, keys);
+          if (error) {
+            throw error;
+          }
+          return;
+        }
+        for (const mutation of transaction.mutations) {
+          const { error } = await table()
+            .delete()
+            .match(matchKey(mutation.original as T));
+          if (error) {
+            throw error;
+          }
         }
       },
       startSync: true,

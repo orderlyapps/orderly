@@ -7,10 +7,23 @@ import {
   IonTitle,
   IonToolbar,
 } from "@ionic/react";
-
-import ExploreContainer from "../../components/ExploreContainer";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  currentWeekId,
+  MidweekMeetingView,
+  parseWeekId,
+  useSettings,
+  weekIdOf,
+} from "proclaimer-core";
 
 const Midweek = () => {
+  const { settings } = useSettings();
+  const navigate = useNavigate();
+  const { weekId } = useParams<{ weekId?: string }>();
+  // Meeting data is keyed by Monday, so normalize any valid date to its week id.
+  const parsedWeekId = weekId ? parseWeekId(weekId) : null;
+  const resolvedWeekId = parsedWeekId ? weekIdOf(parsedWeekId) : currentWeekId();
+
   return (
     <IonPage>
       <IonHeader>
@@ -18,16 +31,17 @@ const Midweek = () => {
           <IonButtons slot="start">
             <IonBackButton defaultHref="/schedules" />
           </IonButtons>
-          <IonTitle>Midweek</IonTitle>
+          <IonTitle>Midweek Meeting</IonTitle>
         </IonToolbar>
       </IonHeader>
       <IonContent fullscreen>
-        <IonHeader collapse="condense">
-          <IonToolbar>
-            <IonTitle size="large">Midweek</IonTitle>
-          </IonToolbar>
-        </IonHeader>
-        <ExploreContainer name="Midweek page" />
+        <MidweekMeetingView
+          weekId={resolvedWeekId}
+          congregationId={settings.congregationId || undefined}
+          onSelectWeek={(nextWeekId) =>
+            navigate(`/schedules/midweek/${nextWeekId}`, { replace: true })
+          }
+        />
       </IonContent>
     </IonPage>
   );
