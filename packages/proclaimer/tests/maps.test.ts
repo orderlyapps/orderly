@@ -8,15 +8,19 @@ import {
   DEFAULT_MAP_CENTER,
   isMapboxAccessToken,
   isValidCoordinates,
+  isValidMapViewState,
   MAPBOX_DARK_STYLE,
   MAPBOX_LIGHT_STYLE,
   MAP_DEFAULT_ZOOM,
   MAP_MAX_ZOOM,
   MAP_MIN_ZOOM,
+  MAP_VIEW_STATE_STORAGE_KEY,
   MapView,
+  readMapViewState,
   resolveMapStyle,
   toMapboxCenter,
   useMapboxMap,
+  writeMapViewState,
 } from "../src/feature/maps/index.ts";
 
 test("validates coordinates, tokens, zoom bounds, and style resolution", () => {
@@ -60,6 +64,45 @@ test("validates coordinates, tokens, zoom bounds, and style resolution", () => {
 
   expect(typeof MapView).toBe("function");
   expect(typeof useMapboxMap).toBe("function");
+});
+
+test("reads and writes persisted map view state", () => {
+  const storage = new Map<string, string>();
+  const api = {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      storage.set(key, value);
+    },
+  };
+
+  expect(isValidMapViewState({ center: { longitude: 10, latitude: 20 }, zoom: 12 })).toBe(true);
+  expect(isValidMapViewState({ center: { longitude: 200, latitude: 20 }, zoom: 12 })).toBe(false);
+  expect(isValidMapViewState({ center: { longitude: 10, latitude: 20 }, zoom: "12" })).toBe(false);
+  expect(isValidMapViewState({ zoom: 12 })).toBe(false);
+  expect(isValidMapViewState(null)).toBe(false);
+
+  expect(readMapViewState(api, MAP_VIEW_STATE_STORAGE_KEY)).toBe(null);
+
+  writeMapViewState(api, MAP_VIEW_STATE_STORAGE_KEY, {
+    center: { longitude: 151.2, latitude: -33.8 },
+    zoom: 14,
+  });
+  expect(readMapViewState(api, MAP_VIEW_STATE_STORAGE_KEY)).toEqual({
+    center: { longitude: 151.2, latitude: -33.8 },
+    zoom: 14,
+  });
+
+  writeMapViewState(api, MAP_VIEW_STATE_STORAGE_KEY, {
+    center: { longitude: 151.2, latitude: -33.8 },
+    zoom: 99,
+  });
+  expect(readMapViewState(api, MAP_VIEW_STATE_STORAGE_KEY)?.zoom).toBe(MAP_MAX_ZOOM);
+
+  storage.set(MAP_VIEW_STATE_STORAGE_KEY, "not json");
+  expect(readMapViewState(api, MAP_VIEW_STATE_STORAGE_KEY)).toBe(null);
+
+  storage.set(MAP_VIEW_STATE_STORAGE_KEY, JSON.stringify({ center: null, zoom: 5 }));
+  expect(readMapViewState(api, MAP_VIEW_STATE_STORAGE_KEY)).toBe(null);
 });
 
 test("renders a fallback message when no access token is configured", () => {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type mapboxgl from "mapbox-gl";
 
+import { getDefaultStorage } from "../settings/db.ts";
 import { useSettings } from "../settings/hooks.ts";
 import { resolveIsDarkTheme } from "../settings/theme.ts";
 import {
@@ -10,8 +11,10 @@ import {
   DEFAULT_MAP_CENTER,
   isMapboxAccessToken,
   MAP_DEFAULT_ZOOM,
+  readMapViewState,
   resolveMapStyle,
   toMapboxCenter,
+  writeMapViewState,
   type MapCoordinates,
 } from "./schema.ts";
 
@@ -25,6 +28,7 @@ export interface UseMapboxMapOptions {
   interactive?: boolean;
   showNavigationControl?: boolean;
   showGeolocateControl?: boolean;
+  viewStateStorageKey?: string;
   onLoad?: (map: mapboxgl.Map) => void;
 }
 
@@ -47,6 +51,7 @@ export function useMapboxMap(options: UseMapboxMapOptions = {}): UseMapboxMapRes
     interactive = true,
     showNavigationControl = true,
     showGeolocateControl = true,
+    viewStateStorageKey,
     onLoad,
   } = options;
 
@@ -84,13 +89,21 @@ export function useMapboxMap(options: UseMapboxMapOptions = {}): UseMapboxMapRes
         return;
       }
 
+      const viewStateStorage = viewStateStorageKey ? getDefaultStorage() : null;
+      const persistedViewState =
+        viewStateStorage && viewStateStorageKey
+          ? readMapViewState(viewStateStorage, viewStateStorageKey)
+          : null;
+      const initialCenter = persistedViewState?.center ?? centerRef.current;
+      const initialZoom = persistedViewState?.zoom ?? zoomRef.current;
+
       const initialStyle = resolvedStyleRef.current;
       instance = new mapboxgl.Map({
         container,
         accessToken: accessToken.trim(),
         style: initialStyle,
-        center: toMapboxCenter(centerRef.current),
-        zoom: clampMapZoom(zoomRef.current),
+        center: toMapboxCenter(initialCenter),
+        zoom: clampMapZoom(initialZoom),
         minZoom,
         maxZoom,
         interactive,
@@ -108,6 +121,19 @@ export function useMapboxMap(options: UseMapboxMapOptions = {}): UseMapboxMapRes
           }),
           "top-right",
         );
+      }
+      if (viewStateStorage && viewStateStorageKey) {
+        const persistViewState = () => {
+          if (!instance) {
+            return;
+          }
+          const currentCenter = instance.getCenter();
+          writeMapViewState(viewStateStorage, viewStateStorageKey, {
+            center: { longitude: currentCenter.lng, latitude: currentCenter.lat },
+            zoom: instance.getZoom(),
+          });
+        };
+        instance.on("moveend", persistViewState);
       }
       for (const el of container.querySelectorAll<HTMLElement>(
         ".mapboxgl-ctrl-top-left, .mapboxgl-ctrl-top-right",
@@ -150,7 +176,7 @@ export function useMapboxMap(options: UseMapboxMapOptions = {}): UseMapboxMapRes
     };
     // The map is created once per access token; initial view values come from refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessToken, isConfigured]);
+  }, [accessToken, isConfigured, viewStateStorageKey]);
 
   useEffect(() => {
     if (styleRef.current === resolvedStyle) {

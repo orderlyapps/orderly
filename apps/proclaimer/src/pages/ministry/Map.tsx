@@ -7,7 +7,7 @@ import {
   IonTitle,
   IonToolbar,
 } from "@ionic/react";
-import { MapView } from "proclaimer-core";
+import { MAP_VIEW_STATE_STORAGE_KEY, MapView } from "proclaimer-core";
 
 import { mapboxAccessToken } from "../../config";
 
@@ -23,7 +23,11 @@ const Map = () => {
         </IonToolbar>
       </IonHeader>
       <IonContent fullscreen scrollY={false}>
-        <MapView accessToken={mapboxAccessToken} showNavigationControl={false} />
+        <MapView
+          accessToken={mapboxAccessToken}
+          showNavigationControl={false}
+          viewStateStorageKey={MAP_VIEW_STATE_STORAGE_KEY}
+        />
       </IonContent>
     </IonPage>
   );

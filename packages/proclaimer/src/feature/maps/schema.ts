@@ -10,6 +10,18 @@ export interface MapCoordinates {
   latitude: number;
 }
 
+export interface MapViewState {
+  center: MapCoordinates;
+  zoom: number;
+}
+
+export interface MapViewStateStorage {
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => void;
+}
+
+export const MAP_VIEW_STATE_STORAGE_KEY = "proclaimer:map-view";
+
 export type MapboxLngLatTuple = [longitude: number, latitude: number];
 
 export const DEFAULT_MAP_CENTER: MapCoordinates = { longitude: 0, latitude: 20 };
@@ -45,3 +57,42 @@ export const clampMapZoom = (zoom: number): number =>
 
 export const resolveMapStyle = (isDarkTheme: boolean, mapStyle?: string): string =>
   mapStyle ?? (isDarkTheme ? MAPBOX_DARK_STYLE : MAPBOX_LIGHT_STYLE);
+
+export const isValidMapViewState = (value: unknown): value is MapViewState => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const { center, zoom } = value as MapViewState;
+  return isValidCoordinates(center) && typeof zoom === "number" && Number.isFinite(zoom);
+};
+
+export function readMapViewState(
+  storage: MapViewStateStorage,
+  storageKey: string,
+): MapViewState | null {
+  try {
+    const raw = storage.getItem(storageKey);
+    if (!raw) {
+      return null;
+    }
+    const parsed: unknown = JSON.parse(raw);
+    if (!isValidMapViewState(parsed)) {
+      return null;
+    }
+    return { center: parsed.center, zoom: clampMapZoom(parsed.zoom) };
+  } catch {
+    return null;
+  }
+}
+
+export function writeMapViewState(
+  storage: MapViewStateStorage,
+  storageKey: string,
+  state: MapViewState,
+): void {
+  try {
+    storage.setItem(storageKey, JSON.stringify(state));
+  } catch {
+    // View state persistence is best-effort; storage write failures are non-fatal
+  }
+}
