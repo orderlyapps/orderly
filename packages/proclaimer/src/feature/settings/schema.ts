@@ -1,23 +1,47 @@
+import { z } from "zod";
+
 export const THEME_MODES = ["light", "dark", "system"] as const;
 
-export type ThemeMode = (typeof THEME_MODES)[number];
+export const themeModeSchema = z.enum(THEME_MODES);
+
+export type ThemeMode = z.infer<typeof themeModeSchema>;
 
 export const CONGREGATION_ID_MAX_LENGTH = 64;
 
 export const PUBLISHER_ID_MAX_LENGTH = 64;
 
-export interface SettingsDocument {
-  id: string;
-  theme: ThemeMode;
-  congregationId: string;
-  publisherId: string;
-}
+export const SETTINGS_ID_MAX_LENGTH = 64;
+
+const optionalIdString = (maxLength: number) =>
+  z
+    .string()
+    .max(maxLength)
+    .refine((value) => value.length === 0 || value.trim().length > 0);
+
+export const congregationIdSchema = optionalIdString(CONGREGATION_ID_MAX_LENGTH);
+
+export const publisherIdSchema = optionalIdString(PUBLISHER_ID_MAX_LENGTH);
+
+export const settingsIdSchema = z.string().min(1).max(SETTINGS_ID_MAX_LENGTH);
+
+const SETTINGS_FIELD_SCHEMAS = {
+  theme: themeModeSchema,
+  congregationId: congregationIdSchema,
+  publisherId: publisherIdSchema,
+} as const;
+
+export const settingsDocumentSchema = z.object({
+  id: settingsIdSchema,
+  ...SETTINGS_FIELD_SCHEMAS,
+});
+
+export const settingsPatchSchema = z.object(SETTINGS_FIELD_SCHEMAS).partial();
+
+export type SettingsDocument = z.infer<typeof settingsDocumentSchema>;
 
 export type SettingsKey = Exclude<keyof SettingsDocument, "id">;
 
-export type SettingsPatch = Partial<Omit<SettingsDocument, "id">>;
-
-export const SETTINGS_ID_MAX_LENGTH = 64;
+export type SettingsPatch = z.infer<typeof settingsPatchSchema>;
 
 export const DEFAULT_SETTINGS_ID = "default";
 
@@ -29,48 +53,30 @@ export const DEFAULT_SETTINGS: SettingsDocument = {
 };
 
 export function isThemeMode(value: unknown): value is ThemeMode {
-  return typeof value === "string" && (THEME_MODES as readonly string[]).includes(value);
+  return themeModeSchema.safeParse(value).success;
 }
 
 export function isCongregationId(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length <= CONGREGATION_ID_MAX_LENGTH &&
-    (value.length === 0 || value.trim().length > 0)
-  );
+  return congregationIdSchema.safeParse(value).success;
 }
 
 export function isPublisherId(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length <= PUBLISHER_ID_MAX_LENGTH &&
-    (value.length === 0 || value.trim().length > 0)
-  );
+  return publisherIdSchema.safeParse(value).success;
 }
 
 export function isValidSettingsId(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0 && value.length <= SETTINGS_ID_MAX_LENGTH;
+  return settingsIdSchema.safeParse(value).success;
 }
 
-type SettingsValidatorMap = {
-  [K in SettingsKey]: (value: unknown) => value is SettingsDocument[K];
-};
-
-const SETTINGS_VALIDATORS: SettingsValidatorMap = {
-  theme: isThemeMode,
-  congregationId: isCongregationId,
-  publisherId: isPublisherId,
-};
-
 export const SETTINGS_KEYS: readonly SettingsKey[] = Object.freeze(
-  Object.keys(SETTINGS_VALIDATORS) as SettingsKey[],
+  Object.keys(SETTINGS_FIELD_SCHEMAS) as SettingsKey[],
 );
 
 export function isSettingValue<K extends SettingsKey>(
   key: K,
   value: unknown,
 ): value is SettingsDocument[K] {
-  return SETTINGS_VALIDATORS[key](value);
+  return SETTINGS_FIELD_SCHEMAS[key].safeParse(value).success;
 }
 
 function copyValidSetting<K extends SettingsKey>(
@@ -85,14 +91,7 @@ function copyValidSetting<K extends SettingsKey>(
 }
 
 export function isSettingsDocument(value: unknown): value is SettingsDocument {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-  const candidate = value as Record<string, unknown>;
-  if (!isValidSettingsId(candidate.id)) {
-    return false;
-  }
-  return SETTINGS_KEYS.every((key) => isSettingValue(key, candidate[key]));
+  return settingsDocumentSchema.safeParse(value).success;
 }
 
 export function normalizeSettingsDocument(

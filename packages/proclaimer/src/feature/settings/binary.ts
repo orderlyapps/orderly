@@ -2,11 +2,10 @@ import { getSettingsStore, type SettingsStore } from "./db.ts";
 import {
   DEFAULT_SETTINGS_ID,
   isSettingsDocument,
-  isSettingValue,
   isValidSettingsId,
   normalizeSettingsDocument,
   SETTINGS_KEYS,
-  toSettingsPatch,
+  settingsPatchSchema,
   type SettingsDocument,
   type SettingsPatch,
 } from "./schema.ts";
@@ -72,13 +71,17 @@ function parseSettingsBinaryRecord(input: Uint8Array | ArrayBuffer): {
   }
 
   const record = parsed as Record<string, unknown>;
-  for (const key of SETTINGS_KEYS) {
-    if (record[key] !== undefined && !isSettingValue(key, record[key])) {
-      throw new Error(`Invalid settings binary: invalid ${key} value`);
-    }
+  const result = settingsPatchSchema.safeParse(record);
+  if (!result.success) {
+    const key = result.error.issues[0]?.path[0];
+    throw new Error(
+      typeof key === "string" && (SETTINGS_KEYS as readonly string[]).includes(key)
+        ? `Invalid settings binary: invalid ${key} value`
+        : "Invalid settings binary: corrupted payload",
+    );
   }
 
-  const patch = toSettingsPatch(record as Partial<SettingsDocument>);
+  const patch = result.data;
   if (Object.keys(patch).length === 0) {
     throw new Error("Invalid settings binary: no valid settings found");
   }

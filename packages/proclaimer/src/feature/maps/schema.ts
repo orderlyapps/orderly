@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export const MAPBOX_LIGHT_STYLE = "mapbox://styles/mapbox/streets-v12";
 export const MAPBOX_DARK_STYLE = "mapbox://styles/mapbox/dark-v11";
 
@@ -5,15 +7,19 @@ export const MAP_DEFAULT_ZOOM = 2;
 export const MAP_MIN_ZOOM = 0;
 export const MAP_MAX_ZOOM = 22;
 
-export interface MapCoordinates {
-  longitude: number;
-  latitude: number;
-}
+export const mapCoordinatesSchema = z.object({
+  longitude: z.number().min(-180).max(180),
+  latitude: z.number().min(-90).max(90),
+});
 
-export interface MapViewState {
-  center: MapCoordinates;
-  zoom: number;
-}
+export type MapCoordinates = z.infer<typeof mapCoordinatesSchema>;
+
+export const mapViewStateSchema = z.object({
+  center: mapCoordinatesSchema,
+  zoom: z.number(),
+});
+
+export type MapViewState = z.infer<typeof mapViewStateSchema>;
 
 export interface MapViewStateStorage {
   getItem: (key: string) => string | null;
@@ -29,20 +35,8 @@ export const DEFAULT_MAP_CENTER: MapCoordinates = { longitude: 0, latitude: 20 }
 export const isMapboxAccessToken = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
 
-export const isValidCoordinates = (value: unknown): value is MapCoordinates => {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-  const { longitude, latitude } = value as MapCoordinates;
-  return (
-    Number.isFinite(longitude) &&
-    Number.isFinite(latitude) &&
-    longitude >= -180 &&
-    longitude <= 180 &&
-    latitude >= -90 &&
-    latitude <= 90
-  );
-};
+export const isValidCoordinates = (value: unknown): value is MapCoordinates =>
+  mapCoordinatesSchema.safeParse(value).success;
 
 export const toMapboxCenter = (coordinates: MapCoordinates): MapboxLngLatTuple => [
   coordinates.longitude,
@@ -58,13 +52,8 @@ export const clampMapZoom = (zoom: number): number =>
 export const resolveMapStyle = (isDarkTheme: boolean, mapStyle?: string): string =>
   mapStyle ?? (isDarkTheme ? MAPBOX_DARK_STYLE : MAPBOX_LIGHT_STYLE);
 
-export const isValidMapViewState = (value: unknown): value is MapViewState => {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-  const { center, zoom } = value as MapViewState;
-  return isValidCoordinates(center) && typeof zoom === "number" && Number.isFinite(zoom);
-};
+export const isValidMapViewState = (value: unknown): value is MapViewState =>
+  mapViewStateSchema.safeParse(value).success;
 
 export function readMapViewState(
   storage: MapViewStateStorage,
@@ -75,11 +64,11 @@ export function readMapViewState(
     if (!raw) {
       return null;
     }
-    const parsed: unknown = JSON.parse(raw);
-    if (!isValidMapViewState(parsed)) {
+    const parsed = mapViewStateSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) {
       return null;
     }
-    return { center: parsed.center, zoom: clampMapZoom(parsed.zoom) };
+    return { center: parsed.data.center, zoom: clampMapZoom(parsed.data.zoom) };
   } catch {
     return null;
   }

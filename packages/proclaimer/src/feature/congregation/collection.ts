@@ -1,11 +1,12 @@
 import { createSupabaseTableCollection } from "../backend/collections.ts";
-import { CONGREGATION_TABLE, type Congregation } from "./schema.ts";
+import { CONGREGATION_TABLE, congregationSchema, type Congregation } from "./schema.ts";
 
 export function createCongregationCollection() {
   return createSupabaseTableCollection<Congregation>({
     table: CONGREGATION_TABLE,
     id: CONGREGATION_TABLE,
     select: "id,name,congregation_id,password",
+    schema: congregationSchema,
   });
 }
 

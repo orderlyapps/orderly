@@ -14,5 +14,7 @@ export {
   getPublisherDisplayName,
   isPublisherRowId,
   PUBLISHER_TABLE,
+  publisherRowIdSchema,
+  publisherSchema,
   type Publisher,
 } from "./schema.ts";

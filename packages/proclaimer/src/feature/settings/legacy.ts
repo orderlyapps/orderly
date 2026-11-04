@@ -1,4 +1,5 @@
 import type { StorageApi } from "@tanstack/react-db";
+import { z } from "zod";
 
 import { isCongregationId, isPublisherId } from "./schema.ts";
 
@@ -11,21 +12,28 @@ export const LEGACY_SELECTED_CONGREGATION_KEY = "selected_congregation";
 // selected congregation.
 export const LEGACY_SELECTED_PUBLISHER_KEY = "selected_publisher";
 
+const legacyCongregationSchema = z.looseObject({ id: z.string() });
+
+const legacyPublisherSchema = z.looseObject({
+  id: z.string(),
+  congregation_id: z.unknown().optional(),
+});
+
 export function readLegacyCongregationId(storage: StorageApi): string | null {
   try {
     const raw = storage.getItem(LEGACY_SELECTED_CONGREGATION_KEY);
     if (!raw) {
       return null;
     }
-    const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null) {
+    const parsed = legacyCongregationSchema.safeParse(JSON.parse(raw));
+    if (
+      !parsed.success ||
+      !isCongregationId(parsed.data.id) ||
+      parsed.data.id.trim().length === 0
+    ) {
       return null;
     }
-    const id = (parsed as { id?: unknown }).id;
-    if (!isCongregationId(id) || id.trim().length === 0) {
-      return null;
-    }
-    return id;
+    return parsed.data.id;
   } catch {
     return null;
   }
@@ -42,18 +50,15 @@ export function readLegacyPublisher(storage: StorageApi): LegacyPublisherSelecti
     if (!raw) {
       return null;
     }
-    const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null) {
+    const parsed = legacyPublisherSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success || !isPublisherId(parsed.data.id) || parsed.data.id.trim().length === 0) {
       return null;
     }
-    const id = (parsed as { id?: unknown }).id;
-    if (!isPublisherId(id) || id.trim().length === 0) {
-      return null;
-    }
-    const congregationId = (parsed as { congregation_id?: unknown }).congregation_id;
     return {
-      id,
-      congregationId: isCongregationId(congregationId) ? congregationId : "",
+      id: parsed.data.id,
+      congregationId: isCongregationId(parsed.data.congregation_id)
+        ? parsed.data.congregation_id
+        : "",
     };
   } catch {
     return null;

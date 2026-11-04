@@ -26,6 +26,7 @@ test("changelog entries are semantic versions sorted newest-first", () => {
   expect(CHANGELOG.length).toBeGreaterThan(0);
   for (const entry of CHANGELOG) {
     expect(entry.version).toMatch(SEMVER);
+    expect(entry.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(entry.changes.length).toBeGreaterThan(0);
   }
   for (let i = 0; i < CHANGELOG.length - 1; i++) {

@@ -1,4 +1,5 @@
 import type { Session } from "@supabase/supabase-js";
+import { z } from "zod";
 
 import type { BackendSupabaseClient } from "../backend/supabase.ts";
 
@@ -7,12 +8,14 @@ export interface PublisherAuthResult {
   error: string | null;
 }
 
+const errorMessageSchema = z.looseObject({ message: z.string().min(1) });
+
 function toAuthErrorMessage(value: unknown, fallback: string): string {
   if (value instanceof Error && value.message) {
     return value.message;
   }
-  const message = (value as { message?: unknown } | null)?.message;
-  return typeof message === "string" && message.length > 0 ? message : fallback;
+  const parsed = errorMessageSchema.safeParse(value);
+  return parsed.success ? parsed.data.message : fallback;
 }
 
 export async function sendPublisherOtp(

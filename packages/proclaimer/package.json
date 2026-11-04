@@ -25,7 +25,8 @@
     "@tanstack/query-db-collection": "catalog:",
     "@tanstack/react-db": "catalog:",
     "@tanstack/react-query": "catalog:",
-    "mapbox-gl": "^3.33.0"
+    "mapbox-gl": "^3.33.0",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@ionic/react": "^9.0.9",

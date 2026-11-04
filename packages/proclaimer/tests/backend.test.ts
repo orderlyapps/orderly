@@ -1,6 +1,8 @@
 import { afterEach, expect, test, vi } from "vite-plus/test";
+import { z } from "zod";
 
 import {
+  createSupabaseTableCollection,
   getBackendQueryClient,
   getSupabaseClient,
   initSupabase,
@@ -48,4 +50,43 @@ test("getBackendQueryClient returns the same instance until reset", () => {
   expect(getBackendQueryClient()).toBe(first);
   resetBackendQueryClientForTesting();
   expect(getBackendQueryClient()).not.toBe(first);
+});
+
+test("table collection drops rows that fail schema validation and warns", async () => {
+  const client = initSupabase(TEST_CONFIG);
+  const rows = [
+    { id: "p1", first_name: "Alice", last_name: "Smith" },
+    { id: "p2", last_name: "MissingFirstName" },
+    { id: "p3", first_name: "Carol", last_name: "Jones", extra_column: "stripped" },
+  ];
+  const query = {
+    select: vi.fn().mockReturnThis(),
+    match: vi.fn().mockResolvedValue({ data: rows, error: null }),
+  };
+  vi.spyOn(client, "from").mockReturnValue(query as never);
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+  const rowSchema = z.object({
+    id: z.string().min(1),
+    first_name: z.string(),
+    last_name: z.string(),
+  });
+  type Row = z.infer<typeof rowSchema>;
+
+  const collection = createSupabaseTableCollection<Row>({
+    table: "publisher",
+    id: `rows_test_${Date.now()}`,
+    match: { congregation_id: "c1" },
+    schema: rowSchema,
+  });
+  try {
+    await collection.preload();
+    expect(collection.get("p1")?.first_name).toBe("Alice");
+    expect(collection.get("p2")).toBeUndefined();
+    expect(collection.get("p3")?.first_name).toBe("Carol");
+    expect(collection.get("p3")).not.toHaveProperty("extra_column");
+    expect(warn).toHaveBeenCalledOnce();
+  } finally {
+    await collection.cleanup().catch(() => {});
+  }
 });

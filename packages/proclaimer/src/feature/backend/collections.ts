@@ -1,6 +1,7 @@
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import { createCollection } from "@tanstack/react-db";
 import type { QueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 
 import { getBackendQueryClient } from "./query-client.ts";
 import { getSupabaseClient } from "./supabase.ts";
@@ -12,6 +13,7 @@ export interface SupabaseTableCollectionOptions<T extends Record<string, unknown
   match?: Record<string, unknown>;
   idColumn?: keyof T & string;
   queryClient?: QueryClient;
+  schema?: z.ZodType<T>;
 }
 
 export function createSupabaseTableCollection<T extends Record<string, unknown>>(
@@ -39,6 +41,23 @@ export function createSupabaseTableCollection<T extends Record<string, unknown>>
         const { data, error } = await query;
         if (error) {
           throw error;
+        }
+        if (options.schema) {
+          const rows: T[] = [];
+          for (const [index, row] of (data ?? []).entries()) {
+            const parsed = options.schema.safeParse(row);
+            if (parsed.success) {
+              rows.push(parsed.data);
+            } else {
+              console.warn(
+                `createSupabaseTableCollection: dropping invalid row ${index} from "${options.table}"`,
+                parsed.error.issues
+                  .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+                  .join("; "),
+              );
+            }
+          }
+          return rows;
         }
         return data as unknown as T[];
       },

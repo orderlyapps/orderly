@@ -13,6 +13,8 @@ export {
   MAP_MAX_ZOOM,
   MAP_MIN_ZOOM,
   MAP_VIEW_STATE_STORAGE_KEY,
+  mapCoordinatesSchema,
+  mapViewStateSchema,
   readMapViewState,
   resolveMapStyle,
   toMapboxCenter,

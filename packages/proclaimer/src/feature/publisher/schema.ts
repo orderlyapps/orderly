@@ -1,18 +1,24 @@
+import { z } from "zod";
+
 export const PUBLISHER_TABLE = "publisher";
 
+export const publisherRowIdSchema = z.string().min(1);
+
 // Mirrors the Supabase "publisher" table
-export type Publisher = {
-  id?: string;
-  first_name: string;
-  middle_name?: string | null;
-  last_name: string;
-  display_name?: string | null;
-  congregation_id?: string | null;
-  auth_id?: string | null;
-};
+export const publisherSchema = z.object({
+  id: publisherRowIdSchema.optional(),
+  first_name: z.string(),
+  middle_name: z.string().nullish(),
+  last_name: z.string(),
+  display_name: z.string().nullish(),
+  congregation_id: z.string().nullish(),
+  auth_id: z.string().nullish(),
+});
+
+export type Publisher = z.infer<typeof publisherSchema>;
 
 export function isPublisherRowId(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0;
+  return publisherRowIdSchema.safeParse(value).success;
 }
 
 export function getPublisherDisplayName(publisher: Publisher): string {
