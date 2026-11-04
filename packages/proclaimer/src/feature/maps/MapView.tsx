@@ -11,10 +11,8 @@ export interface MapViewProps extends UseMapboxMapOptions {
 }
 
 const containerStyle: CSSProperties = {
-  position: "relative",
-  height: "100%",
-  width: "100%",
-  minHeight: "100%",
+  position: "absolute",
+  inset: 0,
 };
 
 const mapElementStyle: CSSProperties = {
@@ -23,11 +21,11 @@ const mapElementStyle: CSSProperties = {
 };
 
 const messageStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  height: "100%",
-  width: "100%",
   padding: "1rem",
   textAlign: "center",
 };
@@ -35,7 +33,8 @@ const messageStyle: CSSProperties = {
 const errorBannerStyle: CSSProperties = {
   position: "absolute",
   insetInline: "0.5rem",
-  bottom: "0.5rem",
+  bottom:
+    "calc(60px + var(--ios-theme-floating-safe-area-bottom, var(--ios26-floating-safe-area-bottom, 0px)) + 0.5rem)",
   padding: "0.5rem 0.75rem",
   borderRadius: "0.5rem",
   background: "var(--ion-background-color, #fff)",

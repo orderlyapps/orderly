@@ -109,6 +109,11 @@ export function useMapboxMap(options: UseMapboxMapOptions = {}): UseMapboxMapRes
           "top-right",
         );
       }
+      for (const el of container.querySelectorAll<HTMLElement>(
+        ".mapboxgl-ctrl-top-left, .mapboxgl-ctrl-top-right",
+      )) {
+        el.style.top = "var(--offset-top, 0px)";
+      }
       if (typeof ResizeObserver !== "undefined") {
         observer = new ResizeObserver(() => instance?.resize());
         observer.observe(container);

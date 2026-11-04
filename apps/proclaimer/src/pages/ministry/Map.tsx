@@ -23,7 +23,7 @@ const Map = () => {
         </IonToolbar>
       </IonHeader>
       <IonContent fullscreen scrollY={false}>
-        <MapView accessToken={mapboxAccessToken} />
+        <MapView accessToken={mapboxAccessToken} showNavigationControl={false} />
       </IonContent>
     </IonPage>
   );
