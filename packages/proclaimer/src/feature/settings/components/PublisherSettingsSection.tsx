@@ -15,7 +15,7 @@ import {
 
 import type { PublisherCollection } from "../../publisher/collection.ts";
 import { usePublishers } from "../../publisher/hooks.ts";
-import { PublisherSelect } from "../../publisher/PublisherSelect.tsx";
+import { PublisherAutocomplete } from "../../publisher/PublisherAutocomplete.tsx";
 import { getPublisherDisplayName } from "../../publisher/schema.ts";
 import { SettingsSection } from "./SettingsSection.tsx";
 
@@ -82,7 +82,7 @@ export const PublisherSettingsSection = ({
           </IonToolbar>
         </IonHeader>
         <IonContent>
-          <PublisherSelect
+          <PublisherAutocomplete
             publishers={publishers}
             selectedId={selectedPublisher?.id}
             isLoading={isLoading}
@@ -92,8 +92,10 @@ export const PublisherSettingsSection = ({
               void retry();
             }}
             onSelect={(id) => {
-              onPublisherChange?.(id);
-              setIsOpen(false);
+              if (id) {
+                onPublisherChange?.(id);
+                setIsOpen(false);
+              }
             }}
           />
         </IonContent>
