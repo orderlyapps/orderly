@@ -7,10 +7,11 @@ import {
   IonTitle,
   IonToolbar,
 } from "@ionic/react";
-
-import ExploreContainer from "../../components/ExploreContainer";
+import { CleaningView, useSettings } from "proclaimer-core";
 
 const Cleaning = () => {
+  const { settings } = useSettings();
+
   return (
     <IonPage>
       <IonHeader>
@@ -27,7 +28,7 @@ const Cleaning = () => {
             <IonTitle size="large">Cleaning</IonTitle>
           </IonToolbar>
         </IonHeader>
-        <ExploreContainer name="Cleaning page" />
+        <CleaningView congregationId={settings.congregationId || undefined} />
       </IonContent>
     </IonPage>
   );
