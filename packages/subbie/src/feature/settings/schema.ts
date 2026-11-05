@@ -5,6 +5,10 @@ export const THEME_MODES = ["light", "dark", "system"] as const;
 
 export type ThemeMode = (typeof THEME_MODES)[number];
 
+export const FONT_SIZES = ["small", "medium", "large", "extra-large"] as const;
+
+export type FontSize = (typeof FONT_SIZES)[number];
+
 export const PAYMENT_TERMS_DAYS_MAX = 365;
 
 export const INVOICE_NOTES_MAX_LENGTH = 4000;
@@ -26,6 +30,7 @@ export { DEFAULT_PAYMENT_TERMS_DAYS };
 export interface SettingsDocument {
   id: string;
   theme: ThemeMode;
+  fontSize: FontSize;
   defaultPaymentTermsDays: number;
   defaultInvoiceNotes: string;
   gstRegistered: boolean;
@@ -49,6 +54,7 @@ export const DEFAULT_SETTINGS_ID = "default";
 export const DEFAULT_SETTINGS: SettingsDocument = {
   id: DEFAULT_SETTINGS_ID,
   theme: "system",
+  fontSize: "medium",
   defaultPaymentTermsDays: DEFAULT_PAYMENT_TERMS_DAYS,
   defaultInvoiceNotes: "",
   gstRegistered: true,
@@ -63,6 +69,10 @@ export const DEFAULT_SETTINGS: SettingsDocument = {
 
 export function isThemeMode(value: unknown): value is ThemeMode {
   return typeof value === "string" && (THEME_MODES as readonly string[]).includes(value);
+}
+
+export function isFontSize(value: unknown): value is FontSize {
+  return typeof value === "string" && (FONT_SIZES as readonly string[]).includes(value);
 }
 
 export function isValidSettingsId(value: unknown): value is string {
@@ -116,6 +126,7 @@ type SettingsValidatorMap = {
 
 const SETTINGS_VALIDATORS: SettingsValidatorMap = {
   theme: isThemeMode,
+  fontSize: isFontSize,
   defaultPaymentTermsDays: isPaymentTermsDays,
   defaultInvoiceNotes: isInvoiceNotes,
   gstRegistered: isGstRegistered,

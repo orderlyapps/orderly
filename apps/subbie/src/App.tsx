@@ -17,7 +17,7 @@ import {
   popoverLeaveAnimation,
 } from "@rdlabo/ionic-theme-ios27";
 import { card, receipt, settings } from "ionicons/icons";
-import { OnboardingGate, useThemeEffect } from "subbie-core";
+import { OnboardingGate, useAppearanceEffect } from "subbie-core";
 
 import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
 import Banking from "./pages/Banking";
@@ -73,7 +73,7 @@ setupIonicReact({
 });
 
 const App = () => {
-  useThemeEffect();
+  useAppearanceEffect();
 
   return (
     <IonApp>

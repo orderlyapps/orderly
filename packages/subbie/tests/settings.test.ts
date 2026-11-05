@@ -5,6 +5,7 @@ import {
   ABN_MAX_LENGTH,
   AppearanceSettingsSection,
   AppearanceSettingsView,
+  applyFontSize,
   applyTheme,
   areSettingsEqual,
   BANK_ACCOUNT_NAME_MAX_LENGTH,
@@ -21,6 +22,9 @@ import {
   DataSettingsView,
   DEFAULT_SETTINGS,
   DEFAULT_SETTINGS_ID,
+  FONT_SIZE_LABELS,
+  FONT_SIZE_OPTIONS,
+  FONT_SIZES,
   getSettingsStore,
   INVOICE_NOTES_MAX_LENGTH,
   InvoiceSettingsView,
@@ -29,6 +33,7 @@ import {
   isBankAccountNumber,
   isBankBsb,
   isBusinessName,
+  isFontSize,
   isGstRate,
   isGstRegistered,
   isInvoiceNotes,
@@ -64,6 +69,7 @@ test("validates theme modes and schema helpers", () => {
   expect(THEME_MODES).toEqual(["light", "dark", "system"]);
   expect(SETTINGS_KEYS).toEqual([
     "theme",
+    "fontSize",
     "defaultPaymentTermsDays",
     "defaultInvoiceNotes",
     "gstRegistered",
@@ -86,6 +92,27 @@ test("validates theme modes and schema helpers", () => {
   expect(isThemeMode("system")).toBe(true);
   expect(isThemeMode("solarized")).toBe(false);
   expect(isThemeMode(null)).toBe(false);
+
+  expect(FONT_SIZES).toEqual(["small", "medium", "large", "extra-large"]);
+  expect(FONT_SIZE_LABELS).toEqual({
+    small: "Small",
+    medium: "Medium",
+    large: "Large",
+    "extra-large": "Extra Large",
+  });
+  expect(FONT_SIZE_OPTIONS).toEqual([
+    { value: "small", label: "Small" },
+    { value: "medium", label: "Medium" },
+    { value: "large", label: "Large" },
+    { value: "extra-large", label: "Extra Large" },
+  ]);
+  expect(isFontSize("small")).toBe(true);
+  expect(isFontSize("medium")).toBe(true);
+  expect(isFontSize("large")).toBe(true);
+  expect(isFontSize("extra-large")).toBe(true);
+  expect(isFontSize("huge")).toBe(false);
+  expect(isFontSize(16)).toBe(false);
+  expect(isFontSize(null)).toBe(false);
 
   expect(isPaymentTermsDays(0)).toBe(true);
   expect(isPaymentTermsDays(30)).toBe(true);
@@ -196,6 +223,10 @@ test("initializes LocalStorage Collection store with default system theme and up
     expect(updatedLight.theme).toBe("light");
     expect(store.collection.get(DEFAULT_SETTINGS_ID)?.theme).toBe("light");
 
+    const updatedFontSize = await store.setFontSize("large");
+    expect(updatedFontSize.fontSize).toBe("large");
+    expect(store.collection.get(DEFAULT_SETTINGS_ID)?.fontSize).toBe("large");
+
     const patched = await store.updateSettings({
       defaultPaymentTermsDays: 14,
       defaultInvoiceNotes: "Please pay by bank transfer",
@@ -228,6 +259,9 @@ test("initializes LocalStorage Collection store with default system theme and up
     await expect(
       store.updateSettings({ theme: "bogus" } as unknown as SettingsPatch),
     ).rejects.toThrow('Invalid settings value for "theme"');
+    await expect(
+      store.updateSettings({ fontSize: "huge" } as unknown as SettingsPatch),
+    ).rejects.toThrow('Invalid settings value for "fontSize"');
     await expect(store.updateSettings({ gstRate: 0 })).rejects.toThrow(
       'Invalid settings value for "gstRate"',
     );
@@ -277,6 +311,29 @@ test("applies dark class to target element based on theme", () => {
   expect(applyTheme("light", fakeElement as unknown as HTMLElement)).toBe(false);
   expect(fakeElement.classes.has(DARK_PALETTE_CLASS)).toBe(false);
   expect(fakeElement.dataset.theme).toBe("light");
+});
+
+test("applies root font size percentage and dynamic font variable", () => {
+  const fakeElement = {
+    dataset: {} as Record<string, string>,
+    customProperties: {} as Record<string, string>,
+    style: {
+      fontSize: "",
+      setProperty(name: string, value: string) {
+        fakeElement.customProperties[name] = value;
+      },
+    },
+  };
+
+  applyFontSize("medium", fakeElement as unknown as HTMLElement);
+  expect(fakeElement.style.fontSize).toBe("100%");
+  expect(fakeElement.customProperties["--ion-dynamic-font"]).toBe("100% var(--ion-font-family)");
+  expect(fakeElement.dataset.fontSize).toBe("medium");
+
+  applyFontSize("extra-large", fakeElement as unknown as HTMLElement);
+  expect(fakeElement.style.fontSize).toBe("130%");
+  expect(fakeElement.customProperties["--ion-dynamic-font"]).toBe("130% var(--ion-font-family)");
+  expect(fakeElement.dataset.fontSize).toBe("extra-large");
 });
 
 test("persists settings in localStorage when available and resets default store cleanly", async () => {

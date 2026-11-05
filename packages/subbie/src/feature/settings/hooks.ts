@@ -7,11 +7,13 @@ import {
   SETTINGS_STORAGE_KEY,
   type SettingsStore,
 } from "./db.ts";
+import { applyFontSize } from "./fontSize.ts";
 import {
   areSettingsEqual,
   DEFAULT_SETTINGS,
   DEFAULT_SETTINGS_ID,
   normalizeSettingsDocument,
+  type FontSize,
   type SettingsDocument,
   type SettingsKey,
   type SettingsPatch,
@@ -22,6 +24,7 @@ import { applyTheme } from "./theme.ts";
 export interface UseSettingsResult {
   settings: SettingsDocument;
   theme: ThemeMode;
+  fontSize: FontSize;
   isLoading: boolean;
   error: Error | null;
   updateSettings: (patch: SettingsPatch) => Promise<SettingsDocument>;
@@ -30,6 +33,7 @@ export interface UseSettingsResult {
     value: SettingsDocument[K],
   ) => Promise<SettingsDocument>;
   setTheme: (theme: ThemeMode) => Promise<SettingsDocument>;
+  setFontSize: (fontSize: FontSize) => Promise<SettingsDocument>;
   store: SettingsStore | null;
 }
 
@@ -116,21 +120,25 @@ export function useSettings(customStore?: SettingsStore): UseSettingsResult {
     return handleSetSetting("theme", nextTheme);
   };
 
+  const handleSetFontSize = async (nextFontSize: FontSize): Promise<SettingsDocument> => {
+    return handleSetSetting("fontSize", nextFontSize);
+  };
+
   return {
     settings,
     theme: settings.theme,
+    fontSize: settings.fontSize,
     isLoading,
     error,
     updateSettings: handleUpdateSettings,
     setSetting: handleSetSetting,
     setTheme: handleSetTheme,
+    setFontSize: handleSetFontSize,
     store,
   };
 }
 
-export function useThemeEffect(customStore?: SettingsStore): ThemeMode {
-  const { theme } = useSettings(customStore);
-
+function useThemeSync(theme: ThemeMode): void {
   useEffect(() => {
     applyTheme(theme);
 
@@ -151,6 +159,22 @@ export function useThemeEffect(customStore?: SettingsStore): ThemeMode {
       mediaQuery.removeEventListener("change", listener);
     };
   }, [theme]);
+}
 
+export function useThemeEffect(customStore?: SettingsStore): ThemeMode {
+  const { theme } = useSettings(customStore);
+  useThemeSync(theme);
   return theme;
+}
+
+export function useAppearanceEffect(customStore?: SettingsStore): SettingsDocument {
+  const { settings } = useSettings(customStore);
+
+  useThemeSync(settings.theme);
+
+  useEffect(() => {
+    applyFontSize(settings.fontSize);
+  }, [settings.fontSize]);
+
+  return settings;
 }

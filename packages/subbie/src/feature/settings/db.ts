@@ -19,6 +19,7 @@ import {
   normalizeSettingsDocument,
   SETTINGS_KEYS,
   toSettingsPatch,
+  type FontSize,
   type SettingsDocument,
   type SettingsKey,
   type SettingsPatch,
@@ -283,6 +284,10 @@ export async function createSettingsStore(options: CreateSettingsStoreOptions = 
     return setSetting("theme", theme);
   }
 
+  async function setFontSize(fontSize: FontSize): Promise<SettingsDocument> {
+    return setSetting("fontSize", fontSize);
+  }
+
   let isClosed = false;
 
   async function close(): Promise<void> {
@@ -306,6 +311,7 @@ export async function createSettingsStore(options: CreateSettingsStoreOptions = 
     updateSettings,
     setSetting,
     setTheme,
+    setFontSize,
     close,
   };
 

@@ -48,7 +48,18 @@ export {
   type StorageApi,
   type StorageEventApi,
 } from "./db.ts";
-export { useSettings, useThemeEffect, type UseSettingsResult } from "./hooks.ts";
+export {
+  applyFontSize,
+  FONT_SIZE_LABELS,
+  FONT_SIZE_OPTIONS,
+  FONT_SIZE_PERCENTAGES,
+} from "./fontSize.ts";
+export {
+  useAppearanceEffect,
+  useSettings,
+  useThemeEffect,
+  type UseSettingsResult,
+} from "./hooks.ts";
 export {
   ABN_MAX_LENGTH,
   areSettingsEqual,
@@ -59,6 +70,7 @@ export {
   DEFAULT_PAYMENT_TERMS_DAYS,
   DEFAULT_SETTINGS,
   DEFAULT_SETTINGS_ID,
+  FONT_SIZES,
   GST_RATE_MAX,
   INVOICE_NOTES_MAX_LENGTH,
   isAbn,
@@ -66,6 +78,7 @@ export {
   isBankAccountNumber,
   isBankBsb,
   isBusinessName,
+  isFontSize,
   isGstRate,
   isGstRegistered,
   isInvoiceNotes,
@@ -80,6 +93,7 @@ export {
   SETTINGS_KEYS,
   THEME_MODES,
   toSettingsPatch,
+  type FontSize,
   type SettingsDocument,
   type SettingsKey,
   type SettingsPatch,

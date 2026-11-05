@@ -11,14 +11,16 @@ export interface AppearanceSettingsViewProps {
 }
 
 export const AppearanceSettingsView = ({ store: customStore }: AppearanceSettingsViewProps) => {
-  const { theme, setTheme } = useSettings(customStore);
+  const { theme, fontSize, setTheme, setFontSize } = useSettings(customStore);
   const [status, setStatus] = useState<string | null>(null);
 
   return (
     <IonList inset>
       <AppearanceSettingsSection
         theme={theme}
+        fontSize={fontSize}
         onThemeChange={setTheme}
+        onFontSizeChange={setFontSize}
         statusMessage={status}
         onStatusChange={setStatus}
       />
