@@ -6,6 +6,40 @@ import { z } from "zod";
 import { getBackendQueryClient } from "./query-client.ts";
 import { getSupabaseClient } from "./supabase.ts";
 
+const MAX_CACHED_COLLECTIONS = 5;
+
+/**
+ * Bounds a per-key collection cache. Cache hits refresh recency; once the
+ * cache exceeds `maxSize`, the oldest entry is evicted and cleaned up
+ * (Map preserves insertion order). Prevents unbounded growth across
+ * repeated key changes, e.g. switching congregations.
+ */
+export function getCachedCollection<T extends { cleanup: () => Promise<unknown> }>(
+  cache: Map<string, T>,
+  key: string,
+  create: () => T,
+  maxSize = MAX_CACHED_COLLECTIONS,
+): T {
+  const existing = cache.get(key);
+  if (existing) {
+    cache.delete(key);
+    cache.set(key, existing);
+    return existing;
+  }
+  const collection = create();
+  cache.set(key, collection);
+  while (cache.size > maxSize) {
+    const oldestKey = cache.keys().next().value;
+    if (oldestKey === undefined) {
+      break;
+    }
+    const evicted = cache.get(oldestKey);
+    cache.delete(oldestKey);
+    void evicted?.cleanup().catch(() => {});
+  }
+  return collection;
+}
+
 export interface SupabaseTableCollectionOptions<T extends Record<string, unknown>> {
   table: string;
   id?: string;

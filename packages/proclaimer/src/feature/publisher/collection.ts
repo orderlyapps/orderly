@@ -1,4 +1,4 @@
-import { createSupabaseTableCollection } from "../backend/collections.ts";
+import { createSupabaseTableCollection, getCachedCollection } from "../backend/collections.ts";
 import { PUBLISHER_TABLE, publisherSchema, type Publisher } from "./schema.ts";
 
 export function createPublisherCollection(congregationId: string) {
@@ -17,12 +17,7 @@ const defaultCollections = new Map<string, PublisherCollection>();
 
 export function getPublisherCollection(congregationId: string): PublisherCollection {
   const key = congregationId.trim();
-  let collection = defaultCollections.get(key);
-  if (!collection) {
-    collection = createPublisherCollection(key);
-    defaultCollections.set(key, collection);
-  }
-  return collection;
+  return getCachedCollection(defaultCollections, key, () => createPublisherCollection(key));
 }
 
 export async function resetPublisherCollectionsForTesting(): Promise<void> {

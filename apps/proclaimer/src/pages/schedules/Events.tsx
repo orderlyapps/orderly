@@ -7,10 +7,11 @@ import {
   IonTitle,
   IonToolbar,
 } from "@ionic/react";
-
-import ExploreContainer from "../../components/ExploreContainer";
+import { EventsView, useSettings } from "proclaimer-core";
 
 const Events = () => {
+  const { settings } = useSettings();
+
   return (
     <IonPage>
       <IonHeader>
@@ -27,7 +28,7 @@ const Events = () => {
             <IonTitle size="large">Events</IonTitle>
           </IonToolbar>
         </IonHeader>
-        <ExploreContainer name="Events page" />
+        <EventsView congregationId={settings.congregationId || undefined} />
       </IonContent>
     </IonPage>
   );

@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   createSupabaseTableCollection,
   getBackendQueryClient,
+  getCachedCollection,
   getSupabaseClient,
   initSupabase,
   resetBackendQueryClientForTesting,
@@ -89,4 +90,34 @@ test("table collection drops rows that fail schema validation and warns", async 
   } finally {
     await collection.cleanup().catch(() => {});
   }
+});
+
+test("getCachedCollection reuses entries and evicts the oldest past the cap", async () => {
+  const cache = new Map<string, { cleanup: () => Promise<void> }>();
+  const created: string[] = [];
+  const cleaned: string[] = [];
+  const make = (key: string) => ({
+    key,
+    cleanup: () => {
+      cleaned.push(key);
+      return Promise.resolve();
+    },
+  });
+  const create = (key: string) => () => {
+    created.push(key);
+    return make(key);
+  };
+
+  const a1 = getCachedCollection(cache, "a", create("a"), 2);
+  expect(getCachedCollection(cache, "a", create("a"), 2)).toBe(a1);
+  expect(created).toEqual(["a"]);
+
+  // Hitting "a" refreshes its recency so "b" evicts before it.
+  getCachedCollection(cache, "b", create("b"), 2);
+  getCachedCollection(cache, "a", create("a"), 2);
+  getCachedCollection(cache, "c", create("c"), 2);
+  expect(created).toEqual(["a", "b", "c"]);
+  expect([...cache.keys()]).toEqual(["a", "c"]);
+  await Promise.resolve();
+  expect(cleaned).toEqual(["b"]);
 });

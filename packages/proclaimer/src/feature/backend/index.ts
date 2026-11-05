@@ -1,5 +1,6 @@
 export {
   createSupabaseTableCollection,
+  getCachedCollection,
   type SupabaseTableCollectionOptions,
 } from "./collections.ts";
 export { BackendProviders, type BackendProvidersProps } from "./providers.tsx";

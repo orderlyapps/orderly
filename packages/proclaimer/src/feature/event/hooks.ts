@@ -61,9 +61,9 @@ export function useEvents(
 
   const active = collection ?? resolved.collection;
 
-  const { data, isLoading } = useLiveQuery({
-    query: (q) => (active ? q.from({ e: active }).orderBy(({ e }) => e.start_date) : undefined),
-  });
+  const { data, isLoading } = useLiveQuery((q) =>
+    active ? q.from({ e: active }).orderBy(({ e }) => e.start_date) : undefined,
+  );
 
   const retry = useCallback(async () => {
     const target = collection ?? resolved.collection;
