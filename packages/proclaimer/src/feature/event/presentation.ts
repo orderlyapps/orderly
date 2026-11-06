@@ -71,7 +71,7 @@ export function eventSubtitle(event: EventRow): string | undefined {
   return event.description.trim() || undefined;
 }
 
-/** "Saturday, November 8" for single-day events; "November 8–10" or
+/** "November 8 (Saturday)" for single-day events; "November 8 – 10" or
  * "November 28 – December 1" for ranges. */
 export function formatEventDate(startIso: string, endIso?: string | null): string {
   const start = parseEventDay(startIso);
@@ -80,11 +80,9 @@ export function formatEventDate(startIso: string, endIso?: string | null): strin
   }
   const end = effectiveEnd(start, parseEventDay(endIso));
   if (!end) {
-    return start.toLocaleDateString(undefined, {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-    });
+    const month = start.toLocaleDateString(undefined, { month: "long" });
+    const weekday = start.toLocaleDateString(undefined, { weekday: "long" });
+    return `${month} ${start.getDate()} (${weekday})`;
   }
   const startMonth = start.toLocaleDateString(undefined, { month: "long" });
   const endMonth = end.toLocaleDateString(undefined, { month: "long" });
@@ -94,7 +92,7 @@ export function formatEventDate(startIso: string, endIso?: string | null): strin
     return `${startMonth} ${start.getDate()}, ${startYear} – ${endMonth} ${end.getDate()}, ${endYear}`;
   }
   if (startMonth === endMonth) {
-    return `${startMonth} ${start.getDate()}–${end.getDate()}`;
+    return `${startMonth} ${start.getDate()} – ${end.getDate()}`;
   }
   return `${startMonth} ${start.getDate()} – ${endMonth} ${end.getDate()}`;
 }
@@ -135,7 +133,7 @@ export function formatEventTimeRange(
   return start;
 }
 
-/** Date plus time for timed events, e.g. "Saturday, November 8 · 9:30 AM".
+/** Date plus time for timed events, e.g. "November 8 (Saturday) · 9:30 AM".
  * Multi-day events show only the start time — an "9:30–11:00" range next to a
  * date range reads ambiguously. */
 export function eventDateMeta(event: EventRow): string {
@@ -165,13 +163,13 @@ export function eventDayChip(event: EventRow): string {
   return String(start.getDate());
 }
 
-/** Abbreviated month for the leading date chip ("NOV"). */
+/** Full month for the leading date chip ("NOVEMBER"). */
 export function eventMonthChip(event: EventRow): string {
   const start = parseEventDay(event.start_date);
   if (!start) {
     return "";
   }
-  return start.toLocaleDateString(undefined, { month: "short" }).toUpperCase();
+  return start.toLocaleDateString(undefined, { month: "long" }).toUpperCase();
 }
 
 /** Events that have not ended yet, sorted by start, bucketed by start month. */

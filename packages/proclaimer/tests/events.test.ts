@@ -62,9 +62,9 @@ test("eventSubtitle surfaces the name for fixed-label types and description othe
 });
 
 test("formatEventDate renders single days with weekday and ranges across months", () => {
-  expect(formatEventDate("2025-11-08")).toBe("Saturday, November 8");
-  expect(formatEventDate("2025-11-08", "2025-11-08")).toBe("Saturday, November 8");
-  expect(formatEventDate("2025-11-08", "2025-11-10")).toBe("November 8–10");
+  expect(formatEventDate("2025-11-08")).toBe("November 8 (Saturday)");
+  expect(formatEventDate("2025-11-08", "2025-11-08")).toBe("November 8 (Saturday)");
+  expect(formatEventDate("2025-11-08", "2025-11-10")).toBe("November 8 – 10");
   expect(formatEventDate("2025-11-28", "2025-12-01")).toBe("November 28 – December 1");
   expect(formatEventDate("2025-12-30", "2026-01-02")).toBe("December 30, 2025 – January 2, 2026");
 });
@@ -84,9 +84,9 @@ test("formatEventTime passes through out-of-range values instead of normalizing"
 });
 
 test("eventDateMeta appends the start time for timed events", () => {
-  expect(eventDateMeta(makeEvent({}))).toBe("Saturday, November 8");
+  expect(eventDateMeta(makeEvent({}))).toBe("November 8 (Saturday)");
   const timed = eventDateMeta(makeEvent({ all_day: false, start_time: "09:30:00" }));
-  expect(timed).toContain("Saturday, November 8");
+  expect(timed).toContain("November 8 (Saturday)");
   expect(timed).toContain("9:30");
 });
 
@@ -102,7 +102,7 @@ test("eventDateMeta renders a time range and ignores times on all-day events", (
   );
   expect(same).not.toContain("–");
   expect(eventDateMeta(makeEvent({ all_day: true, start_time: "09:30:00" }))).toBe(
-    "Saturday, November 8",
+    "November 8 (Saturday)",
   );
 });
 
@@ -116,14 +116,14 @@ test("eventDateMeta shows only the start time for multi-day events", () => {
       end_time: "11:00:00",
     }),
   );
-  expect(meta).toContain("November 8–10");
+  expect(meta).toContain("November 8 – 10");
   expect(meta).toContain("9:30");
   expect(meta).not.toContain("11:00");
 });
 
 test("a malformed end_date before start_date is treated as a single-day event", () => {
   const malformed = makeEvent({ start_date: "2025-11-20", end_date: "2025-11-15" });
-  expect(formatEventDate(malformed.start_date, malformed.end_date)).toBe("Thursday, November 20");
+  expect(formatEventDate(malformed.start_date, malformed.end_date)).toBe("November 20 (Thursday)");
   expect(eventDayChip(malformed)).toBe("20");
   // The past end_date must not hide an event that hasn't started yet.
   const groups = groupUpcomingEvents([malformed], now);
@@ -133,7 +133,7 @@ test("a malformed end_date before start_date is treated as a single-day event", 
 
 test("date chips show the month and day or a same-month range", () => {
   const single = makeEvent({});
-  expect(eventMonthChip(single)).toBe("NOV");
+  expect(eventMonthChip(single)).toBe("NOVEMBER");
   expect(eventDayChip(single)).toBe("8");
   const ranged = makeEvent({ end_date: "2025-11-10" });
   expect(eventDayChip(ranged)).toBe("8–10");

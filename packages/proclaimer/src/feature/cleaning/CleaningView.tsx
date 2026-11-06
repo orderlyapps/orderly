@@ -9,7 +9,7 @@ import {
 } from "@ionic/react";
 
 import { MonthHeader } from "../../components/MonthHeader.tsx";
-import { relativeWeekLabel } from "../../util/week.ts";
+import { weekDisplayLabel } from "../../util/week.ts";
 import { useCleaningSchedule } from "./hooks.ts";
 import type { CleaningMonth, CleaningWeek } from "./schedule.ts";
 
@@ -29,18 +29,12 @@ function AssignmentLine({ label, groupName }: { label: string; groupName: string
 }
 
 function WeekRow({ week, isLast }: { week: CleaningWeek; isLast: boolean }) {
-  const relative = relativeWeekLabel(week.weekId);
   return (
     <IonItem lines={isLast ? "none" : "inset"} style={{ "--min-height": "52px" }}>
       <IonLabel style={{ marginBlock: 8 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <span style={{ fontSize: 15, fontWeight: 600 }}>{week.weekLabel}</span>
-          {relative && (
-            <IonNote style={{ fontSize: 12 }} color="primary">
-              {relative}
-            </IonNote>
-          )}
-        </div>
+        <p style={{ color: "var(--ion-text-color)", fontWeight: 600 }}>
+          {weekDisplayLabel(week.weekId)}
+        </p>
         <AssignmentLine label="Thorough clean" groupName={week.majorGroupName} />
         <AssignmentLine label="Light clean" groupName={week.minorGroupName} />
       </IonLabel>

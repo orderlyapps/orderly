@@ -11,9 +11,7 @@ export function EventListRow({ event, isLast }: { event: EventRow; isLast: boole
   return (
     <IonItem lines={isLast ? "none" : "inset"} style={{ "--min-height": "52px" }}>
       <IonLabel style={{ marginBlock: 8 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ion-text-color)" }}>
-          {eventDateMeta(event)}
-        </div>
+        <p style={{ color: "var(--ion-text-color)", fontWeight: 600 }}>{eventDateMeta(event)}</p>
         <div style={{ paddingTop: 2, fontSize: 15 }}>{eventTitle(event)}</div>
         {detail && (
           <div

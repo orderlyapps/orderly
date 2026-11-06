@@ -16,6 +16,7 @@ import {
   parseWeekId,
   relativeWeekLabel,
   shiftWeekId,
+  weekDisplayLabel,
   weekIdOf,
   weekRangeLabel,
   weeksBetween,
@@ -117,14 +118,17 @@ test("week ids are Mondays and support arithmetic", () => {
 
 test("week labels describe the week and its relative position", () => {
   expect(weekRangeLabel("2025-11-03")).toMatch(/November 3.+9, 2025/);
-  expect(weekRangeLabel("2025-09-29")).toMatch(/Sep 29.+Oct 5, 2025/);
+  expect(weekRangeLabel("2025-09-29")).toMatch(/September 29.+October 5, 2025/);
   expect(weekRangeLabel("2025-11-03", { includeYear: false })).toMatch(/^November 3.+9$/);
-  expect(weekRangeLabel("2025-09-29", { includeYear: false })).toMatch(/^Sep 29.+Oct 5$/);
+  expect(weekRangeLabel("2025-09-29", { includeYear: false })).toMatch(/^September 29.+October 5$/);
   const now = new Date(2025, 10, 5);
   expect(relativeWeekLabel("2025-11-03", now)).toBe("This week");
   expect(relativeWeekLabel("2025-11-10", now)).toBe("Next week");
   expect(relativeWeekLabel("2025-10-27", now)).toBe("Last week");
   expect(relativeWeekLabel("2025-12-01", now)).toBeUndefined();
+  expect(weekDisplayLabel("2025-11-03", now)).toBe("November 3 – 9 (This week)");
+  expect(weekDisplayLabel("2025-11-10", now)).toBe("November 10 – 16 (Next week)");
+  expect(weekDisplayLabel("2025-09-29", now)).toBe("September 29 – October 5");
 });
 
 test("dateRangeOverlapsWeek detects events touching the week", () => {

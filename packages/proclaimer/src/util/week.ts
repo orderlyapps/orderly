@@ -57,13 +57,14 @@ export function weeksBetween(fromWeekId: string, toWeekId: string): number {
   return Math.round((to.getTime() - from.getTime()) / (7 * DAY_MS));
 }
 
-function monthName(date: Date, style: "long" | "short"): string {
-  return date.toLocaleDateString(undefined, { month: style });
+function monthName(date: Date): string {
+  return date.toLocaleDateString(undefined, { month: "long" });
 }
 
 /**
- * Human readable week range, e.g. "November 3–9, 2025" or "Sep 29 – Oct 5, 2025"
- * when the week crosses a month boundary. Pass `includeYear: false` to drop the year.
+ * Human readable week range, e.g. "November 3 – 9, 2025" or
+ * "September 29 – October 5, 2025" when the week crosses a month boundary.
+ * Pass `includeYear: false` to drop the year.
  */
 export function weekRangeLabel(weekId: string, options?: { includeYear?: boolean }): string {
   const start = parseWeekId(weekId);
@@ -74,11 +75,18 @@ export function weekRangeLabel(weekId: string, options?: { includeYear?: boolean
   const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
   const sameMonth = start.getMonth() === end.getMonth();
   const yearSuffix = includeYear ? `, ${end.getFullYear()}` : "";
-  const startLabel = `${monthName(start, sameMonth ? "long" : "short")} ${start.getDate()}`;
+  const startLabel = `${monthName(start)} ${start.getDate()}`;
   const endLabel = sameMonth
     ? `${end.getDate()}${yearSuffix}`
-    : `${monthName(end, "short")} ${end.getDate()}${yearSuffix}`;
+    : `${monthName(end)} ${end.getDate()}${yearSuffix}`;
   return `${startLabel} – ${endLabel}`;
+}
+
+/** "November 3 – 9" plus " (This week)" when near, e.g. "November 3 – 9 (Next week)". */
+export function weekDisplayLabel(weekId: string, now: Date = new Date()): string {
+  const range = weekRangeLabel(weekId, { includeYear: false });
+  const relative = relativeWeekLabel(weekId, now);
+  return relative ? `${range} (${relative})` : range;
 }
 
 /** "This week" / "Next week" / "Last week", or undefined when further away. */

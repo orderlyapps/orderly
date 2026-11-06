@@ -1,16 +1,8 @@
-import {
-  currentWeekId,
-  isWeekId,
-  parseWeekId,
-  shiftWeekId,
-  weekIdOf,
-  weekRangeLabel,
-} from "../../util/week.ts";
+import { currentWeekId, isWeekId, parseWeekId, shiftWeekId, weekIdOf } from "../../util/week.ts";
 import type { CleaningAssignmentRow, GroupRow } from "./schema.ts";
 
 export interface CleaningWeek {
   weekId: string;
-  weekLabel: string;
   majorGroupName: string | null;
   minorGroupName: string | null;
 }
@@ -83,7 +75,6 @@ export function buildCleaningSchedule(
     }
     month.weeks.push({
       weekId,
-      weekLabel: weekRangeLabel(weekId),
       majorGroupName: majorNames.get(weekId) ?? null,
       minorGroupName: minorNames.get(weekId) ?? null,
     });
