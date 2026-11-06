@@ -41,7 +41,6 @@ export function HomeEvents({
             key={event.id}
             event={event}
             isLast={index === preview.length - 1 && !showSeeMore}
-            dateOnTop
           />
         ))}
       </IonList>

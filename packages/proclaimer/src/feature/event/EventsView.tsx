@@ -49,7 +49,7 @@ function EventGroupSection({ group }: { group: EventGroup }) {
   return (
     <div>
       <MonthHeader label={group.label} />
-      <IonList inset lines="none" style={{ marginTop: 4 }}>
+      <IonList style={{ marginTop: 4 }}>
         {group.events.map((event, index) => (
           <EventListRow key={event.id} event={event} isLast={index === group.events.length - 1} />
         ))}
@@ -60,7 +60,7 @@ function EventGroupSection({ group }: { group: EventGroup }) {
 
 function LoadingBody() {
   return (
-    <IonList inset>
+    <IonList>
       {[0, 1, 2, 3].map((row) => (
         <IonItem key={row} lines={row === 3 ? "none" : "inset"}>
           <IonLabel>
