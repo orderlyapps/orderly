@@ -21,7 +21,7 @@ import {
   toMapboxCenter,
   useMapboxMap,
   writeMapViewState,
-} from "../src/feature/maps/index.ts";
+} from "../src/feature/map/index.ts";
 
 test("validates coordinates, tokens, zoom bounds, and style resolution", () => {
   expect(MAPBOX_LIGHT_STYLE).toBe("mapbox://styles/mapbox/streets-v12");

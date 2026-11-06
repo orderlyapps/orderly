@@ -8,7 +8,7 @@ description: Work on the proclaimer app in this repo. Use when the user wants to
 Proclaimer is an Ionic + React app deployed to Cloudflare Workers. When the user asks for changes to proclaimer, the work happens in two places:
 
 - `apps/proclaimer` — the app shell: pages (`src/pages`), components (`src/components`), theme (`src/theme`), PWA config, and `wrangler.jsonc`.
-- `packages/proclaimer` — the `proclaimer-core` workspace package: feature logic in `src/feature/<domain>` (about, auth, backend, cleaning, congregation, event, maps, meeting, midweek-meeting, onboarding, publisher, settings, weekend-meeting) and utilities in `src/util`. Tests live in `packages/proclaimer/tests` mirroring the feature names.
+- `packages/proclaimer` — the `proclaimer-core` workspace package: feature logic in `src/feature/<domain>` (about, auth, backend, cleaning, congregation, event, map, meeting, midweek-meeting, onboarding, publisher, settings, weekend-meeting) and utilities in `src/util`. Tests live in `packages/proclaimer/tests` mirroring the feature names.
 
 ## Commands
 
