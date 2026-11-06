@@ -1,5 +1,63 @@
-export { useMapboxMap, type UseMapboxMapOptions, type UseMapboxMapResult } from "./hooks.ts";
+export {
+  useMapboxMap,
+  useTerritoryMapData,
+  type UseMapboxMapOptions,
+  type UseMapboxMapResult,
+  type UseTerritoryMapDataResult,
+} from "./hooks.ts";
 export { MapView, type MapViewProps } from "./MapView.tsx";
+export { MapListModal, type MapListModalProps } from "./MapListModal.tsx";
+export {
+  createMapMasterCollection,
+  createTerritoryMapCollection,
+  getMapMasterCollection,
+  getTerritoryMapCollection,
+  resetTerritoryCollectionsForTesting,
+  type MapMasterCollection,
+  type TerritoryMapCollection,
+} from "./collection.ts";
+export {
+  removeTerritoryLayers,
+  syncTerritoryLayers,
+  TERRITORY_BLOCKS_SOURCE_ID,
+  TERRITORY_FIT_BOUNDS_OPTIONS,
+  TERRITORY_LAYER_IDS,
+  TERRITORY_MAPS_SOURCE_ID,
+  TERRITORY_MASTER_SOURCE_ID,
+  useTerritoryLayers,
+  type UseTerritoryLayersOptions,
+} from "./territory-layers.ts";
+export {
+  blockToLineString,
+  blockToPolygon,
+  buildTerritoryGeoJson,
+  EMPTY_TERRITORY_GEOJSON,
+  geoJsonBounds,
+  isTerritoryRing,
+  MAP_MASTER_TABLE,
+  mapMasterSchema,
+  ringBounds,
+  ringToPolygon,
+  TERRITORY_MAP_TABLE,
+  territoryBlockSchema,
+  territoryMapBounds,
+  territoryMapSchema,
+  territoryPositionSchema,
+  unionBounds,
+  type MapMasterRow,
+  type MasterBoundaryProperties,
+  type TerritoryBlock,
+  type TerritoryBlockProperties,
+  type TerritoryBounds,
+  type TerritoryFeature,
+  type TerritoryFeatureCollection,
+  type TerritoryGeoJson,
+  type TerritoryGeometry,
+  type TerritoryMap,
+  type TerritoryMapProperties,
+  type TerritoryPosition,
+} from "./territory.ts";
+export type { Map as MapboxMap } from "mapbox-gl";
 export {
   areCoordinatesEqual,
   clampMapZoom,
