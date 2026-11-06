@@ -1,17 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { useLiveQuery } from "@tanstack/react-db";
 import type mapboxgl from "mapbox-gl";
 
 import { getDefaultStorage } from "../settings/db.ts";
 import { useSettings } from "../settings/hooks.ts";
 import { resolveIsDarkTheme } from "../settings/theme.ts";
-import {
-  getMapMasterCollection,
-  getTerritoryMapCollection,
-  type MapMasterCollection,
-  type TerritoryMapCollection,
-} from "./collection.ts";
 import {
   areCoordinatesEqual,
   clampMapZoom,
@@ -24,15 +17,6 @@ import {
   writeMapViewState,
   type MapCoordinates,
 } from "./schema.ts";
-import {
-  EMPTY_TERRITORY_GEOJSON,
-  buildTerritoryGeoJson,
-  geoJsonBounds,
-  type MapMasterRow,
-  type TerritoryBounds,
-  type TerritoryGeoJson,
-  type TerritoryMap,
-} from "./territory.ts";
 
 export interface UseMapboxMapOptions {
   accessToken?: string | null;
@@ -221,107 +205,4 @@ export function useMapboxMap(options: UseMapboxMapOptions = {}): UseMapboxMapRes
   }, [zoom]);
 
   return { containerRef, map, error, isConfigured, resolvedStyle };
-}
-
-export interface UseTerritoryMapDataResult {
-  geojson: TerritoryGeoJson;
-  /** Territory map rows for the congregation, sorted by name. */
-  maps: TerritoryMap[];
-  bounds: TerritoryBounds | null;
-  isLoading: boolean;
-  error: Error | null;
-  retry: () => Promise<void>;
-}
-
-interface ResolvedTerritoryCollections {
-  maps: TerritoryMapCollection | null;
-  master: MapMasterCollection | null;
-  error: Error | null;
-}
-
-function toTerritoryError(value: unknown): Error {
-  if (value instanceof Error) {
-    return value;
-  }
-  const message = (value as { message?: unknown } | null)?.message;
-  return new Error(typeof message === "string" ? message : "Failed to load territory maps");
-}
-
-function resolveTerritoryCollections(
-  congregationId: string | null | undefined,
-): ResolvedTerritoryCollections {
-  if (!congregationId) {
-    return { maps: null, master: null, error: null };
-  }
-  try {
-    return {
-      maps: getTerritoryMapCollection(congregationId),
-      master: getMapMasterCollection(congregationId),
-      error: null,
-    };
-  } catch (err) {
-    return { maps: null, master: null, error: toTerritoryError(err) };
-  }
-}
-
-/**
- * Live territory data (congregation outline, territory map outlines, and their
- * street blocks) projected to GeoJSON for rendering on the mapbox map.
- */
-export function useTerritoryMapData(congregationId?: string | null): UseTerritoryMapDataResult {
-  const [resolved, setResolved] = useState<ResolvedTerritoryCollections>(() =>
-    resolveTerritoryCollections(congregationId),
-  );
-
-  useEffect(() => {
-    const next = resolveTerritoryCollections(congregationId);
-    setResolved((prev) =>
-      prev.maps === next.maps && prev.master === next.master && prev.error === next.error
-        ? prev
-        : next,
-    );
-  }, [congregationId]);
-
-  const { data: mapRows, isLoading: mapsLoading } = useLiveQuery((q) =>
-    resolved.maps ? q.from({ m: resolved.maps }).orderBy(({ m }) => m.name) : undefined,
-  );
-  const { data: masterRows, isLoading: masterLoading } = useLiveQuery((q) =>
-    resolved.master ? q.from({ mm: resolved.master }) : undefined,
-  );
-
-  const maps = useMemo(() => (mapRows ?? []) as TerritoryMap[], [mapRows]);
-  const geojson = useMemo(
-    () =>
-      resolved.maps || resolved.master
-        ? buildTerritoryGeoJson(maps, (masterRows ?? []) as MapMasterRow[])
-        : EMPTY_TERRITORY_GEOJSON,
-    [resolved.maps, resolved.master, maps, masterRows],
-  );
-  const bounds = useMemo(() => geoJsonBounds(geojson), [geojson]);
-
-  const retry = useCallback(async () => {
-    const { maps, master } = resolved;
-    if (!maps && !master) {
-      setResolved(resolveTerritoryCollections(congregationId));
-      return;
-    }
-    await Promise.all([
-      maps?.utils.refetch?.({ throwOnError: false }),
-      master?.utils.refetch?.({ throwOnError: false }),
-    ]);
-  }, [congregationId, resolved]);
-
-  const queryError =
-    [resolved.maps, resolved.master]
-      .map((collection) => (collection?.utils.isError ? collection.utils.lastError : null))
-      .find((lastError) => lastError != null) ?? null;
-
-  return {
-    geojson,
-    maps,
-    bounds,
-    isLoading: congregationId != null && congregationId !== "" && (mapsLoading || masterLoading),
-    error: resolved.error ?? (queryError ? toTerritoryError(queryError) : null),
-    retry,
-  };
 }

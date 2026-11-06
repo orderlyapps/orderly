@@ -4,14 +4,9 @@ import { expect, test } from "vite-plus/test";
 
 import {
   areCoordinatesEqual,
-  blockToLineString,
-  blockToPolygon,
-  buildTerritoryGeoJson,
   clampMapZoom,
   DEFAULT_MAP_CENTER,
-  geoJsonBounds,
   isMapboxAccessToken,
-  isTerritoryRing,
   isValidCoordinates,
   isValidMapViewState,
   MAPBOX_DARK_STYLE,
@@ -20,19 +15,12 @@ import {
   MAP_MAX_ZOOM,
   MAP_MIN_ZOOM,
   MAP_VIEW_STATE_STORAGE_KEY,
-  MapListModal,
   MapView,
   readMapViewState,
   resolveMapStyle,
-  ringBounds,
-  ringToPolygon,
-  territoryMapBounds,
   toMapboxCenter,
-  unionBounds,
   useMapboxMap,
   writeMapViewState,
-  type MapMasterRow,
-  type TerritoryMap,
 } from "../src/feature/map/index.ts";
 
 test("validates coordinates, tokens, zoom bounds, and style resolution", () => {
@@ -75,7 +63,6 @@ test("validates coordinates, tokens, zoom bounds, and style resolution", () => {
   );
 
   expect(typeof MapView).toBe("function");
-  expect(typeof MapListModal).toBe("function");
   expect(typeof useMapboxMap).toBe("function");
 });
 
@@ -127,181 +114,4 @@ test("renders a fallback message when no access token is configured", () => {
     createElement(MapView, { accessToken: "", missingTokenMessage: "No token configured" }),
   );
   expect(custom).toContain("No token configured");
-});
-
-test("validates territory rings and converts them to GeoJSON geometry", () => {
-  const openRing: [number, number][] = [
-    [151.2, -33.8],
-    [151.21, -33.8],
-    [151.21, -33.81],
-    [151.2, -33.81],
-  ];
-  const closedRing: [number, number][] = [...openRing, [151.2, -33.8]];
-
-  expect(isTerritoryRing(openRing)).toBe(true);
-  expect(isTerritoryRing(closedRing)).toBe(true);
-  expect(isTerritoryRing([])).toBe(false);
-  expect(isTerritoryRing([[1]])).toBe(false);
-  expect(isTerritoryRing([["a", "b"]])).toBe(false);
-  expect(isTerritoryRing("not a ring")).toBe(false);
-
-  const polygon = ringToPolygon(openRing);
-  expect(polygon?.type).toBe("Polygon");
-  // Open rings are closed by repeating the first position.
-  expect(polygon?.coordinates[0]).toEqual(closedRing);
-  expect(ringToPolygon(closedRing)?.coordinates[0]).toEqual(closedRing);
-  expect(ringToPolygon(openRing.slice(0, 3))).toBe(null);
-  expect(ringToPolygon(null)).toBe(null);
-
-  // Blocks accept a triangle; faces need only two positions.
-  expect(blockToPolygon(openRing.slice(0, 3))?.type).toBe("Polygon");
-  expect(blockToPolygon(openRing.slice(0, 2))).toBe(null);
-  expect(blockToLineString(openRing.slice(0, 2))?.type).toBe("LineString");
-  expect(blockToLineString(openRing.slice(0, 1))).toBe(null);
-});
-
-test("computes bounds for rings and unions them", () => {
-  const ring: [number, number][] = [
-    [151.2, -33.8],
-    [151.3, -33.9],
-    [151.25, -33.85],
-  ];
-  expect(ringBounds(ring)).toEqual([
-    [151.2, -33.9],
-    [151.3, -33.8],
-  ]);
-  expect(ringBounds("bad")).toBe(null);
-
-  const other = ringBounds([
-    [151.1, -33.85],
-    [151.22, -33.7],
-  ]);
-  expect(unionBounds(ringBounds(ring), other)).toEqual([
-    [151.1, -33.9],
-    [151.3, -33.7],
-  ]);
-  expect(unionBounds(null, other)).toEqual(other);
-  expect(unionBounds(ringBounds(ring), null)).toEqual(ringBounds(ring));
-  expect(unionBounds(null, null)).toBe(null);
-});
-
-test("builds GeoJSON feature collections from territory rows", () => {
-  const boundary: [number, number][] = [
-    [151.2, -33.8],
-    [151.21, -33.8],
-    [151.21, -33.81],
-    [151.2, -33.81],
-  ];
-  const maps: TerritoryMap[] = [
-    {
-      id: "map-1",
-      congregation_id: "cong-1",
-      name: "Central 1",
-      details: "CBD",
-      url: null,
-      boundary,
-      blocks: [
-        {
-          id: "block-1",
-          name: "Pitt St",
-          type: "face",
-          coordinates: [
-            [151.205, -33.805],
-            [151.205, -33.806],
-          ],
-        },
-        {
-          id: "block-2",
-          name: "North block",
-          type: "block",
-          coordinates: boundary.slice(0, 3) as [number, number][],
-        },
-      ],
-    },
-    {
-      id: "map-2",
-      congregation_id: "cong-1",
-      name: "No boundary",
-      details: null,
-      url: null,
-      boundary: null,
-      blocks: null,
-    },
-  ];
-  const master: MapMasterRow[] = [
-    { congregation_id: "cong-1", boundary, details: "Whole territory" },
-    { congregation_id: "cong-1", boundary: "corrupt", details: null },
-  ];
-
-  const geojson = buildTerritoryGeoJson(maps, master);
-
-  // Invalid master boundary is skipped.
-  expect(geojson.master.features).toHaveLength(1);
-  expect(geojson.master.features[0].properties.details).toBe("Whole territory");
-
-  // Only the map with a boundary becomes a polygon feature.
-  expect(geojson.maps.features).toHaveLength(1);
-  expect(geojson.maps.features[0].properties).toEqual({
-    id: "map-1",
-    name: "Central 1",
-    details: "CBD",
-  });
-  expect(geojson.maps.features[0].geometry.type).toBe("Polygon");
-
-  // Face blocks become LineStrings, block types become closed Polygons.
-  expect(geojson.blocks.features).toHaveLength(2);
-  expect(geojson.blocks.features[0].geometry.type).toBe("LineString");
-  expect(geojson.blocks.features[0].properties.kind).toBe("face");
-  expect(geojson.blocks.features[1].geometry.type).toBe("Polygon");
-  expect(geojson.blocks.features[1].properties.mapId).toBe("map-1");
-
-  const bounds = geoJsonBounds(geojson);
-  expect(bounds?.[0][0]).toBeCloseTo(151.2);
-  expect(bounds?.[0][1]).toBeCloseTo(-33.81);
-  expect(bounds?.[1][0]).toBeCloseTo(151.21);
-  expect(bounds?.[1][1]).toBeCloseTo(-33.8);
-
-  expect(geoJsonBounds(buildTerritoryGeoJson([], []))).toBe(null);
-});
-
-test("territoryMapBounds falls back to blocks when the boundary is missing", () => {
-  const blocksOnly: TerritoryMap = {
-    id: "map-3",
-    congregation_id: "cong-1",
-    name: "Blocks only",
-    details: null,
-    url: null,
-    boundary: null,
-    blocks: [
-      {
-        id: "block-1",
-        name: "George St",
-        type: "face",
-        coordinates: [
-          [151.2, -33.8],
-          [151.21, -33.81],
-        ],
-      },
-    ],
-  };
-  expect(territoryMapBounds(blocksOnly)).toEqual([
-    [151.2, -33.81],
-    [151.21, -33.8],
-  ]);
-
-  expect(
-    territoryMapBounds({
-      ...blocksOnly,
-      boundary: [
-        [151.19, -33.9],
-        [151.22, -33.9],
-        [151.22, -33.85],
-      ],
-    }),
-  ).toEqual([
-    [151.19, -33.9],
-    [151.22, -33.8],
-  ]);
-
-  expect(territoryMapBounds({ ...blocksOnly, blocks: null })).toBe(null);
 });
