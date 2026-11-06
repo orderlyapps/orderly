@@ -116,13 +116,13 @@ test("buildWeekendProgram maps the speaker, chairman and reader for the week", (
   const talk = items[1];
   expect(talk.partNumber).toBe(37);
   expect(talk.title).toBe("A Fine Theme");
-  expect(talk.assignee).toBe("Vic Tor");
-  expect(talk.extraAssignees).toEqual([{ label: "Congregation", name: "North Congregation" }]);
+  expect(talk.assignee).toBe("Vic Tor (North Congregation)");
+  expect(talk.extraAssignees).toBeUndefined();
 
   expect(items[2].assignee).toBe("Ray Read");
 });
 
-test("buildWeekendProgram hides the congregation line for a local speaker", () => {
+test("buildWeekendProgram omits the congregation for a local speaker", () => {
   const program = buildWeekendProgram({
     weekId,
     congregationId,
@@ -158,8 +158,9 @@ test("buildWeekendProgram lists our publishers speaking at other congregations",
   const items = outgoing?.blocks[0].items ?? [];
   expect(items).toHaveLength(1);
   expect(items[0].title).toBe("Olive Out");
+  expect(items[0].partNumber).toBe(37);
   expect(items[0].subtitle).toBe("North Congregation");
-  expect(items[0].extraAssignees).toEqual([{ label: "Talk", name: "37 · A Fine Theme" }]);
+  expect(items[0].note).toBe("A Fine Theme");
 });
 
 test("buildWeekendProgram ignores rows from other weeks", () => {

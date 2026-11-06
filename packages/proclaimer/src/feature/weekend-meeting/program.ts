@@ -48,14 +48,6 @@ function outlineNumber(outline: TalkOutline | undefined): number | undefined {
   return Number.isNaN(parsed) ? undefined : parsed;
 }
 
-function talkLabel(outline: TalkOutline | undefined): string | undefined {
-  if (!outline) {
-    return undefined;
-  }
-  const number = outlineNumber(outline);
-  return number === undefined ? outline.theme : `${number} · ${outline.theme}`;
-}
-
 export function buildWeekendProgram(input: BuildWeekendProgramInput): WeekendMeetingProgram {
   const {
     weekId,
@@ -137,20 +129,22 @@ export function buildWeekendProgram(input: BuildWeekendProgramInput): WeekendMee
         kind: "part",
         partNumber: outlineNumber(talkOutline),
         title: talkOutline?.theme || "Public Talk",
-        assignee: homeTalk ? (publisherName(speaker) ?? "Unknown Speaker") : undefined,
-        extraAssignees: speakerCongregation
-          ? [{ label: "Congregation", name: speakerCongregation.name }]
+        assignee: homeTalk
+          ? `${publisherName(speaker) ?? "Unknown Speaker"}${
+              speakerCongregation ? ` (${speakerCongregation.name})` : ""
+            }`
           : undefined,
       };
 
   const outgoingItems: MeetingProgramItem[] = outgoing.map((row) => {
-    const talk = row.outline_id ? talkLabel(outlineById.get(row.outline_id)) : undefined;
+    const outline = row.outline_id ? outlineById.get(row.outline_id) : undefined;
     return {
       id: `outgoing_${row.congregation_id}_${row.speaker_id}`,
       kind: "info",
+      partNumber: outlineNumber(outline),
       title: publisherName(publisherById.get(row.speaker_id)) ?? "Unknown Speaker",
       subtitle: congregationById.get(row.congregation_id)?.name || undefined,
-      extraAssignees: talk ? [{ label: "Talk", name: talk }] : undefined,
+      note: outline?.theme,
     };
   });
 

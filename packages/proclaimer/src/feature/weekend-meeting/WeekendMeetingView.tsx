@@ -75,6 +75,7 @@ export function WeekendMeetingView({
         relativeLabel={program.relativeLabel}
         onSelectWeek={onSelectWeek}
       />
+      <div style={{ height: 48 }} />
       {error ? (
         <div style={{ padding: "40px 24px", textAlign: "center" }}>
           <IonNote color="danger">{error.message}</IonNote>

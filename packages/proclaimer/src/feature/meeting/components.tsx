@@ -155,6 +155,11 @@ export function MeetingItemRow({
             {item.subtitle}
           </div>
         )}
+        {item.note && (
+          <div style={{ paddingTop: 3, fontSize: 14, color: "var(--ion-color-medium)" }}>
+            {item.note}
+          </div>
+        )}
         {item.assignee && <AssigneeLine text={item.assignee} />}
         {item.assistant && (
           <AssigneeLine text={`${item.assistantLabel ?? "Assistant"}: ${item.assistant}`} muted />

@@ -10,6 +10,8 @@ export interface MeetingProgramItem {
   title: string;
   /** Extra detail: bible reading reference, ministry instructions, CBS material. */
   subtitle?: string;
+  /** Muted info line rendered without an icon, e.g. an outgoing speaker's talk theme. */
+  note?: string;
   minutes?: number;
   assignee?: string;
   assistant?: string;
