@@ -27,7 +27,9 @@ const Schedule = () => {
             <IonTitle size="large">Schedule</IonTitle>
           </IonToolbar>
         </IonHeader>
+        <div className="ion-padding-top" />
         <ExploreContainer name="Schedule page" />
+        <div style={{ paddingBottom: 48 }} />
       </IonContent>
     </IonPage>
   );

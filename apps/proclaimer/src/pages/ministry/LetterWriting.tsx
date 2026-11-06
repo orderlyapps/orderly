@@ -27,7 +27,9 @@ const LetterWriting = () => {
             <IonTitle size="large">Letter Writing</IonTitle>
           </IonToolbar>
         </IonHeader>
+        <div className="ion-padding-top" />
         <ExploreContainer name="Letter Writing page" />
+        <div style={{ paddingBottom: 48 }} />
       </IonContent>
     </IonPage>
   );

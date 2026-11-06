@@ -28,7 +28,9 @@ const About = () => {
             <IonTitle size="large">About</IonTitle>
           </IonToolbar>
         </IonHeader>
+        <div className="ion-padding-top" />
         <AboutView version={version} />
+        <div style={{ paddingBottom: 48 }} />
       </IonContent>
     </IonPage>
   );

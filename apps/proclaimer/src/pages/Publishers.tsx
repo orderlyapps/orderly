@@ -17,7 +17,9 @@ const Publishers = () => {
             <IonTitle size="large">Publishers</IonTitle>
           </IonToolbar>
         </IonHeader>
+        <div className="ion-padding-top" />
         <PublishersView congregationId={settings.congregationId || undefined} />
+        <div style={{ paddingBottom: 48 }} />
       </IonContent>
     </IonPage>
   );

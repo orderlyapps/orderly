@@ -42,6 +42,7 @@ const Weekend = () => {
             navigate(`/schedules/weekend/${nextWeekId}`, { replace: true })
           }
         />
+        <div style={{ paddingBottom: 48 }} />
       </IonContent>
     </IonPage>
   );

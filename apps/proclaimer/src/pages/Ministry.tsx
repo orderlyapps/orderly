@@ -23,6 +23,7 @@ const Ministry = () => {
             <IonTitle size="large">Ministry</IonTitle>
           </IonToolbar>
         </IonHeader>
+        <div className="ion-padding-top" />
         <IonList>
           <IonItem routerLink="/ministry/map" detail>
             <IonLabel style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}>
@@ -40,6 +41,7 @@ const Ministry = () => {
             </IonLabel>
           </IonItem>
         </IonList>
+        <div style={{ paddingBottom: 48 }} />
       </IonContent>
     </IonPage>
   );

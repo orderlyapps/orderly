@@ -22,16 +22,18 @@ const Assignments = () => {
           <IonTitle>Assignments</IonTitle>
         </IonToolbar>
       </IonHeader>
-      <IonContent>
+      <IonContent fullscreen>
         <IonHeader collapse="condense">
           <IonToolbar>
             <IonTitle size="large">Assignments</IonTitle>
           </IonToolbar>
         </IonHeader>
+        <div className="ion-padding-top" />
         <AssignmentsView
           congregationId={settings.congregationId || undefined}
           publisherId={settings.publisherId || undefined}
         />
+        <div style={{ paddingBottom: 48 }} />
       </IonContent>
     </IonPage>
   );

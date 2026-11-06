@@ -17,7 +17,9 @@ const Settings = () => {
             <IonTitle size="large">Settings</IonTitle>
           </IonToolbar>
         </IonHeader>
+        <div className="ion-padding-top" />
         <SettingsView version={version} />
+        <div style={{ paddingBottom: 48 }} />
       </IonContent>
     </IonPage>
   );

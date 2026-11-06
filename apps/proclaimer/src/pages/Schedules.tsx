@@ -23,6 +23,7 @@ const Schedules = () => {
             <IonTitle size="large">Schedules</IonTitle>
           </IonToolbar>
         </IonHeader>
+        <div className="ion-padding-top" />
         <IonList>
           <IonItem routerLink="/schedules/midweek" detail>
             <IonLabel style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}>
@@ -45,6 +46,7 @@ const Schedules = () => {
             </IonLabel>
           </IonItem>
         </IonList>
+        <div style={{ paddingBottom: 48 }} />
       </IonContent>
     </IonPage>
   );

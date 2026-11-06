@@ -22,13 +22,15 @@ const Cleaning = () => {
           <IonTitle>Cleaning</IonTitle>
         </IonToolbar>
       </IonHeader>
-      <IonContent>
+      <IonContent fullscreen>
         <IonHeader collapse="condense">
           <IonToolbar>
             <IonTitle size="large">Cleaning</IonTitle>
           </IonToolbar>
         </IonHeader>
+        <div className="ion-padding-top" />
         <CleaningView congregationId={settings.congregationId || undefined} />
+        <div style={{ paddingBottom: 48 }} />
       </IonContent>
     </IonPage>
   );
