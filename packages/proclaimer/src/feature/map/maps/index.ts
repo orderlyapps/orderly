@@ -6,6 +6,7 @@ export {
 } from "./collection.ts";
 export { useMapPolygons, type UseMapPolygonsResult } from "./hooks.ts";
 export { MapsLayer, type MapsLayerProps } from "./MapsLayer.tsx";
+export { MapsListModal, type MapsListModalProps } from "./MapsListModal.tsx";
 export {
   boundariesToBounds,
   boundaryToBounds,
@@ -16,10 +17,12 @@ export {
   MAP_LABEL_MIN_ZOOM,
   MAP_LINE_MIN_ZOOM,
   MAP_POLYGON_COLOR,
+  MAP_SELECTED_COLOR,
   MAP_TABLE,
   MAP_VERTEX_MIN_ZOOM,
   mapBlockSchema,
   mapBoundarySchema,
+  mapRowKey,
   mapRowSchema,
   mapRowsToBounds,
   mapRowsToGeoJSON,

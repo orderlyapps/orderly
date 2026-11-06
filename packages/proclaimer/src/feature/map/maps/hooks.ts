@@ -9,9 +9,11 @@ import {
   mapRowsToGeoJSON,
   type MapBounds,
   type MapPolygonsGeoJSON,
+  type MapRow,
 } from "./schema.ts";
 
 export interface UseMapPolygonsResult {
+  maps: MapRow[];
   geojson: MapPolygonsGeoJSON;
   bounds: MapBounds | null;
   isLoading: boolean;
@@ -59,8 +61,9 @@ export function useMapPolygons(congregationId?: string): UseMapPolygonsResult {
     resolved.collection ? q.from({ m: resolved.collection }) : undefined,
   );
 
-  const geojson = useMemo(() => mapRowsToGeoJSON(data ?? []), [data]);
-  const bounds = useMemo(() => mapRowsToBounds(data ?? []), [data]);
+  const maps = useMemo(() => data ?? [], [data]);
+  const geojson = useMemo(() => mapRowsToGeoJSON(maps), [maps]);
+  const bounds = useMemo(() => mapRowsToBounds(maps), [maps]);
 
   const queryError =
     resolved.collection?.utils.isError && resolved.collection.utils.lastError != null
@@ -68,6 +71,7 @@ export function useMapPolygons(congregationId?: string): UseMapPolygonsResult {
       : null;
 
   return {
+    maps,
     geojson,
     bounds,
     isLoading: resolved.collection !== null && isLoading,

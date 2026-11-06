@@ -3,6 +3,7 @@ import { z } from "zod";
 export const MAP_TABLE = "map";
 
 export const MAP_POLYGON_COLOR = "#9ca3af";
+export const MAP_SELECTED_COLOR = "#ef4444";
 export const MAP_VERTEX_MIN_ZOOM = 14;
 export const MAP_LABEL_MIN_ZOOM = MAP_VERTEX_MIN_ZOOM - 2;
 export const MAP_LINE_MIN_ZOOM = MAP_VERTEX_MIN_ZOOM - 2;
@@ -110,6 +111,12 @@ export function boundaryToPolygonCoords(boundary: unknown): number[][][] | null 
     return null;
   }
   return [ensureClosedRing(boundary)];
+}
+
+// Stable identifier for a map row, matching the expression used by map styles
+// to look up a feature: `id` when present, otherwise `name`.
+export function mapRowKey(row: MapRow): string {
+  return row.id ?? row.name;
 }
 
 export function mapRowToFeature(row: MapRow): MapPolygonFeature | null {
