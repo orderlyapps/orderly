@@ -1,4 +1,4 @@
-export { useMapboxMap, type UseMapboxMapOptions, type UseMapboxMapResult } from "./hooks.ts";
+export { useMapView, type UseMapViewOptions, type UseMapViewResult } from "./hooks.ts";
 export { MapView, type MapViewProps } from "./MapView.tsx";
 export {
   areCoordinatesEqual,

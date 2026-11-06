@@ -19,7 +19,7 @@ import {
   readMapViewState,
   resolveMapStyle,
   toMapboxCenter,
-  useMapboxMap,
+  useMapView,
   writeMapViewState,
 } from "../src/feature/map/index.ts";
 
@@ -63,7 +63,7 @@ test("validates coordinates, tokens, zoom bounds, and style resolution", () => {
   );
 
   expect(typeof MapView).toBe("function");
-  expect(typeof useMapboxMap).toBe("function");
+  expect(typeof useMapView).toBe("function");
 });
 
 test("reads and writes persisted map view state", () => {

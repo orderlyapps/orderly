@@ -1,12 +1,15 @@
 import type { CSSProperties, ReactNode } from "react";
 
 import { IonNote } from "@ionic/react";
+import Map, { GeolocateControl, NavigationControl } from "react-map-gl/mapbox";
 
 import "mapbox-gl/mapbox-gl.css";
 
-import { useMapboxMap, type UseMapboxMapOptions } from "./hooks.ts";
+import { useMapView, type UseMapViewOptions } from "./hooks.ts";
 
-export interface MapViewProps extends UseMapboxMapOptions {
+export interface MapViewProps extends UseMapViewOptions {
+  showNavigationControl?: boolean;
+  showGeolocateControl?: boolean;
   missingTokenMessage?: ReactNode;
 }
 
@@ -43,12 +46,15 @@ const errorBannerStyle: CSSProperties = {
 };
 
 export const MapView = ({
+  showNavigationControl = true,
+  showGeolocateControl = true,
   missingTokenMessage = "A Mapbox access token is required to display the map. Set VITE_MAPBOX_ACCESS_TOKEN to configure it.",
   ...options
 }: MapViewProps) => {
-  const { containerRef, error, isConfigured } = useMapboxMap(options);
+  const { accessToken } = options;
+  const { mapRef, mapKey, error, isConfigured, resolvedStyle, mapProps } = useMapView(options);
 
-  if (!isConfigured) {
+  if (!isConfigured || !accessToken) {
     return (
       <div style={messageStyle}>
         <IonNote color="medium">{missingTokenMessage}</IonNote>
@@ -58,7 +64,23 @@ export const MapView = ({
 
   return (
     <div style={containerStyle}>
-      <div ref={containerRef} style={mapElementStyle} />
+      <Map
+        key={mapKey}
+        ref={mapRef}
+        mapboxAccessToken={accessToken.trim()}
+        mapStyle={resolvedStyle}
+        style={mapElementStyle}
+        {...mapProps}
+      >
+        {showNavigationControl ? <NavigationControl position="top-right" /> : null}
+        {showGeolocateControl ? (
+          <GeolocateControl
+            position="top-right"
+            positionOptions={{ enableHighAccuracy: true }}
+            trackUserLocation
+          />
+        ) : null}
+      </Map>
       {error ? (
         <div style={errorBannerStyle}>
           <IonNote color="danger">{error}</IonNote>

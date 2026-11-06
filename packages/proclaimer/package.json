@@ -26,6 +26,7 @@
     "@tanstack/react-db": "catalog:",
     "@tanstack/react-query": "catalog:",
     "mapbox-gl": "^3.33.0",
+    "react-map-gl": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
