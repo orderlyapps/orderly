@@ -8,6 +8,7 @@ import {
   SectionHeader,
 } from "../meeting/components.tsx";
 import { WeekNavigator } from "../meeting/WeekNavigator.tsx";
+import { WeekTransition } from "../meeting/WeekTransition.tsx";
 import { useWeekendMeeting } from "./hooks.ts";
 import type { WeekendMeetingProgram } from "./program.ts";
 
@@ -76,22 +77,24 @@ export function WeekendMeetingView({
         onSelectWeek={onSelectWeek}
       />
       <div style={{ height: 48 }} />
-      {error ? (
-        <div style={{ padding: "40px 24px", textAlign: "center" }}>
-          <IonNote color="danger">{error.message}</IonNote>
-          {canRetry && (
-            <div>
-              <IonButton fill="clear" size="small" onClick={() => void retry()}>
-                Try Again
-              </IonButton>
-            </div>
-          )}
-        </div>
-      ) : isLoading ? (
-        <MeetingProgramLoading />
-      ) : (
-        <ProgramBody program={program} />
-      )}
+      <WeekTransition weekId={weekId}>
+        {error ? (
+          <div style={{ padding: "40px 24px", textAlign: "center" }}>
+            <IonNote color="danger">{error.message}</IonNote>
+            {canRetry && (
+              <div>
+                <IonButton fill="clear" size="small" onClick={() => void retry()}>
+                  Try Again
+                </IonButton>
+              </div>
+            )}
+          </div>
+        ) : isLoading ? (
+          <MeetingProgramLoading />
+        ) : (
+          <ProgramBody program={program} />
+        )}
+      </WeekTransition>
     </>
   );
 }

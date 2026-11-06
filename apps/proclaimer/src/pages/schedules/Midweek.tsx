@@ -7,7 +7,8 @@ import {
   IonTitle,
   IonToolbar,
 } from "@ionic/react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useState } from "react";
+import { useParams } from "react-router-dom";
 import {
   currentWeekId,
   MidweekMeetingView,
@@ -18,11 +19,20 @@ import {
 
 const Midweek = () => {
   const { settings } = useSettings();
-  const navigate = useNavigate();
-  const { weekId } = useParams<{ weekId?: string }>();
+  const { weekId: weekIdParam } = useParams<{ weekId?: string }>();
   // Meeting data is keyed by Monday, so normalize any valid date to its week id.
-  const parsedWeekId = weekId ? parseWeekId(weekId) : null;
-  const resolvedWeekId = parsedWeekId ? weekIdOf(parsedWeekId) : currentWeekId();
+  const parsedWeekId = weekIdParam ? parseWeekId(weekIdParam) : null;
+  // IonRouterOutlet remounts parameterized routes when the param changes, so
+  // the week lives in state and the URL is synced silently — otherwise the
+  // week slide transition would be destroyed on every navigation.
+  const [weekId, setWeekId] = useState(() =>
+    parsedWeekId ? weekIdOf(parsedWeekId) : currentWeekId(),
+  );
+
+  const selectWeek = (nextWeekId: string) => {
+    setWeekId(nextWeekId);
+    window.history.replaceState(null, "", `/schedules/midweek/${nextWeekId}`);
+  };
 
   return (
     <IonPage>
@@ -36,11 +46,9 @@ const Midweek = () => {
       </IonHeader>
       <IonContent>
         <MidweekMeetingView
-          weekId={resolvedWeekId}
+          weekId={weekId}
           congregationId={settings.congregationId || undefined}
-          onSelectWeek={(nextWeekId) =>
-            navigate(`/schedules/midweek/${nextWeekId}`, { replace: true })
-          }
+          onSelectWeek={selectWeek}
         />
         <div style={{ paddingBottom: 96 }} />
       </IonContent>

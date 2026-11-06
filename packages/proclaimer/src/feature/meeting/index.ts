@@ -8,6 +8,7 @@ export {
   type EventBannerProps,
 } from "./components.tsx";
 export { WeekNavigator, type WeekNavigatorProps } from "./WeekNavigator.tsx";
+export { WeekTransition, type WeekTransitionProps } from "./WeekTransition.tsx";
 export { findWeekEvent } from "./events.ts";
 export type {
   MeetingEventInfo,
