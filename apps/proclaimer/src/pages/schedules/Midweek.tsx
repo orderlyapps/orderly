@@ -42,7 +42,7 @@ const Midweek = () => {
             navigate(`/schedules/midweek/${nextWeekId}`, { replace: true })
           }
         />
-        <div style={{ paddingBottom: 48 }} />
+        <div style={{ paddingBottom: 96 }} />
       </IonContent>
     </IonPage>
   );
