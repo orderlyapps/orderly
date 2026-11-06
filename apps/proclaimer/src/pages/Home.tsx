@@ -1,21 +1,13 @@
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from "@ionic/react";
+import { IonContent, IonPage } from "@ionic/react";
 import { HomepageView } from "proclaimer-core";
 
 const Home = () => {
   return (
     <IonPage>
-      <IonHeader>
-        <IonToolbar>
-          <IonTitle>Home</IonTitle>
-        </IonToolbar>
-      </IonHeader>
       <IonContent fullscreen>
-        <IonHeader collapse="condense">
-          <IonToolbar>
-            <IonTitle size="large">Home</IonTitle>
-          </IonToolbar>
-        </IonHeader>
-        <HomepageView />
+        <div style={{ paddingTop: "var(--ion-safe-area-top, env(safe-area-inset-top))" }}>
+          <HomepageView />
+        </div>
       </IonContent>
     </IonPage>
   );
