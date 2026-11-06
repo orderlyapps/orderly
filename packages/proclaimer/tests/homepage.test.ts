@@ -208,7 +208,7 @@ test("buildUpcomingAssignments merges and sorts all types by week", () => {
   expect(assignments.map((a) => a.weekId)).toEqual(["2025-11-03", "2025-11-10", "2025-11-17"]);
 });
 
-test("does not render the assignments accordion without a selected publisher", async () => {
+test("does not render the assignments section without a selected publisher", async () => {
   const store = await createSettingsStore({ name: nextStoreName() });
   try {
     await store.updateSettings({ congregationId });
@@ -363,7 +363,7 @@ function makeHomeEvent(
   };
 }
 
-test("renders the next 3 upcoming events in the events accordion", async () => {
+test("renders the next 3 upcoming events in the events section", async () => {
   const events = memoryCollection<EventRow>(`events_homepage_test_${Date.now()}`, (e) => e.id, [
     makeHomeEvent("11111111-1111-4111-8111-111111111111", "Past Picnic", dayOffset(-7)),
     makeHomeEvent("22222222-2222-4222-8222-222222222222", "Working Bee", dayOffset(2)),
@@ -407,7 +407,7 @@ test("renders the next 3 upcoming events in the events accordion", async () => {
   }
 });
 
-test("hides the events accordion when there are no upcoming events", async () => {
+test("hides the events section when there are no upcoming events", async () => {
   const events = memoryCollection<EventRow>(
     `events_homepage_empty_test_${Date.now()}`,
     (e) => e.id,

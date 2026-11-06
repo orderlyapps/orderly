@@ -1,4 +1,4 @@
-import { IonAccordion, IonAccordionGroup, IonItem, IonLabel, IonList } from "@ionic/react";
+import { IonItem, IonLabel, IonList } from "@ionic/react";
 
 import { relativeWeekLabel, weekRangeLabel } from "../../util/week.ts";
 import { useUpcomingAssignments, type UpcomingAssignmentCollections } from "./hooks.ts";
@@ -39,30 +39,26 @@ export function HomeAssignments({
   }
 
   return (
-    <IonAccordionGroup value="assignments">
-      <IonAccordion value="assignments">
-        <IonItem slot="header" lines="inset">
-          <IonLabel>
-            <span style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}>
-              Assignments
-            </span>
-          </IonLabel>
-        </IonItem>
-        <div slot="content" style={{ paddingBottom: 16 }}>
-          <IonList>
-            {upcoming.map((assignment, index) => (
-              <IonItem key={assignment.id} lines={index === upcoming.length - 1 ? "none" : "inset"}>
-                <IonLabel>
-                  <p style={{ color: "var(--ion-text-color)", fontWeight: 600 }}>
-                    {assignmentWeekLabel(assignment.weekId, now)}
-                  </p>
-                  <h3>{assignment.label}</h3>
-                </IonLabel>
-              </IonItem>
-            ))}
-          </IonList>
-        </div>
-      </IonAccordion>
-    </IonAccordionGroup>
+    <div style={{ paddingBottom: 16 }}>
+      <IonItem lines="inset">
+        <IonLabel>
+          <span style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}>
+            Assignments
+          </span>
+        </IonLabel>
+      </IonItem>
+      <IonList>
+        {upcoming.map((assignment, index) => (
+          <IonItem key={assignment.id} lines={index === upcoming.length - 1 ? "none" : "inset"}>
+            <IonLabel>
+              <p style={{ color: "var(--ion-text-color)", fontWeight: 600 }}>
+                {assignmentWeekLabel(assignment.weekId, now)}
+              </p>
+              <h3>{assignment.label}</h3>
+            </IonLabel>
+          </IonItem>
+        ))}
+      </IonList>
+    </div>
   );
 }
