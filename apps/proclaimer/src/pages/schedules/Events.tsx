@@ -22,7 +22,7 @@ const Events = () => {
           <IonTitle>Events</IonTitle>
         </IonToolbar>
       </IonHeader>
-      <IonContent fullscreen>
+      <IonContent>
         <IonHeader collapse="condense">
           <IonToolbar>
             <IonTitle size="large">Events</IonTitle>

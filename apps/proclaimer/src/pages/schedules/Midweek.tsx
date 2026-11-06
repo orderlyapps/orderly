@@ -34,7 +34,7 @@ const Midweek = () => {
           <IonTitle>Midweek Meeting</IonTitle>
         </IonToolbar>
       </IonHeader>
-      <IonContent fullscreen>
+      <IonContent>
         <MidweekMeetingView
           weekId={resolvedWeekId}
           congregationId={settings.congregationId || undefined}
