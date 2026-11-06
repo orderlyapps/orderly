@@ -104,7 +104,7 @@ export function PublishersView({ congregationId, collection }: PublishersViewPro
   }
 
   return (
-    <IonAccordionGroup value="elders">
+    <IonAccordionGroup>
       <PublisherAccordion
         value="elders"
         label="Elders"
