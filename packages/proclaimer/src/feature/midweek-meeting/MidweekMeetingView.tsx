@@ -17,20 +17,6 @@ export interface MidweekMeetingViewProps {
   onSelectWeek?: (weekId: string) => void;
 }
 
-const TITLE_CASE_SMALL_WORDS = new Set(["of", "the", "and", "to", "in", "a", "an"]);
-
-function titleCase(text: string): string {
-  return text
-    .toLowerCase()
-    .split(" ")
-    .map((word, index) =>
-      index > 0 && TITLE_CASE_SMALL_WORDS.has(word)
-        ? word
-        : word.charAt(0).toUpperCase() + word.slice(1),
-    )
-    .join(" ");
-}
-
 function ProgramBody({ program }: { program: MeetingProgram }) {
   if (program.event?.replacesMeeting) {
     return <EventBanner event={program.event} unavailableMessage="No midweek meeting this week" />;
@@ -41,36 +27,27 @@ function ProgramBody({ program }: { program: MeetingProgram }) {
       {program.event && (
         <EventBanner event={program.event} unavailableMessage="No midweek meeting this week" />
       )}
-      {program.bibleReading && (
-        <div
-          style={{
-            padding: "2px 20px 0",
-            fontSize: 13,
-            color: "var(--ion-color-medium)",
-            textAlign: "center",
-          }}
-        >
-          Weekly Bible Reading · {titleCase(program.bibleReading)}
-        </div>
-      )}
       {program.sections.map((section) => (
         <div key={section.id}>
           {section.title && <SectionHeader title={section.title} color={section.color} />}
-          {section.blocks.map((block, blockIndex) => (
-            <div key={block.label ?? blockIndex}>
-              {block.label && <BlockLabel label={block.label} />}
-              <IonList inset lines="none" style={{ marginTop: 4 }}>
-                {block.items.map((item, itemIndex) => (
-                  <MeetingItemRow
-                    key={item.id}
-                    item={item}
-                    color={section.color}
-                    isLast={itemIndex === block.items.length - 1}
-                  />
-                ))}
-              </IonList>
-            </div>
-          ))}
+          {section.blocks.map((block, blockIndex) => {
+            const items = block.items.filter((item) => item.kind !== "song");
+            return (
+              <div key={block.label ?? blockIndex}>
+                {block.label && <BlockLabel label={block.label} />}
+                <IonList inset lines="none" style={{ marginTop: 4 }}>
+                  {items.map((item, itemIndex) => (
+                    <MeetingItemRow
+                      key={item.id}
+                      item={{ ...item, subtitle: undefined }}
+                      color={section.color}
+                      isLast={itemIndex === items.length - 1}
+                    />
+                  ))}
+                </IonList>
+              </div>
+            );
+          })}
         </div>
       ))}
       {!program.hasMeetingData && (
@@ -99,6 +76,7 @@ export function MidweekMeetingView({
         relativeLabel={program.relativeLabel}
         onSelectWeek={onSelectWeek}
       />
+      <div style={{ height: 24 }} />
       {error ? (
         <div style={{ padding: "40px 24px", textAlign: "center" }}>
           <IonNote color="danger">{error.message}</IonNote>
