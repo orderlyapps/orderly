@@ -19,6 +19,8 @@ import {
   importSettingsBinaryFile,
   isCongregationId,
   isPublisherId,
+  isSelectedMap,
+  isSelectedMaps,
   isSettingsDocument,
   isThemeMode,
   isValidSettingsId,
@@ -54,7 +56,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     "settings-2026-10-23_14-05-09.pro",
   );
   expect(THEME_MODES).toEqual(["light", "dark", "system"]);
-  expect(SETTINGS_KEYS).toEqual(["theme", "congregationId", "publisherId"]);
+  expect(SETTINGS_KEYS).toEqual(["theme", "congregationId", "publisherId", "selectedMaps"]);
   expect(THEME_LABELS).toEqual({ light: "Light", dark: "Dark", system: "System" });
   expect(THEME_OPTIONS).toEqual([
     { value: "light", label: "Light" },
@@ -72,12 +74,14 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     theme: "system",
     congregationId: "",
     publisherId: "",
+    selectedMaps: {},
   });
   expect(normalizeSettingsDocument({ id: "", theme: "dark" })).toEqual({
     id: DEFAULT_SETTINGS_ID,
     theme: "dark",
     congregationId: "",
     publisherId: "",
+    selectedMaps: {},
   });
   const overlongId = "a".repeat(SETTINGS_ID_MAX_LENGTH + 1);
   expect(isValidSettingsId(DEFAULT_SETTINGS_ID)).toBe(true);
@@ -91,12 +95,22 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
   expect(isPublisherId("publisher-1")).toBe(true);
   expect(isPublisherId("   ")).toBe(false);
   expect(isPublisherId("a".repeat(65))).toBe(false);
+  expect(isSelectedMap("")).toBe(false);
+  expect(isSelectedMap("map-1")).toBe(true);
+  expect(isSelectedMap("   ")).toBe(false);
+  expect(isSelectedMap("a".repeat(257))).toBe(false);
+  expect(isSelectedMaps({})).toBe(true);
+  expect(isSelectedMaps({ "congregation-1": "map-1" })).toBe(true);
+  expect(isSelectedMaps({ "congregation-1": "" })).toBe(false);
+  expect(isSelectedMaps({ "": "map-1" })).toBe(false);
+  expect(isSelectedMaps("map-1")).toBe(false);
   expect(
     isSettingsDocument({
       id: DEFAULT_SETTINGS_ID,
       theme: "dark",
       congregationId: "",
       publisherId: "",
+      selectedMaps: {},
     }),
   ).toBe(true);
   expect(isSettingsDocument({ id: DEFAULT_SETTINGS_ID, theme: "dark", congregationId: "  " })).toBe(
@@ -108,18 +122,79 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     theme: "dark",
     congregationId: "",
     publisherId: "",
+    selectedMaps: {},
   });
   expect(toSettingsPatch({ id: "custom", theme: "light" })).toEqual({ theme: "light" });
   expect(
     areSettingsEqual(
-      { id: DEFAULT_SETTINGS_ID, theme: "dark", congregationId: "", publisherId: "" },
-      { id: DEFAULT_SETTINGS_ID, theme: "dark", congregationId: "", publisherId: "" },
+      {
+        id: DEFAULT_SETTINGS_ID,
+        theme: "dark",
+        congregationId: "",
+        publisherId: "",
+        selectedMaps: {},
+      },
+      {
+        id: DEFAULT_SETTINGS_ID,
+        theme: "dark",
+        congregationId: "",
+        publisherId: "",
+        selectedMaps: {},
+      },
     ),
   ).toBe(true);
   expect(
     areSettingsEqual(
-      { id: DEFAULT_SETTINGS_ID, theme: "dark", congregationId: "", publisherId: "" },
-      { id: DEFAULT_SETTINGS_ID, theme: "light", congregationId: "", publisherId: "" },
+      {
+        id: DEFAULT_SETTINGS_ID,
+        theme: "dark",
+        congregationId: "",
+        publisherId: "",
+        selectedMaps: {},
+      },
+      {
+        id: DEFAULT_SETTINGS_ID,
+        theme: "light",
+        congregationId: "",
+        publisherId: "",
+        selectedMaps: {},
+      },
+    ),
+  ).toBe(false);
+  expect(
+    areSettingsEqual(
+      {
+        id: DEFAULT_SETTINGS_ID,
+        theme: "dark",
+        congregationId: "",
+        publisherId: "",
+        selectedMaps: { "congregation-1": "map-1" },
+      },
+      {
+        id: DEFAULT_SETTINGS_ID,
+        theme: "dark",
+        congregationId: "",
+        publisherId: "",
+        selectedMaps: { "congregation-1": "map-1" },
+      },
+    ),
+  ).toBe(true);
+  expect(
+    areSettingsEqual(
+      {
+        id: DEFAULT_SETTINGS_ID,
+        theme: "dark",
+        congregationId: "",
+        publisherId: "",
+        selectedMaps: { "congregation-1": "map-1" },
+      },
+      {
+        id: DEFAULT_SETTINGS_ID,
+        theme: "dark",
+        congregationId: "",
+        publisherId: "",
+        selectedMaps: { "congregation-1": "map-2" },
+      },
     ),
   ).toBe(false);
 
@@ -139,12 +214,19 @@ test("initializes LocalStorage Collection store with default system theme and up
       theme: "system",
       congregationId: "",
       publisherId: "",
+      selectedMaps: {},
     });
     expect(store.collection.get(DEFAULT_SETTINGS_ID)?.theme).toBe("system");
 
     const updatedDark = await store.setTheme("dark");
     expect(updatedDark.theme).toBe("dark");
     expect(store.collection.get(DEFAULT_SETTINGS_ID)?.theme).toBe("dark");
+
+    const updatedMap = await store.setSetting("selectedMaps", { "congregation-1": "map-1" });
+    expect(updatedMap.selectedMaps).toEqual({ "congregation-1": "map-1" });
+    expect(store.collection.get(DEFAULT_SETTINGS_ID)?.selectedMaps).toEqual({
+      "congregation-1": "map-1",
+    });
 
     const rawStored = store.storage.getItem(store.storageKey);
     expect(rawStored).toBeTruthy();
@@ -188,6 +270,7 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       theme: "dark",
       congregationId: "",
       publisherId: "",
+      selectedMaps: {},
     });
 
     const imported = await importSettingsBinary(binary, targetStore);
@@ -196,6 +279,7 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       theme: "dark",
       congregationId: "",
       publisherId: "",
+      selectedMaps: {},
     });
     expect((await targetStore.getSettings()).theme).toBe("dark");
 
@@ -215,6 +299,7 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       theme: "light",
       congregationId: "",
       publisherId: "",
+      selectedMaps: {},
     });
   } finally {
     await sourceStore.close();
@@ -235,6 +320,7 @@ test("rejects invalid binary payloads", () => {
     theme: "dark",
     congregationId: "",
     publisherId: "",
+    selectedMaps: {},
   });
   const corrupted = new Uint8Array(valid);
   corrupted[corrupted.length - 1] = 0x00;
@@ -261,7 +347,13 @@ test("rejects invalid binary payloads", () => {
     decodeSettingsBinary(
       makeBinaryPayload({ id: "x".repeat(SETTINGS_ID_MAX_LENGTH + 5), theme: "dark" }),
     ),
-  ).toEqual({ id: DEFAULT_SETTINGS_ID, theme: "dark", congregationId: "", publisherId: "" });
+  ).toEqual({
+    id: DEFAULT_SETTINGS_ID,
+    theme: "dark",
+    congregationId: "",
+    publisherId: "",
+    selectedMaps: {},
+  });
 });
 
 test("applies dark class to target element based on theme", () => {
@@ -437,6 +529,7 @@ test("recovers from malformed or corrupt data in storage and falls back to defau
         theme: "dark",
         congregationId: "",
         publisherId: "",
+        selectedMaps: {},
       });
     } finally {
       await store.close();

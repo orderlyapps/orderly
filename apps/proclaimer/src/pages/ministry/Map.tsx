@@ -18,6 +18,7 @@ import {
   MapsListModal,
   MapView,
   readMapViewState,
+  useSettings,
 } from "proclaimer-core";
 
 import { mapboxAccessToken } from "../../config";
@@ -28,7 +29,9 @@ const hasSavedView = () =>
 
 const Map = () => {
   const [mapsOpen, setMapsOpen] = useState(false);
-  const [selectedMap, setSelectedMap] = useState<string | null>(null);
+  const { settings, setSetting } = useSettings();
+  const congregationId = settings.congregationId.trim();
+  const selectedMap = settings.selectedMaps[congregationId] || null;
 
   return (
     <IonPage>
@@ -58,8 +61,16 @@ const Map = () => {
           onDidDismiss={() => setMapsOpen(false)}
           selectedMap={selectedMap}
           onSelect={(key) => {
-            setSelectedMap(key);
             setMapsOpen(false);
+            if (!congregationId) {
+              return;
+            }
+            void setSetting("selectedMaps", {
+              ...settings.selectedMaps,
+              [congregationId]: key,
+            }).catch((error: unknown) => {
+              console.warn("Failed to persist selected map", error);
+            });
           }}
         />
       </IonContent>

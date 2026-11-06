@@ -10,6 +10,8 @@ export const CONGREGATION_ID_MAX_LENGTH = 64;
 
 export const PUBLISHER_ID_MAX_LENGTH = 64;
 
+export const SELECTED_MAP_MAX_LENGTH = 256;
+
 export const SETTINGS_ID_MAX_LENGTH = 64;
 
 const optionalIdString = (maxLength: number) =>
@@ -22,12 +24,24 @@ export const congregationIdSchema = optionalIdString(CONGREGATION_ID_MAX_LENGTH)
 
 export const publisherIdSchema = optionalIdString(PUBLISHER_ID_MAX_LENGTH);
 
+export const selectedMapSchema = z
+  .string()
+  .min(1)
+  .max(SELECTED_MAP_MAX_LENGTH)
+  .refine((value) => value.trim().length > 0);
+
+export const selectedMapsSchema = z.record(
+  z.string().min(1).max(CONGREGATION_ID_MAX_LENGTH),
+  selectedMapSchema,
+);
+
 export const settingsIdSchema = z.string().min(1).max(SETTINGS_ID_MAX_LENGTH);
 
 const SETTINGS_FIELD_SCHEMAS = {
   theme: themeModeSchema,
   congregationId: congregationIdSchema,
   publisherId: publisherIdSchema,
+  selectedMaps: selectedMapsSchema,
 } as const;
 
 export const settingsDocumentSchema = z.object({
@@ -50,6 +64,7 @@ export const DEFAULT_SETTINGS: SettingsDocument = {
   theme: "system",
   congregationId: "",
   publisherId: "",
+  selectedMaps: {},
 };
 
 export function isThemeMode(value: unknown): value is ThemeMode {
@@ -62,6 +77,14 @@ export function isCongregationId(value: unknown): value is string {
 
 export function isPublisherId(value: unknown): value is string {
   return publisherIdSchema.safeParse(value).success;
+}
+
+export function isSelectedMap(value: unknown): value is string {
+  return selectedMapSchema.safeParse(value).success;
+}
+
+export function isSelectedMaps(value: unknown): value is Record<string, string> {
+  return selectedMapsSchema.safeParse(value).success;
 }
 
 export function isValidSettingsId(value: unknown): value is string {
@@ -117,9 +140,17 @@ export function toSettingsPatch(value: Partial<SettingsDocument>): SettingsPatch
   return patch;
 }
 
+function areSelectedMapsEqual(a: Record<string, string>, b: Record<string, string>): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  return aKeys.length === bKeys.length && aKeys.every((key) => a[key] === b[key]);
+}
+
 export function areSettingsEqual(a: SettingsDocument, b: SettingsDocument): boolean {
   if (a.id !== b.id) {
     return false;
   }
-  return SETTINGS_KEYS.every((key) => a[key] === b[key]);
+  return SETTINGS_KEYS.every((key) =>
+    key === "selectedMaps" ? areSelectedMapsEqual(a[key], b[key]) : a[key] === b[key],
+  );
 }
