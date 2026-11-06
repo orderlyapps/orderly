@@ -1,10 +1,12 @@
 import { IonText } from "@ionic/react";
 
+import type { EventCollection } from "../event/collection.ts";
 import type { PublisherCollection } from "../publisher/collection.ts";
 import { usePublishers } from "../publisher/hooks.ts";
 import type { SettingsStore } from "../settings/db.ts";
 import { useSettings } from "../settings/hooks.ts";
 import { HomeAssignments } from "./HomeAssignments.tsx";
+import { HomeEvents } from "./HomeEvents.tsx";
 import type { UpcomingAssignmentCollections } from "./hooks.ts";
 import { getWelcomeName } from "./welcome.ts";
 
@@ -12,6 +14,7 @@ export interface HomepageViewProps {
   store?: SettingsStore;
   publisherCollection?: PublisherCollection;
   assignmentCollections?: UpcomingAssignmentCollections;
+  eventCollection?: EventCollection;
   logoSrc?: string;
 }
 
@@ -19,6 +22,7 @@ export const HomepageView = ({
   store,
   publisherCollection,
   assignmentCollections,
+  eventCollection,
   logoSrc = "/logo.svg",
 }: HomepageViewProps) => {
   const { settings } = useSettings(store);
@@ -40,6 +44,7 @@ export const HomepageView = ({
           collections={assignmentCollections}
         />
       ) : null}
+      <HomeEvents congregationId={settings.congregationId} collection={eventCollection} />
     </>
   );
 };

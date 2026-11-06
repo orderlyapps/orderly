@@ -4,6 +4,7 @@ import { expect, test } from "vite-plus/test";
 
 import { createCollection, localStorageCollectionOptions } from "@tanstack/react-db";
 
+import type { EventCollection, EventRow } from "../src/feature/event/index.ts";
 import {
   buildUpcomingAssignments,
   getWelcomeName,
@@ -23,7 +24,7 @@ import type {
   WeekendAssignment,
   WeekendAssignmentCollection,
 } from "../src/feature/weekend-meeting/index.ts";
-import { currentWeekId, shiftWeekId } from "../src/util/week.ts";
+import { currentWeekId, formatWeekId, shiftWeekId } from "../src/util/week.ts";
 
 let storeCounter = 0;
 function nextStoreName() {
@@ -330,5 +331,106 @@ test("renders the next 3 upcoming assignments for the selected publisher", async
     for (const { collection } of [publisher, midweek, meetingData, weekend, speaker]) {
       await collection.cleanup().catch(() => {});
     }
+  }
+});
+
+function dayOffset(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return formatWeekId(date);
+}
+
+function makeHomeEvent(
+  id: string,
+  name: string,
+  start_date: string,
+  end_date: string | null = null,
+): EventRow {
+  return {
+    id,
+    congregation_id: congregationId,
+    name,
+    description: "",
+    address: "",
+    coordinates: null,
+    all_day: true,
+    start_date,
+    start_time: null,
+    end_date,
+    end_time: null,
+    type: "other",
+    details: null,
+  };
+}
+
+test("renders the next 3 upcoming events in the events accordion", async () => {
+  const events = memoryCollection<EventRow>(`events_homepage_test_${Date.now()}`, (e) => e.id, [
+    makeHomeEvent("11111111-1111-4111-8111-111111111111", "Past Picnic", dayOffset(-7)),
+    makeHomeEvent("22222222-2222-4222-8222-222222222222", "Working Bee", dayOffset(2)),
+    makeHomeEvent("33333333-3333-4333-8333-333333333333", "Hall Renovation", dayOffset(9)),
+    makeHomeEvent("44444444-4444-4444-8444-444444444444", "Convention", dayOffset(30)),
+    makeHomeEvent("55555555-5555-4555-8555-555555555555", "Distant Social", dayOffset(60)),
+    // A multi-day event already in progress still counts as upcoming.
+    makeHomeEvent(
+      "66666666-6666-4666-8666-666666666666",
+      "Ongoing Assembly",
+      dayOffset(-1),
+      dayOffset(1),
+    ),
+  ]);
+
+  const store = await createSettingsStore({ name: nextStoreName() });
+  try {
+    await events.collection.preload();
+    await events.collection.insert(events.rows).isPersisted.promise;
+    await store.updateSettings({ congregationId });
+
+    const markup = renderToStaticMarkup(
+      createElement(HomepageView, {
+        store,
+        eventCollection: events.collection as unknown as EventCollection,
+      }),
+    );
+
+    expect(markup).toContain("Events");
+    expect(markup).toContain("Ongoing Assembly");
+    expect(markup).toContain("Working Bee");
+    expect(markup).toContain("Hall Renovation");
+    // Only the next 3 are shown.
+    expect(markup).not.toContain("Convention");
+    expect(markup).not.toContain("Distant Social");
+    // Finished events are excluded.
+    expect(markup).not.toContain("Past Picnic");
+  } finally {
+    await store.close();
+    await events.collection.cleanup().catch(() => {});
+  }
+});
+
+test("hides the events accordion when there are no upcoming events", async () => {
+  const events = memoryCollection<EventRow>(
+    `events_homepage_empty_test_${Date.now()}`,
+    (e) => e.id,
+    [makeHomeEvent("77777777-7777-4777-8777-777777777777", "Past Picnic", dayOffset(-7))],
+  );
+
+  const store = await createSettingsStore({ name: nextStoreName() });
+  try {
+    await events.collection.preload();
+    await events.collection.insert(events.rows).isPersisted.promise;
+    await store.updateSettings({ congregationId });
+
+    const markup = renderToStaticMarkup(
+      createElement(HomepageView, {
+        store,
+        eventCollection: events.collection as unknown as EventCollection,
+      }),
+    );
+
+    expect(markup).not.toContain("Events");
+    expect(markup).not.toContain("Past Picnic");
+  } finally {
+    await store.close();
+    await events.collection.cleanup().catch(() => {});
   }
 });
