@@ -1,6 +1,5 @@
 import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from "@ionic/react";
-
-import ExploreContainer from "../components/ExploreContainer";
+import { HomepageView } from "proclaimer-core";
 
 const Home = () => {
   return (
@@ -16,7 +15,7 @@ const Home = () => {
             <IonTitle size="large">Home</IonTitle>
           </IonToolbar>
         </IonHeader>
-        <ExploreContainer name="Home page" />
+        <HomepageView />
       </IonContent>
     </IonPage>
   );

@@ -4,6 +4,7 @@ export * from "./backend/index.ts";
 export * from "./cleaning/index.ts";
 export * from "./congregation/index.ts";
 export * from "./event/index.ts";
+export * from "./homepage/index.ts";
 export * from "./maps/index.ts";
 export * from "./meeting/index.ts";
 export * from "./midweek-meeting/index.ts";
