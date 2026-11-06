@@ -580,6 +580,38 @@ test("renders the next 3 upcoming events in the events section", async () => {
     expect(markup).not.toContain("Distant Social");
     // Finished events are excluded.
     expect(markup).not.toContain("Past Picnic");
+    // More events than fit link to the full list.
+    expect(markup).toContain("See more");
+    expect(markup).toContain("/home/events");
+  } finally {
+    await store.close();
+    await events.collection.cleanup().catch(() => {});
+  }
+});
+
+test("hides the events see more link when all events fit", async () => {
+  const events = memoryCollection<EventRow>(`events_homepage_few_test_${Date.now()}`, (e) => e.id, [
+    makeHomeEvent("22222222-2222-4222-8222-222222222222", "Working Bee", dayOffset(2)),
+    makeHomeEvent("33333333-3333-4333-8333-333333333333", "Hall Renovation", dayOffset(9)),
+  ]);
+
+  const store = await createSettingsStore({ name: nextStoreName() });
+  try {
+    await events.collection.preload();
+    await events.collection.insert(events.rows).isPersisted.promise;
+    await store.updateSettings({ congregationId });
+
+    const markup = renderToStaticMarkup(
+      createElement(HomepageView, {
+        store,
+        eventCollection: events.collection as unknown as EventCollection,
+      }),
+    );
+
+    expect(markup).toContain("Working Bee");
+    expect(markup).toContain("Hall Renovation");
+    expect(markup).not.toContain("See more");
+    expect(markup).not.toContain("/home/events");
   } finally {
     await store.close();
     await events.collection.cleanup().catch(() => {});
