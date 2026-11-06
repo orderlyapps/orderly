@@ -5,7 +5,8 @@ export function createPublisherCollection(congregationId: string) {
   return createSupabaseTableCollection<Publisher>({
     table: PUBLISHER_TABLE,
     id: `${PUBLISHER_TABLE}:${congregationId}`,
-    select: "id,first_name,middle_name,last_name,display_name,congregation_id,auth_id",
+    select:
+      "id,first_name,middle_name,last_name,display_name,congregation_id,standing,type,archived_at,auth_id",
     match: { congregation_id: congregationId },
     schema: publisherSchema,
   });
@@ -27,7 +28,8 @@ export function createAllPublishersCollection() {
   return createSupabaseTableCollection<Publisher>({
     table: PUBLISHER_TABLE,
     id: `${PUBLISHER_TABLE}:all`,
-    select: "id,first_name,middle_name,last_name,display_name,congregation_id,auth_id",
+    select:
+      "id,first_name,middle_name,last_name,display_name,congregation_id,standing,type,archived_at,auth_id",
     schema: publisherSchema,
   });
 }

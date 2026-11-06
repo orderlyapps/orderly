@@ -1,8 +1,9 @@
 import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from "@ionic/react";
-
-import ExploreContainer from "../components/ExploreContainer";
+import { PublishersView, useSettings } from "proclaimer-core";
 
 const Publishers = () => {
+  const { settings } = useSettings();
+
   return (
     <IonPage>
       <IonHeader>
@@ -16,7 +17,7 @@ const Publishers = () => {
             <IonTitle size="large">Publishers</IonTitle>
           </IonToolbar>
         </IonHeader>
-        <ExploreContainer name="Publishers page" />
+        <PublishersView congregationId={settings.congregationId || undefined} />
       </IonContent>
     </IonPage>
   );

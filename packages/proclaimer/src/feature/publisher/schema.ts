@@ -12,6 +12,9 @@ export const publisherSchema = z.object({
   last_name: z.string(),
   display_name: z.string().nullish(),
   congregation_id: z.string().nullish(),
+  standing: z.string().nullish(),
+  type: z.string().nullish(),
+  archived_at: z.string().nullish(),
   auth_id: z.string().nullish(),
 });
 
