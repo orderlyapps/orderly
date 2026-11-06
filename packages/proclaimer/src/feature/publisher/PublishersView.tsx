@@ -36,7 +36,7 @@ function PublisherAccordion({
 }: PublisherAccordionProps) {
   return (
     <IonAccordion value={value}>
-      <IonItem slot="header">
+      <IonItem slot="header" lines="inset">
         <IonLabel>
           <div
             style={{
@@ -45,7 +45,7 @@ function PublisherAccordion({
               justifyContent: "space-between",
             }}
           >
-            <span>{label}</span>
+            <span style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}>{label}</span>
             {!isLoading && <IonNote style={{ marginInlineEnd: 8 }}>{publishers.length}</IonNote>}
           </div>
         </IonLabel>

@@ -25,16 +25,24 @@ const Schedules = () => {
         </IonHeader>
         <IonList>
           <IonItem routerLink="/schedules/midweek" detail>
-            <IonLabel>Midweek</IonLabel>
+            <IonLabel style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}>
+              Midweek
+            </IonLabel>
           </IonItem>
           <IonItem routerLink="/schedules/weekend" detail>
-            <IonLabel>Weekend</IonLabel>
+            <IonLabel style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}>
+              Weekend
+            </IonLabel>
           </IonItem>
           <IonItem routerLink="/schedules/cleaning" detail>
-            <IonLabel>Cleaning</IonLabel>
+            <IonLabel style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}>
+              Cleaning
+            </IonLabel>
           </IonItem>
           <IonItem routerLink="/schedules/events" detail>
-            <IonLabel>Events</IonLabel>
+            <IonLabel style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}>
+              Events
+            </IonLabel>
           </IonItem>
         </IonList>
       </IonContent>
