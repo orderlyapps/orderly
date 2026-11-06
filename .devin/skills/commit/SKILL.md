@@ -18,6 +18,7 @@ Create a commit for the changes in the current worktree.
   ```
   git -c user.name="Devin" -c user.email="158243242+devin-ai-integration[bot]@users.noreply.github.com" commit ...
   ```
+- **Only commit changes from the current session.** The worktree may contain modifications made before this session started or by the user. Stage only files you changed during this session; leave everything else uncommitted.
 
 ## Workflow
 
@@ -40,15 +41,15 @@ Note: `git diff` does not show the contents of untracked files. Read any untrack
 - Match the style of recent commits (conventional prefixes, capitalization, length).
 - Scan the staged content for sensitive information — if any is found, stop and alert the user.
 
-### 3. Stage the relevant files
+### 3. Stage only this session's changes
 
-Stage the files that belong to this change:
+Stage only the files you created or modified during this session:
 
 ```
 git add <file>...
 ```
 
-Do not blindly stage unrelated changes left in the worktree.
+Do not use `git add -A`, `git add .`, or `git commit -a` — the worktree may contain changes that predate this session or were made by the user, and those must stay uncommitted. When unsure whether a change is yours, check the file's diff or ask the user before staging it.
 
 ### 4. Commit
 
