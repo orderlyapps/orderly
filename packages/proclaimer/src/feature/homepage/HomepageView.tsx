@@ -45,6 +45,7 @@ export const HomepageView = ({
         />
       ) : null}
       <HomeEvents congregationId={settings.congregationId} collection={eventCollection} />
+      <div style={{ paddingBottom: 48 }} />
     </>
   );
 };
