@@ -12,6 +12,7 @@ export {
   boundaryToBounds,
   boundaryToPolygonCoords,
   ensureClosedRing,
+  filterMapRows,
   isClosedRing,
   isValidBoundary,
   MAP_LABEL_MIN_ZOOM,

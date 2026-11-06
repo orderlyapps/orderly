@@ -10,6 +10,7 @@ import {
   clampMapZoom,
   DEFAULT_MAP_CENTER,
   ensureClosedRing,
+  filterMapRows,
   isClosedRing,
   isMapboxAccessToken,
   isValidBoundary,
@@ -192,6 +193,35 @@ test("converts map rows to a polygon feature collection", () => {
 
   expect(typeof MapsLayer).toBe("function");
   expect(typeof useMapPolygons).toBe("function");
+});
+
+test("filters and sorts map rows by alphanumeric name search", () => {
+  const row = (overrides: Partial<MapRow>): MapRow => ({
+    congregation_id: "cong-1",
+    name: "Map 1",
+    ...overrides,
+  });
+  const rows = [
+    row({ id: "map-10", name: "Map #10" }),
+    row({ id: "map-2", name: "Map #2" }),
+    row({ id: "map-1", name: "Café District", details: "North section" }),
+    row({ id: "map-3", name: "South", details: "Includes map 4 streets" }),
+  ];
+  const ids = (result: MapRow[]) => result.map((r) => r.id);
+
+  // Alphabetically sorted with numeric ordering: Map #2 before Map #10.
+  expect(ids(filterMapRows(rows, ""))).toEqual(["map-1", "map-2", "map-10", "map-3"]);
+
+  // Punctuation and diacritics do not need to be typed.
+  expect(ids(filterMapRows(rows, "map2"))).toEqual(["map-2"]);
+  expect(ids(filterMapRows(rows, "cafe"))).toEqual(["map-1"]);
+
+  // Details are searchable too.
+  expect(ids(filterMapRows(rows, "map4"))).toEqual(["map-3"]);
+
+  // A query with no alphanumeric characters applies no filter.
+  expect(filterMapRows(rows, "#-!")).toHaveLength(4);
+  expect(filterMapRows(rows, "zzz")).toHaveLength(0);
 });
 
 test("renders a fallback message when no access token is configured", () => {

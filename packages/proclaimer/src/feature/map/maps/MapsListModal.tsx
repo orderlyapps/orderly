@@ -1,3 +1,5 @@
+import { useMemo, useState } from "react";
+
 import {
   IonButton,
   IonButtons,
@@ -9,6 +11,7 @@ import {
   IonList,
   IonModal,
   IonNote,
+  IonSearchbar,
   IonSpinner,
   IonTitle,
   IonToolbar,
@@ -16,7 +19,7 @@ import {
 import { checkmarkOutline, mapOutline } from "ionicons/icons";
 
 import { useMapPolygons } from "./hooks.ts";
-import { mapRowKey } from "./schema.ts";
+import { filterMapRows, mapRowKey } from "./schema.ts";
 
 export interface MapsListModalProps {
   isOpen: boolean;
@@ -34,11 +37,19 @@ export function MapsListModal({
   selectedMap = null,
 }: MapsListModalProps) {
   const { maps, isLoading, error } = useMapPolygons(congregationId);
+  const [query, setQuery] = useState("");
+
+  const visibleMaps = useMemo(() => filterMapRows(maps, query), [maps, query]);
+
+  const handleDidDismiss = () => {
+    setQuery("");
+    onDidDismiss();
+  };
 
   return (
     <IonModal
       isOpen={isOpen}
-      onDidDismiss={onDidDismiss}
+      onDidDismiss={handleDidDismiss}
       breakpoints={[0, 0.7, 1]}
       initialBreakpoint={0.7}
       handleBehavior="cycle"
@@ -47,8 +58,17 @@ export function MapsListModal({
         <IonToolbar>
           <IonTitle>Select Map</IonTitle>
           <IonButtons slot="end">
-            <IonButton onClick={onDidDismiss}>Close</IonButton>
+            <IonButton onClick={handleDidDismiss}>Close</IonButton>
           </IonButtons>
+        </IonToolbar>
+        <IonToolbar>
+          <IonSearchbar
+            value={query}
+            placeholder="Search maps"
+            onIonInput={(event) => {
+              setQuery(event.detail.value ?? "");
+            }}
+          />
         </IonToolbar>
       </IonHeader>
       <IonContent>
@@ -75,7 +95,12 @@ export function MapsListModal({
           </div>
         ) : (
           <IonList>
-            {maps.map((map, index) => {
+            {visibleMaps.length === 0 ? (
+              <IonItem lines="none">
+                <IonNote>No maps found</IonNote>
+              </IonItem>
+            ) : null}
+            {visibleMaps.map((map, index) => {
               const key = mapRowKey(map);
               return (
                 <IonItem

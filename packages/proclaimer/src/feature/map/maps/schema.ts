@@ -119,6 +119,27 @@ export function mapRowKey(row: MapRow): string {
   return row.id ?? row.name;
 }
 
+// Letters/digits only, so queries match names like "Map #4" or "Café" without
+// typing punctuation or diacritics.
+const mapSearchable = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[^\p{L}\p{N}]/gu, "")
+    .toLowerCase();
+
+// Sorts rows alphabetically by name, then keeps those whose name or details
+// contain the alphanumeric-normalized query.
+export function filterMapRows(rows: MapRow[], query: string): MapRow[] {
+  const sorted = [...rows].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }),
+  );
+  const needle = mapSearchable(query);
+  if (!needle) {
+    return sorted;
+  }
+  return sorted.filter((row) => mapSearchable(`${row.name} ${row.details ?? ""}`).includes(needle));
+}
+
 export function mapRowToFeature(row: MapRow): MapPolygonFeature | null {
   const coordinates = boundaryToPolygonCoords(row.boundary);
   if (!coordinates) {
