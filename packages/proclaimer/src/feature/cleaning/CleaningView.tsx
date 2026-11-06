@@ -46,7 +46,7 @@ function MonthSection({ month }: { month: CleaningMonth }) {
   return (
     <div>
       <MonthHeader label={month.label} />
-      <IonList inset lines="none" style={{ marginTop: 4 }}>
+      <IonList style={{ marginTop: 4 }}>
         {month.weeks.map((week, index) => (
           <WeekRow key={week.weekId} week={week} isLast={index === month.weeks.length - 1} />
         ))}
@@ -57,7 +57,7 @@ function MonthSection({ month }: { month: CleaningMonth }) {
 
 function LoadingBody() {
   return (
-    <IonList inset>
+    <IonList>
       {[0, 1, 2, 3].map((row) => (
         <IonItem key={row} lines={row === 3 ? "none" : "inset"}>
           <IonLabel>
