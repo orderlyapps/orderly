@@ -48,19 +48,42 @@ function DateChip({ event }: { event: EventRow }) {
   );
 }
 
-export function EventListRow({ event, isLast }: { event: EventRow; isLast: boolean }) {
+export function EventListRow({
+  event,
+  isLast,
+  dateOnTop = false,
+}: {
+  event: EventRow;
+  isLast: boolean;
+  dateOnTop?: boolean;
+}) {
   const detail = [eventSubtitle(event), event.description.trim(), event.address.trim()]
     .filter((part): part is string => Boolean(part))
     .filter((part, index, all) => all.indexOf(part) === index)
     .join(" · ");
   return (
     <IonItem lines={isLast ? "none" : "inset"} style={{ "--min-height": "52px" }}>
-      <DateChip event={event} />
+      {!dateOnTop && <DateChip event={event} />}
       <IonLabel style={{ marginBlock: 8 }}>
-        <div style={{ fontSize: 15, fontWeight: 600 }}>{eventTitle(event)}</div>
-        <div style={{ paddingTop: 2, fontSize: 13, color: "var(--ion-color-medium)" }}>
-          {eventDateMeta(event)}
+        {dateOnTop && (
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ion-text-color)" }}>
+            {eventDateMeta(event)}
+          </div>
+        )}
+        <div
+          style={{
+            paddingTop: dateOnTop ? 2 : 0,
+            fontSize: 15,
+            fontWeight: dateOnTop ? 400 : 600,
+          }}
+        >
+          {eventTitle(event)}
         </div>
+        {!dateOnTop && (
+          <div style={{ paddingTop: 2, fontSize: 13, color: "var(--ion-color-medium)" }}>
+            {eventDateMeta(event)}
+          </div>
+        )}
         {detail && (
           <div
             style={{

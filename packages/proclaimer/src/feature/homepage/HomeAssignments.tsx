@@ -53,7 +53,9 @@ export function HomeAssignments({
             {upcoming.map((assignment, index) => (
               <IonItem key={assignment.id} lines={index === upcoming.length - 1 ? "none" : "inset"}>
                 <IonLabel>
-                  <p>{assignmentWeekLabel(assignment.weekId, now)}</p>
+                  <p style={{ color: "var(--ion-text-color)", fontWeight: 600 }}>
+                    {assignmentWeekLabel(assignment.weekId, now)}
+                  </p>
                   <h3>{assignment.label}</h3>
                 </IonLabel>
               </IonItem>

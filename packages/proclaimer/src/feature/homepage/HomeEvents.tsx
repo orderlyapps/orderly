@@ -38,7 +38,12 @@ export function HomeEvents({ congregationId, collection, now }: HomeEventsProps)
         <div slot="content" style={{ paddingBottom: 16 }}>
           <IonList>
             {upcoming.map((event, index) => (
-              <EventListRow key={event.id} event={event} isLast={index === upcoming.length - 1} />
+              <EventListRow
+                key={event.id}
+                event={event}
+                isLast={index === upcoming.length - 1}
+                dateOnTop
+              />
             ))}
           </IonList>
         </div>
