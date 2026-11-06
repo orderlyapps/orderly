@@ -1,3 +1,4 @@
+export * from "./maps/index.ts";
 export { useMapView, type UseMapViewOptions, type UseMapViewResult } from "./hooks.ts";
 export { MapView, type MapViewProps } from "./MapView.tsx";
 export {

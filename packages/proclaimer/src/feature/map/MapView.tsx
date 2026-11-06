@@ -11,6 +11,7 @@ export interface MapViewProps extends UseMapViewOptions {
   showNavigationControl?: boolean;
   showGeolocateControl?: boolean;
   missingTokenMessage?: ReactNode;
+  children?: ReactNode;
 }
 
 const containerStyle: CSSProperties = {
@@ -49,6 +50,7 @@ export const MapView = ({
   showNavigationControl = true,
   showGeolocateControl = true,
   missingTokenMessage = "A Mapbox access token is required to display the map. Set VITE_MAPBOX_ACCESS_TOKEN to configure it.",
+  children,
   ...options
 }: MapViewProps) => {
   const { accessToken } = options;
@@ -80,6 +82,7 @@ export const MapView = ({
             trackUserLocation
           />
         ) : null}
+        {children}
       </Map>
       {error ? (
         <div style={errorBannerStyle}>

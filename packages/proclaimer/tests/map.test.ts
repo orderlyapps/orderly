@@ -4,9 +4,15 @@ import { expect, test } from "vite-plus/test";
 
 import {
   areCoordinatesEqual,
+  boundariesToBounds,
+  boundaryToBounds,
+  boundaryToPolygonCoords,
   clampMapZoom,
   DEFAULT_MAP_CENTER,
+  ensureClosedRing,
+  isClosedRing,
   isMapboxAccessToken,
+  isValidBoundary,
   isValidCoordinates,
   isValidMapViewState,
   MAPBOX_DARK_STYLE,
@@ -15,12 +21,18 @@ import {
   MAP_MAX_ZOOM,
   MAP_MIN_ZOOM,
   MAP_VIEW_STATE_STORAGE_KEY,
+  mapRowSchema,
+  mapRowsToBounds,
+  mapRowsToGeoJSON,
+  MapsLayer,
   MapView,
   readMapViewState,
   resolveMapStyle,
   toMapboxCenter,
+  useMapPolygons,
   useMapView,
   writeMapViewState,
+  type MapRow,
 } from "../src/feature/map/index.ts";
 
 test("validates coordinates, tokens, zoom bounds, and style resolution", () => {
@@ -103,6 +115,83 @@ test("reads and writes persisted map view state", () => {
 
   storage.set(MAP_VIEW_STATE_STORAGE_KEY, JSON.stringify({ center: null, zoom: 5 }));
   expect(readMapViewState(api, MAP_VIEW_STATE_STORAGE_KEY)).toBe(null);
+});
+
+test("validates map boundaries and computes bounds", () => {
+  const ring = [
+    [151.0, -33.9],
+    [151.1, -33.9],
+    [151.1, -33.8],
+    [151.0, -33.9],
+  ] as [number, number][];
+
+  expect(isValidBoundary(ring)).toBe(true);
+  expect(isValidBoundary([])).toBe(false);
+  expect(isValidBoundary(null)).toBe(false);
+  expect(isValidBoundary([["x", 1]])).toBe(false);
+  expect(isValidBoundary("not-a-boundary")).toBe(false);
+
+  expect(isClosedRing(ring)).toBe(true);
+  expect(isClosedRing(ring.slice(0, 3))).toBe(false);
+  expect(ensureClosedRing(ring.slice(0, 3))).toEqual(ring);
+  expect(ensureClosedRing(ring)).toBe(ring);
+
+  expect(boundaryToBounds(ring)).toEqual([151.0, -33.9, 151.1, -33.8]);
+  expect(boundaryToBounds(ring.slice(0, 2))).toBe(null);
+  expect(boundaryToBounds(null)).toBe(null);
+
+  expect(
+    boundariesToBounds([
+      ring,
+      [
+        [152.0, -34.0],
+        [152.0, -34.0],
+        [152.0, -34.0],
+        [152.0, -34.0],
+      ],
+    ]),
+  ).toEqual([151.0, -34.0, 152.0, -33.8]);
+  expect(boundariesToBounds([null, []])).toBe(null);
+
+  expect(boundaryToPolygonCoords(ring)).toEqual([ring]);
+  expect(boundaryToPolygonCoords(ring.slice(0, 3))).toBe(null);
+});
+
+test("converts map rows to a polygon feature collection", () => {
+  const row = (overrides: Partial<MapRow>): MapRow => ({
+    congregation_id: "cong-1",
+    name: "Map 1",
+    ...overrides,
+  });
+  const ring = [
+    [151.0, -33.9],
+    [151.1, -33.9],
+    [151.1, -33.8],
+    [151.0, -33.9],
+  ] as [number, number][];
+
+  expect(mapRowSchema.safeParse(row({})).success).toBe(true);
+
+  const geojson = mapRowsToGeoJSON([
+    row({ id: "map-1", name: "Alpha", boundary: ring, details: "Near the hall" }),
+    row({ id: "map-2", name: "No boundary", boundary: null }),
+    row({ id: "map-3", name: "Too short", boundary: ring.slice(0, 2) }),
+  ]);
+
+  expect(geojson.type).toBe("FeatureCollection");
+  expect(geojson.features).toHaveLength(1);
+  expect(geojson.features[0].geometry).toEqual({ type: "Polygon", coordinates: [ring] });
+  expect(geojson.features[0].properties).toEqual({
+    id: "map-1",
+    name: "Alpha",
+    details: "Near the hall",
+  });
+
+  expect(mapRowsToBounds([row({ boundary: ring })])).toEqual([151.0, -33.9, 151.1, -33.8]);
+  expect(mapRowsToBounds([row({ boundary: null })])).toBe(null);
+
+  expect(typeof MapsLayer).toBe("function");
+  expect(typeof useMapPolygons).toBe("function");
 });
 
 test("renders a fallback message when no access token is configured", () => {
