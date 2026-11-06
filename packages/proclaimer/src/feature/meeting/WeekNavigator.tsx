@@ -1,6 +1,16 @@
 import { useState } from "react";
 
-import { IonButton, IonDatetime, IonIcon, IonModal } from "@ionic/react";
+import {
+  IonButton,
+  IonButtons,
+  IonContent,
+  IonDatetime,
+  IonHeader,
+  IonIcon,
+  IonModal,
+  IonTitle,
+  IonToolbar,
+} from "@ionic/react";
 import {
   calendarClearOutline,
   chevronBackOutline,
@@ -123,25 +133,35 @@ export function WeekNavigator({ weekId, label, relativeLabel, onSelectWeek }: We
         initialBreakpoint={0.7}
         handleBehavior="cycle"
       >
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            padding: "8px 16px 24px",
-          }}
-        >
-          <IonDatetime
-            presentation="date"
-            firstDayOfWeek={1}
-            value={weekId}
-            onIonChange={(event) => handleDateChange(event.detail.value)}
-          />
-          <IonButton fill="clear" onClick={() => selectWeek(weekIdOf(new Date()))}>
-            <IonIcon slot="start" icon={calendarClearOutline} />
-            Jump to This Week
-          </IonButton>
-        </div>
+        <IonHeader>
+          <IonToolbar>
+            <IonTitle>Select Week</IonTitle>
+            <IonButtons slot="end">
+              <IonButton onClick={() => setPickerOpen(false)}>Close</IonButton>
+            </IonButtons>
+          </IonToolbar>
+        </IonHeader>
+        <IonContent>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              padding: "8px 16px 24px",
+            }}
+          >
+            <IonDatetime
+              presentation="date"
+              firstDayOfWeek={1}
+              value={weekId}
+              onIonChange={(event) => handleDateChange(event.detail.value)}
+            />
+            <IonButton fill="clear" onClick={() => selectWeek(weekIdOf(new Date()))}>
+              <IonIcon slot="start" icon={calendarClearOutline} />
+              Jump to This Week
+            </IonButton>
+          </div>
+        </IonContent>
       </IonModal>
     </>
   );
