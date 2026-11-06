@@ -90,3 +90,11 @@ http://ionicframework.com/docs/theming/ */
   padding-inline-start: 1.2em;
   text-align: start;
 }
+
+/* Keep page content at a readable width on large screens by insetting the
+   scroll container — this centers every child, not just ion-* components */
+@media (min-width: 768px) {
+  ion-content::part(scroll) {
+    padding-inline: calc((100% - 640px) / 2);
+  }
+}
