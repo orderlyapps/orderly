@@ -89,7 +89,7 @@ const App = () => {
               <Route path="/ministry/schedule" element={<Schedule />} />
               <Route path="/schedules" element={<Schedules />} />
               <Route path="/schedules/midweek/:weekId?" element={<Midweek />} />
-              <Route path="/schedules/weekend" element={<Weekend />} />
+              <Route path="/schedules/weekend/:weekId?" element={<Weekend />} />
               <Route path="/schedules/cleaning" element={<Cleaning />} />
               <Route path="/schedules/events" element={<Events />} />
               <Route path="/publishers" element={<Publishers />} />

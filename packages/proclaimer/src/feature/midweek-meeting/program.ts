@@ -1,56 +1,23 @@
 import type { EventRow } from "../event/schema.ts";
+import { findWeekEvent } from "../meeting/events.ts";
+import type {
+  MeetingEventInfo,
+  MeetingProgramBlock,
+  MeetingProgramItem,
+  MeetingProgramSection,
+} from "../meeting/types.ts";
 import type { Publisher } from "../publisher/schema.ts";
-import { dateRangeOverlapsWeek, relativeWeekLabel, weekRangeLabel } from "../../util/week.ts";
+import { relativeWeekLabel, weekRangeLabel } from "../../util/week.ts";
 import type { MidweekMeetingAssignment, MidweekMeetingData } from "./schema.ts";
 
-export type MeetingSectionColor = "medium" | "jw_slate" | "jw_brown" | "jw_red";
-
-export type MeetingItemKind = "song" | "role" | "part";
-
-export interface MeetingProgramItem {
-  id: string;
-  kind: MeetingItemKind;
-  /** Leading part number extracted from the workbook title ("4. Starting a Conversation" → 4). */
-  partNumber?: number;
-  title: string;
-  /** Extra detail: bible reading reference, ministry instructions, CBS material. */
-  subtitle?: string;
-  minutes?: number;
-  assignee?: string;
-  assistant?: string;
-  /** Label for the assistant line, e.g. "Assistant" or "Reader". */
-  assistantLabel?: string;
-  /** Additional school assignees, e.g. auxiliary classroom bible readers. */
-  extraAssignees?: { label: string; name?: string }[];
-  /** Item comes from an event rather than editable assignments (e.g. CO visit talk). */
-  readOnly?: boolean;
-}
-
-export interface MeetingProgramBlock {
-  /** School label when a week runs more than one school ("Main Hall", "Auxiliary Classroom 1"). */
-  label?: string;
-  items: MeetingProgramItem[];
-}
-
-export interface MeetingProgramSection {
-  id: "opening" | "treasures" | "ministry" | "living";
-  title?: string;
-  color: MeetingSectionColor;
-  blocks: MeetingProgramBlock[];
-}
-
-export interface MeetingEventInfo {
-  type: "circuit_visit" | "circuit_assembly" | "convention";
-  title: string;
-  /** Event headline, e.g. the convention or circuit visit theme. */
-  name?: string;
-  /** Circuit visit midweek talk theme. */
-  midweekTheme?: string;
-  /** Resolved circuit overseer display name. */
-  overseerName?: string;
-  /** Weeks with an assembly/convention show a banner instead of meeting parts. */
-  replacesMeeting: boolean;
-}
+export type {
+  MeetingEventInfo,
+  MeetingItemKind,
+  MeetingProgramBlock,
+  MeetingProgramItem,
+  MeetingProgramSection,
+  MeetingSectionColor,
+} from "../meeting/types.ts";
 
 export interface MeetingProgram {
   weekId: string;
@@ -97,50 +64,6 @@ function publisherName(publisher: Publisher | undefined): string | undefined {
   }
   const first = publisher.display_name?.trim() || publisher.first_name;
   return `${first} ${publisher.last_name}`.trim();
-}
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-const EVENT_PRESENTATION: Record<
-  "circuit_visit" | "circuit_assembly" | "convention",
-  { title: string; replacesMeeting: boolean }
-> = {
-  circuit_visit: { title: "Circuit Overseer Visit", replacesMeeting: false },
-  circuit_assembly: { title: "Circuit Assembly", replacesMeeting: true },
-  convention: { title: "Convention", replacesMeeting: true },
-};
-
-function findWeekEvent(
-  events: EventRow[] | undefined,
-  weekId: string,
-  resolveName: (participantId: string) => string | undefined,
-): MeetingEventInfo | undefined {
-  for (const type of ["circuit_assembly", "convention", "circuit_visit"] as const) {
-    const event = events?.find(
-      (e) => e.type === type && dateRangeOverlapsWeek(weekId, e.start_date, e.end_date),
-    );
-    if (!event) {
-      continue;
-    }
-    const presentation = EVENT_PRESENTATION[type];
-    // event.name may hold the overseer's participant id or a free-text name.
-    // Fall back to the raw value unless it is an unresolved id, so the name
-    // isn't silently dropped either way.
-    const overseerName =
-      type === "circuit_visit"
-        ? (resolveName(event.name) ??
-          (event.name && !UUID_PATTERN.test(event.name) ? event.name : undefined))
-        : undefined;
-    return {
-      type,
-      title: presentation.title,
-      name: event.name || undefined,
-      midweekTheme: event.details?.midweek_theme || undefined,
-      overseerName,
-      replacesMeeting: presentation.replacesMeeting,
-    };
-  }
-  return undefined;
 }
 
 const SCHOOL_COUNT = 3;

@@ -30,7 +30,7 @@ export {
   type MidweekMeetingData,
 } from "./schema.ts";
 export { MidweekMeetingView, type MidweekMeetingViewProps } from "./MidweekMeetingView.tsx";
-export { WeekNavigator, type WeekNavigatorProps } from "./WeekNavigator.tsx";
+export { WeekNavigator, type WeekNavigatorProps } from "../meeting/WeekNavigator.tsx";
 export {
   currentWeekId,
   dateRangeOverlapsWeek,

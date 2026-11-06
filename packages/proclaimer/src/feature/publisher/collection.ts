@@ -20,8 +20,34 @@ export function getPublisherCollection(congregationId: string): PublisherCollect
   return getCachedCollection(defaultCollections, key, () => createPublisherCollection(key));
 }
 
+// Publishers are not limited to the signed-in congregation: visiting speakers
+// (and their placeholder congregations) are publisher rows under other
+// congregation ids, so resolving them needs the whole table.
+export function createAllPublishersCollection() {
+  return createSupabaseTableCollection<Publisher>({
+    table: PUBLISHER_TABLE,
+    id: `${PUBLISHER_TABLE}:all`,
+    select: "id,first_name,middle_name,last_name,display_name,congregation_id,auth_id",
+    schema: publisherSchema,
+  });
+}
+
+export type AllPublishersCollection = ReturnType<typeof createAllPublishersCollection>;
+
+let allPublishersCollection: AllPublishersCollection | null = null;
+
+export function getAllPublishersCollection(): AllPublishersCollection {
+  if (!allPublishersCollection) {
+    allPublishersCollection = createAllPublishersCollection();
+  }
+  return allPublishersCollection;
+}
+
 export async function resetPublisherCollectionsForTesting(): Promise<void> {
   const collections = [...defaultCollections.values()];
   defaultCollections.clear();
-  await Promise.all(collections.map((collection) => collection.cleanup().catch(() => {})));
+  const allCollection = allPublishersCollection;
+  allPublishersCollection = null;
+  const all = allCollection ? [...collections, allCollection] : collections;
+  await Promise.all(all.map((collection) => collection.cleanup().catch(() => {})));
 }
