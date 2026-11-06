@@ -8,6 +8,7 @@ import {
   IonText,
 } from "@ionic/react";
 
+import { MonthHeader } from "../../components/MonthHeader.tsx";
 import type { EventCollection } from "./collection.ts";
 import { EventListRow } from "./EventListRow.tsx";
 import { useEvents } from "./hooks.ts";
@@ -16,33 +17,6 @@ import { groupUpcomingEvents, type EventGroup } from "./presentation.ts";
 export interface EventsViewProps {
   congregationId?: string | null;
   collection?: EventCollection;
-}
-
-function MonthHeader({ label }: { label: string }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "18px 20px 6px",
-        color: "var(--ion-color-medium)",
-        fontSize: 12,
-        fontWeight: 700,
-        letterSpacing: "0.06em",
-        textTransform: "uppercase",
-      }}
-    >
-      <span>{label}</span>
-      <span
-        style={{
-          flex: 1,
-          height: 1,
-          background: "color-mix(in srgb, var(--ion-color-medium) 35%, transparent)",
-        }}
-      />
-    </div>
-  );
 }
 
 function EventGroupSection({ group }: { group: EventGroup }) {

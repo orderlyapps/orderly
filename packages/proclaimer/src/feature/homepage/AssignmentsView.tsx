@@ -1,5 +1,6 @@
 import { IonItem, IonLabel, IonList } from "@ionic/react";
 
+import { MonthHeader } from "../../components/MonthHeader.tsx";
 import { groupAssignmentsByMonth } from "./assignments.ts";
 import { AssignmentRow } from "./AssignmentRow.tsx";
 import { useUpcomingAssignments, type UpcomingAssignmentCollections } from "./hooks.ts";
@@ -44,14 +45,8 @@ export function AssignmentsView({
     <>
       {groups.map((group) => (
         <div key={group.label} style={{ paddingBottom: 16 }}>
-          <IonItem lines="inset">
-            <IonLabel>
-              <span style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}>
-                {group.label}
-              </span>
-            </IonLabel>
-          </IonItem>
-          <IonList>
+          <MonthHeader label={group.label} />
+          <IonList style={{ marginTop: 4 }}>
             {group.assignments.map((assignment, index) => (
               <AssignmentRow
                 key={assignment.id}

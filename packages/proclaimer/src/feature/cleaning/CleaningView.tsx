@@ -8,39 +8,13 @@ import {
   IonText,
 } from "@ionic/react";
 
+import { MonthHeader } from "../../components/MonthHeader.tsx";
 import { relativeWeekLabel } from "../../util/week.ts";
 import { useCleaningSchedule } from "./hooks.ts";
 import type { CleaningMonth, CleaningWeek } from "./schedule.ts";
 
 export interface CleaningViewProps {
   congregationId?: string | null;
-}
-
-function MonthHeader({ label }: { label: string }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "18px 20px 6px",
-        color: "var(--ion-color-medium)",
-        fontSize: 12,
-        fontWeight: 700,
-        letterSpacing: "0.06em",
-        textTransform: "uppercase",
-      }}
-    >
-      <span>{label}</span>
-      <span
-        style={{
-          flex: 1,
-          height: 1,
-          background: "color-mix(in srgb, var(--ion-color-medium) 35%, transparent)",
-        }}
-      />
-    </div>
-  );
 }
 
 function AssignmentLine({ label, groupName }: { label: string; groupName: string | null }) {
