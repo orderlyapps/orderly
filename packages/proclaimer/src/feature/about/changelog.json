@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.4.0",
+    "date": "2026-11-06",
+    "changes": [
+      "Schedules pages now show real data: midweek and weekend meetings, the cleaning schedule, and upcoming events",
+      "New onboarding flow — confirm your congregation password, pick yourself by searching your name, and optionally sign in as a publisher",
+      "Ministry map fills the screen edge to edge and remembers where you left it",
+      "Week navigation on meeting pages no longer shows the year and is a little taller",
+      "Fixed schedule content scrolling under the page header",
+      "Fixed the one-time-code input alignment on the publisher sign-in form",
+      "Update prompt now renders changelog formatting correctly"
+    ]
+  },
+  {
     "version": "0.3.0",
     "date": "2026-10-30",
     "changes": [
