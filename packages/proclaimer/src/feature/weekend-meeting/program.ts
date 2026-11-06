@@ -186,7 +186,7 @@ export function buildWeekendProgram(input: BuildWeekendProgramInput): WeekendMee
 
   return {
     weekId,
-    weekLabel: weekRangeLabel(weekId),
+    weekLabel: weekRangeLabel(weekId, { includeYear: false }),
     relativeLabel: relativeWeekLabel(weekId, now),
     event,
     sections,

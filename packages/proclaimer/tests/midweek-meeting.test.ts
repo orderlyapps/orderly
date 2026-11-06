@@ -118,6 +118,8 @@ test("week ids are Mondays and support arithmetic", () => {
 test("week labels describe the week and its relative position", () => {
   expect(weekRangeLabel("2025-11-03")).toMatch(/November 3.+9, 2025/);
   expect(weekRangeLabel("2025-09-29")).toMatch(/Sep 29.+Oct 5, 2025/);
+  expect(weekRangeLabel("2025-11-03", { includeYear: false })).toMatch(/^November 3.+9$/);
+  expect(weekRangeLabel("2025-09-29", { includeYear: false })).toMatch(/^Sep 29.+Oct 5$/);
   const now = new Date(2025, 10, 5);
   expect(relativeWeekLabel("2025-11-03", now)).toBe("This week");
   expect(relativeWeekLabel("2025-11-10", now)).toBe("Next week");
@@ -143,7 +145,7 @@ test("buildMeetingProgram maps workbook data into meeting sections", () => {
 
   expect(program.hasMeetingData).toBe(true);
   expect(program.bibleReading).toBe("SONG OF SOLOMON 1-2");
-  expect(program.weekLabel).toMatch(/November 3.+9, 2025/);
+  expect(program.weekLabel).toMatch(/^November 3.+9$/);
 
   const [opening, treasures, ministry, living] = program.sections;
   expect(opening.id).toBe("opening");

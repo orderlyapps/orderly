@@ -104,7 +104,7 @@ test("buildWeekendProgram maps the speaker, chairman and reader for the week", (
   });
 
   expect(program.hasMeetingData).toBe(true);
-  expect(program.weekLabel).toMatch(/November 3.+9, 2025/);
+  expect(program.weekLabel).toMatch(/^November 3.+9$/);
 
   const meeting = program.sections.find((section) => section.id === "meeting");
   expect(meeting).toBeDefined();

@@ -106,7 +106,7 @@ export function buildMeetingProgram(input: BuildMeetingProgramInput): MeetingPro
 
   const program: MeetingProgram = {
     weekId,
-    weekLabel: weekRangeLabel(weekId),
+    weekLabel: weekRangeLabel(weekId, { includeYear: false }),
     relativeLabel: relativeWeekLabel(weekId, now),
     bibleReading: meeting?.mwb_weekly_bible_reading || undefined,
     event,

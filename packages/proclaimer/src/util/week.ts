@@ -63,19 +63,21 @@ function monthName(date: Date, style: "long" | "short"): string {
 
 /**
  * Human readable week range, e.g. "November 3–9, 2025" or "Sep 29 – Oct 5, 2025"
- * when the week crosses a month boundary.
+ * when the week crosses a month boundary. Pass `includeYear: false` to drop the year.
  */
-export function weekRangeLabel(weekId: string): string {
+export function weekRangeLabel(weekId: string, options?: { includeYear?: boolean }): string {
   const start = parseWeekId(weekId);
   if (!start) {
     return weekId;
   }
+  const includeYear = options?.includeYear ?? true;
   const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
   const sameMonth = start.getMonth() === end.getMonth();
+  const yearSuffix = includeYear ? `, ${end.getFullYear()}` : "";
   const startLabel = `${monthName(start, sameMonth ? "long" : "short")} ${start.getDate()}`;
   const endLabel = sameMonth
-    ? `${end.getDate()}, ${end.getFullYear()}`
-    : `${monthName(end, "short")} ${end.getDate()}, ${end.getFullYear()}`;
+    ? `${end.getDate()}${yearSuffix}`
+    : `${monthName(end, "short")} ${end.getDate()}${yearSuffix}`;
   return `${startLabel} – ${endLabel}`;
 }
 
