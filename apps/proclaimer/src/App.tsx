@@ -21,6 +21,7 @@ import { OnboardingGate, useThemeEffect } from "proclaimer-core";
 
 import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
 import Home from "./pages/Home";
+import Assignments from "./pages/home/Assignments";
 import Ministry from "./pages/Ministry";
 import LetterWriting from "./pages/ministry/LetterWriting";
 import Map from "./pages/ministry/Map";
@@ -83,6 +84,7 @@ const App = () => {
           <IonTabs>
             <IonRouterOutlet>
               <Route path="/home" element={<Home />} />
+              <Route path="/home/assignments" element={<Assignments />} />
               <Route path="/ministry" element={<Ministry />} />
               <Route path="/ministry/map" element={<Map />} />
               <Route path="/ministry/letter-writing" element={<LetterWriting />} />

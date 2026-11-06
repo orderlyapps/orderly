@@ -6,8 +6,10 @@ import { createCollection, localStorageCollectionOptions } from "@tanstack/react
 
 import type { EventCollection, EventRow } from "../src/feature/event/index.ts";
 import {
+  AssignmentsView,
   buildUpcomingAssignments,
   getWelcomeName,
+  groupAssignmentsByMonth,
   HomepageView,
 } from "../src/feature/homepage/index.ts";
 import type {
@@ -324,6 +326,183 @@ test("renders the next 3 upcoming assignments for the selected publisher", async
     expect(markup).toContain("Reader (Watchtower)");
     // Only the next 3 are shown; the later public talk is cut off.
     expect(markup).not.toContain("Public Talk");
+    // More assignments than fit link to the full list.
+    expect(markup).toContain("See more");
+    expect(markup).toContain("/home/assignments");
+    // Another publisher's assignment is excluded.
+    expect(markup).not.toContain("A Story of Unfailing Love");
+  } finally {
+    await store.close();
+    for (const { collection } of [publisher, midweek, meetingData, weekend, speaker]) {
+      await collection.cleanup().catch(() => {});
+    }
+  }
+});
+
+test("hides the see more link when all assignments fit", async () => {
+  const thisWeek = currentWeekId();
+
+  const publisher = memoryCollection<Publisher>(
+    `publishers_homepage_assignments_few_${Date.now()}`,
+    (p) => p.id ?? "",
+    [{ id: "pub-1", first_name: "Alice", last_name: "Smith", congregation_id: congregationId }],
+  );
+  const midweek = memoryCollection<MidweekMeetingAssignment>(
+    `midweek_homepage_assignments_few_${Date.now()}`,
+    (a) => `${a.week_id}:${a.assignment_id}:${a.participant_id}`,
+    [midweekAssignment("chairman_1", "pub-1", thisWeek)],
+  );
+  const meetingData = memoryCollection<MidweekMeetingData>(
+    `meeting_data_homepage_assignments_few_${Date.now()}`,
+    (m) => m.week_id,
+    [{ ...meeting, week_id: thisWeek }],
+  );
+  const weekend = memoryCollection<WeekendAssignment>(
+    `weekend_homepage_assignments_few_${Date.now()}`,
+    (a) => `${a.week_id}:${a.assignment_id}:${a.participant_id}`,
+    [],
+  );
+  const speaker = memoryCollection<SpeakerAssignment>(
+    `speaker_homepage_assignments_few_${Date.now()}`,
+    (a) => `${a.week_id}:${a.congregation_id}:${a.speaker_id}`,
+    [],
+  );
+
+  const store = await createSettingsStore({ name: nextStoreName() });
+  try {
+    await Promise.all(
+      [publisher, midweek, meetingData, weekend, speaker].map(({ collection }) =>
+        collection.preload(),
+      ),
+    );
+    await Promise.all(
+      [
+        publisher.collection.insert(publisher.rows),
+        midweek.collection.insert(midweek.rows),
+        meetingData.collection.insert(meetingData.rows),
+      ].map((tx) => tx.isPersisted.promise),
+    );
+    await store.updateSettings({ congregationId, publisherId: "pub-1" });
+
+    const markup = renderToStaticMarkup(
+      createElement(HomepageView, {
+        store,
+        publisherCollection: publisher.collection as unknown as PublisherCollection,
+        assignmentCollections: {
+          midweekAssignments: midweek.collection as unknown as MidweekAssignmentCollection,
+          midweekMeetingData: meetingData.collection as unknown as MidweekMeetingDataCollection,
+          weekendAssignments: weekend.collection as unknown as WeekendAssignmentCollection,
+          speakerAssignments: speaker.collection as unknown as SpeakerAssignmentCollection,
+        },
+      }),
+    );
+
+    expect(markup).toContain("Chairman (Midweek)");
+    expect(markup).not.toContain("See more");
+    expect(markup).not.toContain("/home/assignments");
+  } finally {
+    await store.close();
+    for (const { collection } of [publisher, midweek, meetingData, weekend, speaker]) {
+      await collection.cleanup().catch(() => {});
+    }
+  }
+});
+
+test("groupAssignmentsByMonth labels groups by the month each week begins", () => {
+  const now = new Date(2025, 10, 15);
+  const assignments = buildUpcomingAssignments({
+    midweek: [
+      midweekAssignment("chairman_1", "pub-1", "2025-11-03"),
+      midweekAssignment("prayer_1", "pub-1", "2025-11-10"),
+      midweekAssignment("chairman_1", "pub-1", "2025-12-01"),
+    ],
+    weekend: [weekendAssignment("chairman", "pub-1", "2026-01-05")],
+  });
+
+  const groups = groupAssignmentsByMonth(assignments, now);
+  expect(groups.map((g) => g.label)).toEqual(["November", "December", "January 2026"]);
+  expect(groups[0].assignments.map((a) => a.weekId)).toEqual(["2025-11-03", "2025-11-10"]);
+  expect(groups[1].assignments.map((a) => a.weekId)).toEqual(["2025-12-01"]);
+  expect(groups[2].assignments.map((a) => a.weekId)).toEqual(["2026-01-05"]);
+});
+
+test("renders all upcoming assignments on the assignments page", async () => {
+  const thisWeek = currentWeekId();
+  const nextWeek = shiftWeekId(thisWeek, 1);
+  const laterWeek = shiftWeekId(thisWeek, 2);
+  const latestWeek = shiftWeekId(thisWeek, 3);
+
+  const publisher = memoryCollection<Publisher>(
+    `publishers_assignments_page_${Date.now()}`,
+    (p) => p.id ?? "",
+    [{ id: "pub-1", first_name: "Alice", last_name: "Smith", congregation_id: congregationId }],
+  );
+  const midweek = memoryCollection<MidweekMeetingAssignment>(
+    `midweek_assignments_page_${Date.now()}`,
+    (a) => `${a.week_id}:${a.assignment_id}:${a.participant_id}`,
+    [
+      midweekAssignment("chairman_1", "pub-1", thisWeek),
+      midweekAssignment("school_1_apply_1", "pub-1", nextWeek),
+      midweekAssignment("treasures", "pub-2", thisWeek),
+    ],
+  );
+  const meetingData = memoryCollection<MidweekMeetingData>(
+    `meeting_data_assignments_page_${Date.now()}`,
+    (m) => m.week_id,
+    [
+      { ...meeting, week_id: thisWeek },
+      { ...meeting, week_id: nextWeek },
+    ],
+  );
+  const weekend = memoryCollection<WeekendAssignment>(
+    `weekend_assignments_page_${Date.now()}`,
+    (a) => `${a.week_id}:${a.assignment_id}:${a.participant_id}`,
+    [weekendAssignment("reader", "pub-1", laterWeek)],
+  );
+  const speaker = memoryCollection<SpeakerAssignment>(
+    `speaker_assignments_page_${Date.now()}`,
+    (a) => `${a.week_id}:${a.congregation_id}:${a.speaker_id}`,
+    [speakerAssignment(latestWeek)],
+  );
+
+  const store = await createSettingsStore({ name: nextStoreName() });
+  try {
+    await Promise.all([
+      publisher.collection.preload(),
+      midweek.collection.preload(),
+      meetingData.collection.preload(),
+      weekend.collection.preload(),
+      speaker.collection.preload(),
+    ]);
+    await Promise.all(
+      [
+        publisher.collection.insert(publisher.rows),
+        midweek.collection.insert(midweek.rows),
+        meetingData.collection.insert(meetingData.rows),
+        weekend.collection.insert(weekend.rows),
+        speaker.collection.insert(speaker.rows),
+      ].map((tx) => tx.isPersisted.promise),
+    );
+    await store.updateSettings({ congregationId, publisherId: "pub-1" });
+
+    const markup = renderToStaticMarkup(
+      createElement(AssignmentsView, {
+        congregationId,
+        publisherId: "pub-1",
+        collections: {
+          midweekAssignments: midweek.collection as unknown as MidweekAssignmentCollection,
+          midweekMeetingData: meetingData.collection as unknown as MidweekMeetingDataCollection,
+          weekendAssignments: weekend.collection as unknown as WeekendAssignmentCollection,
+          speakerAssignments: speaker.collection as unknown as SpeakerAssignmentCollection,
+        },
+      }),
+    );
+
+    expect(markup).toContain("Chairman (Midweek)");
+    expect(markup).toContain("4. Starting a Conversation (3 min)");
+    expect(markup).toContain("Reader (Watchtower)");
+    // The full page lists every assignment, including the fourth.
+    expect(markup).toContain("Public Talk");
     // Another publisher's assignment is excluded.
     expect(markup).not.toContain("A Story of Unfailing Love");
   } finally {

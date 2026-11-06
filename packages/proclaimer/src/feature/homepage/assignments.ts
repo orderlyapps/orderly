@@ -1,3 +1,4 @@
+import { parseWeekId } from "../../util/week.ts";
 import { buildMeetingProgram } from "../midweek-meeting/program.ts";
 import type { MidweekMeetingAssignment, MidweekMeetingData } from "../midweek-meeting/schema.ts";
 import type { MeetingProgramItem } from "../meeting/types.ts";
@@ -104,4 +105,39 @@ export function buildUpcomingAssignments(
   ];
 
   return assignments.sort((a, b) => a.weekId.localeCompare(b.weekId));
+}
+
+export interface AssignmentMonthGroup {
+  label: string;
+  assignments: UpcomingAssignment[];
+}
+
+/**
+ * Groups week-sorted assignments under a label for the month their week
+ * begins. The year is appended for months outside the current year.
+ */
+export function groupAssignmentsByMonth(
+  assignments: UpcomingAssignment[],
+  now: Date = new Date(),
+): AssignmentMonthGroup[] {
+  const currentYear = now.getFullYear();
+  const groups = new Map<string, UpcomingAssignment[]>();
+
+  for (const assignment of assignments) {
+    const date = parseWeekId(assignment.weekId);
+    const label = date
+      ? date.toLocaleDateString(undefined, {
+          month: "long",
+          ...(date.getFullYear() === currentYear ? {} : { year: "numeric" }),
+        })
+      : assignment.weekId;
+    const group = groups.get(label);
+    if (group) {
+      group.push(assignment);
+    } else {
+      groups.set(label, [assignment]);
+    }
+  }
+
+  return Array.from(groups, ([label, grouped]) => ({ label, assignments: grouped }));
 }

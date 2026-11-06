@@ -1,6 +1,6 @@
 import { IonItem, IonLabel, IonList } from "@ionic/react";
 
-import { relativeWeekLabel, weekRangeLabel } from "../../util/week.ts";
+import { AssignmentRow } from "./AssignmentRow.tsx";
 import { useUpcomingAssignments, type UpcomingAssignmentCollections } from "./hooks.ts";
 
 export interface HomeAssignmentsProps {
@@ -8,12 +8,7 @@ export interface HomeAssignmentsProps {
   publisherId?: string | null;
   collections?: UpcomingAssignmentCollections;
   now?: Date;
-}
-
-function assignmentWeekLabel(weekId: string, now?: Date): string {
-  const range = weekRangeLabel(weekId, { includeYear: false });
-  const relative = relativeWeekLabel(weekId, now ?? new Date());
-  return relative ? `${range} (${relative})` : range;
+  routerLink?: string;
 }
 
 export function HomeAssignments({
@@ -21,6 +16,7 @@ export function HomeAssignments({
   publisherId,
   collections,
   now,
+  routerLink = "/home/assignments",
 }: HomeAssignmentsProps) {
   const { assignments, isLoading } = useUpcomingAssignments(
     congregationId,
@@ -38,6 +34,8 @@ export function HomeAssignments({
     return null;
   }
 
+  const showSeeMore = assignments.length > upcoming.length;
+
   return (
     <div style={{ paddingBottom: 16 }}>
       <IonItem lines="inset">
@@ -49,16 +47,21 @@ export function HomeAssignments({
       </IonItem>
       <IonList>
         {upcoming.map((assignment, index) => (
-          <IonItem key={assignment.id} lines={index === upcoming.length - 1 ? "none" : "inset"}>
-            <IonLabel>
-              <p style={{ color: "var(--ion-text-color)", fontWeight: 600 }}>
-                {assignmentWeekLabel(assignment.weekId, now)}
-              </p>
-              <h3>{assignment.label}</h3>
-            </IonLabel>
-          </IonItem>
+          <AssignmentRow
+            key={assignment.id}
+            assignment={assignment}
+            isLast={index === upcoming.length - 1 && !showSeeMore}
+            now={now}
+          />
         ))}
       </IonList>
+      {showSeeMore && (
+        <IonItem button detail routerLink={routerLink} lines="none">
+          <IonLabel className="ion-text-end" color="primary" style={{ fontSize: "0.875rem" }}>
+            See more
+          </IonLabel>
+        </IonItem>
+      )}
     </div>
   );
 }
