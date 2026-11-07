@@ -7,3 +7,4 @@ export * from "./flappy/index.ts";
 export * from "./minesweeper/index.ts";
 export * from "./snake/index.ts";
 export * from "./taboo/index.ts";
+export * from "./tetris/index.ts";

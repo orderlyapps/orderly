@@ -25,6 +25,7 @@ import FlappyBird from "./pages/games/FlappyBird";
 import Minesweeper from "./pages/games/Minesweeper";
 import Taboo from "./pages/games/Taboo";
 import TabooCards from "./pages/games/taboo/Cards";
+import Tetris from "./pages/games/Tetris";
 import Settings from "./pages/Settings";
 import SettingsAbout from "./pages/settings/About";
 import Snake from "./pages/Snake";
@@ -79,6 +80,7 @@ const App = () => {
             <Route path="/games/taboo" element={<Taboo />} />
             <Route path="/games/flappy-bird" element={<FlappyBird />} />
             <Route path="/games/minesweeper" element={<Minesweeper />} />
+            <Route path="/games/tetris" element={<Tetris />} />
             <Route path="/games/taboo/cards" element={<TabooCards />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/about" element={<SettingsAbout />} />

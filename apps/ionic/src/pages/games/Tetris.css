@@ -1,0 +1,71 @@
+.tetris-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  min-height: 100%;
+  padding: 8px 16px 16px;
+}
+
+.tetris-score {
+  margin-top: auto;
+  padding-top: 16px;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.tetris-board {
+  position: relative;
+  width: min(90vw, 320px);
+  aspect-ratio: 1 / 2;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.tetris-board canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.tetris-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.tetris-overlay-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.tetris-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.tetris-control {
+  --padding-start: 0;
+  --padding-end: 0;
+  width: 64px;
+  height: 64px;
+  margin: 0;
+  touch-action: manipulation;
+}
+
+/* Only show the on-screen controls on touch devices. */
+@media (pointer: fine) {
+  .tetris-controls {
+    display: none;
+  }
+}
+
+.tetris-hint {
+  font-size: 0.875rem;
+}
