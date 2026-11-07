@@ -3,5 +3,6 @@ export { cellsEqual, DIRECTION_DELTAS, OPPOSITE_DIRECTIONS } from "./shared/grid
 export type { Cell, Direction } from "./shared/grid.ts";
 export { DirectionalInput } from "./shared/input.ts";
 export type { DirectionalInputOptions } from "./shared/input.ts";
+export * from "./flappy/index.ts";
 export * from "./snake/index.ts";
 export * from "./taboo/index.ts";

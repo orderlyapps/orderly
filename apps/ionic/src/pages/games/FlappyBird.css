@@ -1,0 +1,50 @@
+.flappy-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  min-height: 100%;
+  padding: 8px 16px 16px;
+}
+
+.flappy-score {
+  margin-top: auto;
+  padding-top: 16px;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.flappy-board {
+  position: relative;
+  width: min(90vw, 420px);
+  height: min(60vh, 120vw);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.flappy-board canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.flappy-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.flappy-overlay-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.flappy-hint {
+  font-size: 0.875rem;
+}
