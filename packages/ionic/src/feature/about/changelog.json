@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.4.0",
+    "date": "2026-11-08",
+    "changes": [
+      "Games: play Flappy Bird — tap, click, or press space to flap through the pipes",
+      "Games: play Taboo with custom shareable card decks",
+      "App update prompt formats the changelog instead of showing raw markup"
+    ]
+  },
+  {
     "version": "0.3.0",
     "date": "2026-10-30",
     "changes": [
