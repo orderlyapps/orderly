@@ -1,0 +1,64 @@
+.minesweeper-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  min-height: 100%;
+  padding: 8px 16px 16px;
+}
+
+.minesweeper-segment {
+  width: min(90vw, 420px);
+}
+
+.minesweeper-board {
+  position: relative;
+  width: min(90vw, 420px);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.minesweeper-board canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.minesweeper-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.minesweeper-overlay-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.minesweeper-status {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.minesweeper-count {
+  min-width: 96px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.minesweeper-flag-toggle {
+  margin: 0;
+  touch-action: manipulation;
+}
+
+.minesweeper-hint {
+  font-size: 0.875rem;
+}

@@ -9,7 +9,7 @@ import {
   IonTitle,
   IonToolbar,
 } from "@ionic/react";
-import { airplane, chatbubbles, gameController } from "ionicons/icons";
+import { airplane, chatbubbles, gameController, grid } from "ionicons/icons";
 
 const Games = () => {
   return (
@@ -37,6 +37,10 @@ const Games = () => {
           <IonItem button detail routerLink="/games/flappy-bird">
             <IonIcon aria-hidden="true" icon={airplane} slot="start" />
             <IonLabel>Flappy Bird</IonLabel>
+          </IonItem>
+          <IonItem button detail routerLink="/games/minesweeper">
+            <IonIcon aria-hidden="true" icon={grid} slot="start" />
+            <IonLabel>Minesweeper</IonLabel>
           </IonItem>
         </IonList>
       </IonContent>
