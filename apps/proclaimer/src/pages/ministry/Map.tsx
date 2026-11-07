@@ -8,7 +8,6 @@ import {
   IonHeader,
   IonIcon,
   IonPage,
-  IonTitle,
   IonToolbar,
 } from "@ionic/react";
 import { mapOutline } from "ionicons/icons";
@@ -40,7 +39,6 @@ const Map = () => {
           <IonButtons slot="start">
             <IonBackButton defaultHref="/ministry" />
           </IonButtons>
-          <IonTitle>Map</IonTitle>
           <IonButtons slot="end">
             <IonButton onClick={() => setMapsOpen(true)} aria-label="Select map">
               <IonIcon slot="icon-only" icon={mapOutline} />
