@@ -50,8 +50,8 @@ export function MapsListModal({
     <IonModal
       isOpen={isOpen}
       onDidDismiss={handleDidDismiss}
-      breakpoints={[0, 0.7, 1]}
-      initialBreakpoint={0.7}
+      breakpoints={[0, 0.95, 1]}
+      initialBreakpoint={0.95}
       handleBehavior="cycle"
     >
       <IonHeader>
