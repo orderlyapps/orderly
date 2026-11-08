@@ -4,6 +4,9 @@ export const MAP_TABLE = "map";
 
 export const MAP_POLYGON_COLOR = "#9ca3af";
 export const MAP_SELECTED_COLOR = "#ef4444";
+// Matches --ion-color-primary in the app theme; Mapbox styles cannot resolve
+// CSS variables, so the value is duplicated here.
+export const MAP_BLOCK_COLOR = "#4a6da7";
 export const MAP_VERTEX_MIN_ZOOM = 14;
 export const MAP_LABEL_MIN_ZOOM = MAP_VERTEX_MIN_ZOOM - 2;
 export const MAP_LINE_MIN_ZOOM = MAP_VERTEX_MIN_ZOOM - 2;
@@ -50,6 +53,20 @@ export type MapPolygonFeature = {
 export type MapPolygonsGeoJSON = {
   type: "FeatureCollection";
   features: MapPolygonFeature[];
+};
+
+export type MapBlockFeature = {
+  type: "Feature";
+  geometry:
+    | { type: "Polygon"; coordinates: number[][][] }
+    | { type: "LineString"; coordinates: number[][] }
+    | { type: "Point"; coordinates: number[] };
+  properties: { id: string; name: string; type: "face" | "block" };
+};
+
+export type MapBlocksGeoJSON = {
+  type: "FeatureCollection";
+  features: MapBlockFeature[];
 };
 
 export function isValidBoundary(boundary: unknown): boundary is MapBoundary {
@@ -165,4 +182,51 @@ export function mapRowsToGeoJSON(rows: MapRow[]): MapPolygonsGeoJSON {
 
 export function mapRowsToBounds(rows: MapRow[]): MapBounds | null {
   return boundariesToBounds(rows.map((row) => row.boundary));
+}
+
+// A "block" is a closed area bounded by streets; a "face" is one side of a
+// street segment drawn as a line.
+export function mapBlockToFeature(block: MapBlock): MapBlockFeature | null {
+  const properties = { id: block.id, name: block.name, type: block.type };
+  if (block.type === "block") {
+    if (block.coordinates.length < 3) {
+      return null;
+    }
+    return {
+      type: "Feature",
+      geometry: { type: "Polygon", coordinates: [ensureClosedRing(block.coordinates)] },
+      properties,
+    };
+  }
+  if (block.coordinates.length < 2) {
+    return null;
+  }
+  return {
+    type: "Feature",
+    geometry: { type: "LineString", coordinates: block.coordinates },
+    properties,
+  };
+}
+
+export function mapBlocksToGeoJSON(blocks: MapBlock[] | null | undefined): MapBlocksGeoJSON {
+  const features: MapBlockFeature[] = [];
+  for (const block of blocks ?? []) {
+    const feature = mapBlockToFeature(block);
+    if (feature) {
+      features.push(feature);
+      // Mapbox cannot place a label at a line's end, so faces also emit a
+      // point at their last coordinate for the labels layer to anchor to.
+      if (block.type === "face") {
+        features.push({
+          type: "Feature",
+          geometry: {
+            type: "Point",
+            coordinates: block.coordinates[block.coordinates.length - 1],
+          },
+          properties: { id: block.id, name: block.name, type: block.type },
+        });
+      }
+    }
+  }
+  return { type: "FeatureCollection", features };
 }

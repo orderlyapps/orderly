@@ -16,6 +16,8 @@ import {
   isValidBoundary,
   isValidCoordinates,
   isValidMapViewState,
+  mapBlocksToGeoJSON,
+  mapBlockToFeature,
   MAPBOX_DARK_STYLE,
   MAPBOX_LIGHT_STYLE,
   MAP_DEFAULT_ZOOM,
@@ -33,6 +35,7 @@ import {
   useMapPolygons,
   useMapView,
   writeMapViewState,
+  type MapBlock,
   type MapRow,
 } from "../src/feature/map/index.ts";
 
@@ -193,6 +196,81 @@ test("converts map rows to a polygon feature collection", () => {
 
   expect(typeof MapsLayer).toBe("function");
   expect(typeof useMapPolygons).toBe("function");
+});
+
+test("converts map blocks to polygon and line features", () => {
+  const block = (overrides: Partial<MapBlock>): MapBlock => ({
+    id: "block-1",
+    name: "Block 1",
+    type: "block",
+    coordinates: [
+      [151.0, -33.9],
+      [151.1, -33.9],
+      [151.1, -33.8],
+    ],
+    ...overrides,
+  });
+  const face = (overrides: Partial<MapBlock>): MapBlock => ({
+    ...block({}),
+    id: "face-1",
+    name: "Main St",
+    type: "face",
+    coordinates: [
+      [151.0, -33.9],
+      [151.1, -33.9],
+    ],
+    ...overrides,
+  });
+
+  // Blocks become closed-ring polygons; faces become lines.
+  expect(mapBlockToFeature(block({}))?.geometry).toEqual({
+    type: "Polygon",
+    coordinates: [
+      [
+        [151.0, -33.9],
+        [151.1, -33.9],
+        [151.1, -33.8],
+        [151.0, -33.9],
+      ],
+    ],
+  });
+  expect(mapBlockToFeature(block({}))?.properties).toEqual({
+    id: "block-1",
+    name: "Block 1",
+    type: "block",
+  });
+  expect(mapBlockToFeature(face({}))?.geometry).toEqual({
+    type: "LineString",
+    coordinates: [
+      [151.0, -33.9],
+      [151.1, -33.9],
+    ],
+  });
+
+  // Too few coordinates produce no feature.
+  expect(mapBlockToFeature(block({ coordinates: [[151.0, -33.9]] }))).toBe(null);
+  expect(mapBlockToFeature(face({ coordinates: [[151.0, -33.9]] }))).toBe(null);
+
+  const geojson = mapBlocksToGeoJSON([
+    block({}),
+    face({}),
+    face({ id: "face-2", coordinates: [] }),
+  ]);
+  expect(geojson.type).toBe("FeatureCollection");
+  // Each face emits its line plus a point at its end coordinate so the label
+  // can render at the end of the line as well.
+  expect(geojson.features).toHaveLength(3);
+  expect(geojson.features[2].geometry).toEqual({
+    type: "Point",
+    coordinates: [151.1, -33.9],
+  });
+  expect(geojson.features[2].properties).toEqual({
+    id: "face-1",
+    name: "Main St",
+    type: "face",
+  });
+  expect(mapBlocksToGeoJSON(null).features).toHaveLength(0);
+  expect(mapBlocksToGeoJSON(undefined).features).toHaveLength(0);
 });
 
 test("filters and sorts map rows by alphanumeric name search", () => {
