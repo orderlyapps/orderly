@@ -16,6 +16,8 @@ const COLORS: Record<TetrominoKind, string> = {
 };
 
 export interface TetrisGameOptions extends TetrisEngineOptions {
+  /** Optional canvas that renders the upcoming piece. */
+  previewCanvas?: HTMLCanvasElement;
   /** Base milliseconds per gravity step. The game speeds up each level. */
   tickMs?: number;
   onScore?: (score: number) => void;
@@ -24,8 +26,11 @@ export interface TetrisGameOptions extends TetrisEngineOptions {
 
 export class TetrisGame {
   readonly engine: TetrisEngine;
+  paused = false;
   private readonly canvas: HTMLCanvasElement;
   private readonly ctx: CanvasRenderingContext2D;
+  private readonly previewCanvas?: HTMLCanvasElement;
+  private readonly previewCtx: CanvasRenderingContext2D | null;
   private readonly input: DirectionalInput;
   private readonly tickMs: number;
   private readonly onScore?: (score: number) => void;
@@ -47,15 +52,20 @@ export class TetrisGame {
     this.engine = new TetrisEngine(options);
     this.input = new DirectionalInput(canvas, {
       onDirection: (direction) => this.handleDirection(direction),
+      // Rotating is destructive, so an upward swipe needs more travel.
+      swipeThresholds: { up: 48 },
     });
+    this.previewCanvas = options.previewCanvas;
+    this.previewCtx = options.previewCanvas?.getContext("2d") ?? null;
     window.addEventListener("keydown", this.handleKeyDown);
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(canvas);
+    if (this.previewCanvas) this.resizeObserver.observe(this.previewCanvas);
     this.resize();
   }
 
   start(): void {
-    if (this.timer !== null || this.destroyed || this.engine.gameOver) return;
+    if (this.timer !== null || this.destroyed || this.paused || this.engine.gameOver) return;
     this.scheduleTick();
   }
 
@@ -65,33 +75,50 @@ export class TetrisGame {
     this.timer = null;
   }
 
+  pause(): void {
+    if (this.engine.gameOver) return;
+    this.paused = true;
+    this.stop();
+  }
+
+  resume(): void {
+    this.paused = false;
+    this.start();
+  }
+
   moveLeft(): void {
+    if (this.paused) return;
     this.engine.move(-1);
     this.sync();
   }
 
   moveRight(): void {
+    if (this.paused) return;
     this.engine.move(1);
     this.sync();
   }
 
   rotate(): void {
+    if (this.paused) return;
     this.engine.rotate();
     this.sync();
   }
 
   softDrop(): void {
+    if (this.paused) return;
     this.engine.softDrop();
     this.sync();
   }
 
   hardDrop(): void {
+    if (this.paused) return;
     this.engine.hardDrop();
     this.sync();
   }
 
   restart(): void {
     this.engine.reset();
+    this.paused = false;
     this.lastScore = this.engine.score;
     this.overEmitted = false;
     this.onScore?.(this.engine.score);
@@ -137,11 +164,10 @@ export class TetrisGame {
   }
 
   private handleDirection(direction: Direction): void {
-    if (direction === "left") this.engine.move(-1);
-    else if (direction === "right") this.engine.move(1);
-    else if (direction === "down") this.engine.softDrop();
-    else this.engine.rotate();
-    this.sync();
+    if (direction === "left") this.moveLeft();
+    else if (direction === "right") this.moveRight();
+    else if (direction === "down") this.softDrop();
+    else this.rotate();
   }
 
   private handleKeyDown = (event: KeyboardEvent): void => {
@@ -157,11 +183,11 @@ export class TetrisGame {
     }
     if (this.canvas.getClientRects().length === 0) return;
     event.preventDefault();
-    this.engine.hardDrop();
-    this.sync();
+    this.hardDrop();
   };
 
   private resize(): void {
+    if (this.previewCanvas && fitCanvasToDisplaySize(this.previewCanvas)) this.drawPreview();
     if (!fitCanvasToDisplaySize(this.canvas)) return;
     this.draw();
   }
@@ -204,6 +230,32 @@ export class TetrisGame {
     }
     for (const cell of engine.pieceCells()) {
       this.drawCell(cell.x, cell.y, cellW, cellH, COLORS[engine.piece.kind]);
+    }
+
+    this.drawPreview();
+  }
+
+  private drawPreview(): void {
+    const { previewCanvas: canvas, previewCtx: ctx, engine } = this;
+    if (!canvas || !ctx || canvas.width === 0 || canvas.height === 0) return;
+    const cells = engine.pieceCells({ kind: engine.next, rotation: 0, x: 0, y: 0 });
+    const minX = Math.min(...cells.map((cell) => cell.x));
+    const maxX = Math.max(...cells.map((cell) => cell.x));
+    const minY = Math.min(...cells.map((cell) => cell.y));
+    const maxY = Math.max(...cells.map((cell) => cell.y));
+    const size = Math.min(canvas.width, canvas.height) / 5;
+    const offsetX = (canvas.width - (maxX - minX + 1) * size) / 2;
+    const offsetY = (canvas.height - (maxY - minY + 1) * size) / 2;
+    ctx.fillStyle = "#111";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = COLORS[engine.next];
+    for (const cell of cells) {
+      ctx.fillRect(
+        offsetX + (cell.x - minX) * size + 1,
+        offsetY + (cell.y - minY) * size + 1,
+        size - 2,
+        size - 2,
+      );
     }
   }
 

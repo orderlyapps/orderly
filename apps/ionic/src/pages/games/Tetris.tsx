@@ -11,7 +11,15 @@ import {
   useIonViewDidEnter,
   useIonViewWillLeave,
 } from "@ionic/react";
-import { chevronBack, chevronDown, chevronForward, download, refresh } from "ionicons/icons";
+import {
+  chevronBack,
+  chevronDown,
+  chevronForward,
+  download,
+  pause,
+  play,
+  refresh,
+} from "ionicons/icons";
 import { useEffect, useRef, useState } from "react";
 import { TetrisGame } from "games";
 
@@ -21,12 +29,14 @@ const HIGH_SCORE_KEY = "tetris:high-score";
 
 const Tetris = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const previewRef = useRef<HTMLCanvasElement | null>(null);
   const gameRef = useRef<TetrisGame | null>(null);
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(
     () => Number(localStorage.getItem(HIGH_SCORE_KEY)) || 0,
   );
   const [gameOver, setGameOver] = useState(false);
+  const [paused, setPaused] = useState(false);
 
   useEffect(() => {
     if (score > highScore) {
@@ -38,6 +48,7 @@ const Tetris = () => {
   useEffect(() => {
     if (!canvasRef.current) return;
     const game = new TetrisGame(canvasRef.current, {
+      previewCanvas: previewRef.current ?? undefined,
       onScore: setScore,
       onGameOver: () => setGameOver(true),
     });
@@ -58,7 +69,14 @@ const Tetris = () => {
 
   const restart = () => {
     setGameOver(false);
+    setPaused(false);
     gameRef.current?.restart();
+  };
+
+  const togglePause = () => {
+    if (paused) gameRef.current?.resume();
+    else gameRef.current?.pause();
+    setPaused(!paused);
   };
 
   return (
@@ -68,10 +86,25 @@ const Tetris = () => {
           <IonButtons slot="start">
             <IonBackButton defaultHref="/games" text="" />
           </IonButtons>
+          <IonButtons slot="end">
+            <IonButton
+              aria-label={paused ? "Resume" : "Pause"}
+              disabled={gameOver}
+              onClick={togglePause}
+            >
+              <IonIcon icon={paused ? play : pause} />
+            </IonButton>
+          </IonButtons>
         </IonToolbar>
       </IonHeader>
       <IonContent fullscreen>
         <div className="tetris-page">
+          <div className="tetris-hud">
+            <IonText color="medium" className="tetris-next-label">
+              Next
+            </IonText>
+            <canvas ref={previewRef} className="tetris-preview" />
+          </div>
           <div className="tetris-board">
             <canvas ref={canvasRef} />
             {gameOver && (
@@ -80,10 +113,17 @@ const Tetris = () => {
                 <IonButton onClick={restart}>Play Again</IonButton>
               </div>
             )}
+            {paused && !gameOver && (
+              <div className="tetris-overlay">
+                <IonText className="tetris-overlay-title">Paused</IonText>
+                <IonButton onClick={togglePause}>Resume</IonButton>
+              </div>
+            )}
           </div>
           <div className="tetris-controls">
             <IonButton
               className="tetris-control"
+              disabled={paused}
               aria-label="Move left"
               onPointerDown={() => gameRef.current?.moveLeft()}
             >
@@ -91,6 +131,7 @@ const Tetris = () => {
             </IonButton>
             <IonButton
               className="tetris-control"
+              disabled={paused}
               aria-label="Soft drop"
               onPointerDown={() => gameRef.current?.softDrop()}
             >
@@ -98,6 +139,7 @@ const Tetris = () => {
             </IonButton>
             <IonButton
               className="tetris-control"
+              disabled={paused}
               aria-label="Rotate"
               onPointerDown={() => gameRef.current?.rotate()}
             >
@@ -105,6 +147,7 @@ const Tetris = () => {
             </IonButton>
             <IonButton
               className="tetris-control"
+              disabled={paused}
               aria-label="Hard drop"
               onPointerDown={() => gameRef.current?.hardDrop()}
             >
@@ -112,6 +155,7 @@ const Tetris = () => {
             </IonButton>
             <IonButton
               className="tetris-control"
+              disabled={paused}
               aria-label="Move right"
               onPointerDown={() => gameRef.current?.moveRight()}
             >

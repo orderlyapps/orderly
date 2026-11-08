@@ -122,6 +122,8 @@ export class TetrisEngine {
   /** Locked cells in row-major order. */
   board: (TetrominoKind | null)[] = [];
   piece: TetrisPiece = { kind: "I", rotation: 0, x: 0, y: 0 };
+  /** Kind of the piece that will spawn next. */
+  next: TetrominoKind = "I";
   score = 0;
   lines = 0;
   gameOver = false;
@@ -146,6 +148,7 @@ export class TetrisEngine {
     this.score = 0;
     this.lines = 0;
     this.gameOver = false;
+    this.next = this.nextKind();
     this.spawn();
   }
 
@@ -237,7 +240,8 @@ export class TetrisEngine {
   }
 
   private spawn(): void {
-    const kind = this.nextKind();
+    const kind = this.next;
+    this.next = this.nextKind();
     const minY = Math.min(...ROTATIONS[kind][0]!.map((cell) => cell.y));
     this.piece = {
       kind,

@@ -110,6 +110,14 @@ test("ends the game when a new piece cannot spawn", () => {
   expect(engine.gameOver).toBe(true);
 });
 
+test("queues the next piece", () => {
+  const engine = new TetrisEngine({ cols: 10, rows: 40 });
+  expect(TETROMINO_KINDS).toContain(engine.next);
+  const next = engine.next;
+  engine.hardDrop();
+  expect(engine.piece.kind).toBe(next);
+});
+
 test("deals each tetromino once per bag", () => {
   const engine = new TetrisEngine({ cols: 10, rows: 40 });
   const seen = new Set([engine.piece.kind]);

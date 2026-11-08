@@ -19,6 +19,8 @@ export interface DirectionalInputOptions {
   keys?: Record<string, Direction>;
   /** Minimum swipe distance in pixels before a direction is emitted. */
   swipeThreshold?: number;
+  /** Per-direction swipe distance overrides in pixels. */
+  swipeThresholds?: Partial<Record<Direction, number>>;
 }
 
 /**
@@ -31,6 +33,7 @@ export class DirectionalInput {
   private readonly onDirection: (direction: Direction) => void;
   private readonly keys: Record<string, Direction>;
   private readonly swipeThreshold: number;
+  private readonly swipeThresholds: Partial<Record<Direction, number>>;
   private touchStart: { x: number; y: number } | null = null;
 
   constructor(element: HTMLElement, options: DirectionalInputOptions) {
@@ -38,6 +41,7 @@ export class DirectionalInput {
     this.onDirection = options.onDirection;
     this.keys = { ...DEFAULT_KEY_DIRECTIONS, ...options.keys };
     this.swipeThreshold = options.swipeThreshold ?? DEFAULT_SWIPE_THRESHOLD;
+    this.swipeThresholds = options.swipeThresholds ?? {};
 
     window.addEventListener("keydown", this.handleKeyDown);
     element.addEventListener("touchstart", this.handleTouchStart, { passive: false });
@@ -84,10 +88,11 @@ export class DirectionalInput {
     if (!touch) return;
     const dx = touch.clientX - this.touchStart.x;
     const dy = touch.clientY - this.touchStart.y;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < this.swipeThreshold) return;
-    this.onDirection(
-      Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : dy > 0 ? "down" : "up",
-    );
+    const direction: Direction =
+      Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : dy > 0 ? "down" : "up";
+    const threshold = this.swipeThresholds[direction] ?? this.swipeThreshold;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < threshold) return;
+    this.onDirection(direction);
     this.touchStart = { x: touch.clientX, y: touch.clientY };
   };
 
