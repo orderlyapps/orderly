@@ -18,20 +18,33 @@ import {
   IonToast,
   IonToolbar,
 } from "@ionic/react";
-import { add, clipboard, close, cloudUpload, copy, download, trash } from "ionicons/icons";
+import {
+  add,
+  checkmark,
+  clipboard,
+  close,
+  cloudUpload,
+  copy,
+  download,
+  pencil,
+  trash,
+} from "ionicons/icons";
 import {
   downloadTabooDeck,
   parseTabooDeck,
   readTabooDeckFile,
   serializeTabooDeck,
   TabooCardStore,
+  type TabooCard,
 } from "games";
 
 const Cards = () => {
   const store = useMemo(() => new TabooCardStore(), []);
+  const contentRef = useRef<HTMLIonContentElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [cards, setCards] = useState(() => store.listCards());
   const [word, setWord] = useState("");
+  const [editingWord, setEditingWord] = useState<string | null>(null);
   const nextTabooWordId = useRef(1);
   const focusNewTabooWord = useRef(false);
   const [tabooWords, setTabooWords] = useState<{ id: number; value: string }[]>([
@@ -62,16 +75,29 @@ const Cards = () => {
     setTabooWords((words) => (words.length > 1 ? words.filter((entry) => entry.id !== id) : words));
   };
 
-  const addCard = () => {
+  const resetForm = () => {
+    setEditingWord(null);
+    setWord("");
+    setTabooWords([{ id: nextTabooWordId.current++, value: "" }]);
+  };
+
+  const startEdit = (card: TabooCard) => {
+    setEditingWord(card.word);
+    setWord(card.word);
+    setTabooWords(card.taboo.map((value) => ({ id: nextTabooWordId.current++, value })));
+    void contentRef.current?.scrollToTop(300);
+  };
+
+  const saveCard = () => {
     try {
-      const updated = store.saveCard(
-        word,
-        tabooWords.map((entry) => entry.value),
-      );
+      const values = tabooWords.map((entry) => entry.value);
+      const updated =
+        editingWord === null
+          ? store.saveCard(word, values)
+          : store.updateCard(editingWord, word, values);
       setCards(updated);
-      setWord("");
-      setTabooWords([{ id: nextTabooWordId.current++, value: "" }]);
-      setToast("Card saved");
+      resetForm();
+      setToast(editingWord === null ? "Card saved" : "Card updated");
     } catch (error) {
       setToast(error instanceof Error ? error.message : "Could not save card");
     }
@@ -79,6 +105,7 @@ const Cards = () => {
 
   const removeCard = (cardWord: string) => {
     setCards(store.removeCard(cardWord));
+    if (editingWord?.toLowerCase() === cardWord.toLowerCase()) resetForm();
     setToast(`Removed "${cardWord}"`);
   };
 
@@ -136,7 +163,7 @@ const Cards = () => {
           </IonButtons>
         </IonToolbar>
       </IonHeader>
-      <IonContent fullscreen>
+      <IonContent ref={contentRef} fullscreen>
         <IonHeader collapse="condense">
           <IonToolbar>
             <IonTitle size="large">Cards</IonTitle>
@@ -145,7 +172,7 @@ const Cards = () => {
 
         <IonList inset>
           <IonListHeader>
-            <IonLabel>New Card</IonLabel>
+            <IonLabel>{editingWord === null ? "New Card" : `Edit "${editingWord}"`}</IonLabel>
           </IonListHeader>
           <IonItem>
             <IonInput
@@ -190,9 +217,14 @@ const Cards = () => {
             </IonButton>
           </IonItem>
           <IonItem lines="none">
-            <IonButton slot="end" onClick={addCard}>
-              <IonIcon slot="start" icon={add} />
-              Add Card
+            {editingWord !== null && (
+              <IonButton fill="clear" slot="start" onClick={resetForm}>
+                Cancel
+              </IonButton>
+            )}
+            <IonButton slot="end" onClick={saveCard}>
+              <IonIcon slot="start" icon={editingWord === null ? add : checkmark} />
+              {editingWord === null ? "Add Card" : "Save Changes"}
             </IonButton>
           </IonItem>
         </IonList>
@@ -212,6 +244,14 @@ const Cards = () => {
                 <h3>{card.word}</h3>
                 <p>{card.taboo.join(" · ")}</p>
               </IonLabel>
+              <IonButton
+                fill="clear"
+                slot="end"
+                aria-label={`Edit ${card.word}`}
+                onClick={() => startEdit(card)}
+              >
+                <IonIcon icon={pencil} />
+              </IonButton>
               <IonButton
                 fill="clear"
                 slot="end"

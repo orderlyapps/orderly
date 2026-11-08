@@ -38,6 +38,47 @@ test("saving an existing word replaces the card in place", () => {
   expect(cards[0]).toEqual({ word: "apple", taboo: ["red", "core"] });
 });
 
+test("updateCard replaces a card in place", () => {
+  const store = createStore();
+  store.saveCard("Apple", ["fruit"]);
+  store.saveCard("Boat", ["water"]);
+  store.updateCard("apple", "Apple", ["orchard", "pie"]);
+  expect(store.listCards()).toEqual([
+    { word: "Apple", taboo: ["orchard", "pie"] },
+    { word: "Boat", taboo: ["water"] },
+  ]);
+});
+
+test("updateCard renames a card without moving it", () => {
+  const store = createStore();
+  store.saveCard("Apple", ["fruit"]);
+  store.saveCard("Boat", ["water"]);
+  store.updateCard("apple", "Cherry", ["red"]);
+  expect(store.listCards()).toEqual([
+    { word: "Cherry", taboo: ["red"] },
+    { word: "Boat", taboo: ["water"] },
+  ]);
+});
+
+test("updateCard throws when the new word belongs to another card", () => {
+  const store = createStore();
+  store.saveCard("Apple", ["fruit"]);
+  store.saveCard("Boat", ["water"]);
+  expect(() => store.updateCard("Apple", "boat", ["sea"])).toThrow(
+    'A card named "Boat" already exists',
+  );
+  expect(store.listCards()).toEqual([
+    { word: "Apple", taboo: ["fruit"] },
+    { word: "Boat", taboo: ["water"] },
+  ]);
+});
+
+test("updateCard adds the card when the original word is missing", () => {
+  const store = createStore();
+  store.updateCard("Ghost", "Apple", ["fruit"]);
+  expect(store.listCards()).toEqual([{ word: "Apple", taboo: ["fruit"] }]);
+});
+
 test("removeCard deletes by word case-insensitively", () => {
   const store = createStore();
   store.saveCard("Apple", ["fruit"]);

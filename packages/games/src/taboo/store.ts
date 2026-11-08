@@ -94,6 +94,24 @@ export class TabooCardStore {
     return cards;
   }
 
+  /** Replaces the card identified by originalWord, keeping its position in the deck. */
+  updateCard(originalWord: string, word: string, taboo: string[]): TabooCard[] {
+    const card = createTabooCard(word, taboo);
+    const cards = this.listCards();
+    const originalIndex = cards.findIndex((entry) => wordKey(entry.word) === wordKey(originalWord));
+    const targetIndex = cards.findIndex((entry) => wordKey(entry.word) === wordKey(card.word));
+    if (targetIndex !== -1 && targetIndex !== originalIndex) {
+      throw new Error(`A card named "${cards[targetIndex]!.word}" already exists`);
+    }
+    if (originalIndex === -1) {
+      cards.push(card);
+    } else {
+      cards[originalIndex] = card;
+    }
+    this.write(cards);
+    return cards;
+  }
+
   removeCard(word: string): TabooCard[] {
     const key = wordKey(word);
     const cards = this.listCards().filter((card) => wordKey(card.word) !== key);
