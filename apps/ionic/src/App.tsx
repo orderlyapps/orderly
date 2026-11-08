@@ -23,6 +23,8 @@ import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
 import Games from "./pages/Games";
 import FlappyBird from "./pages/games/FlappyBird";
 import Minesweeper from "./pages/games/Minesweeper";
+import MultipleChoice from "./pages/games/MultipleChoice";
+import MultipleChoiceQuestions from "./pages/games/multiple-choice/Questions";
 import Taboo from "./pages/games/Taboo";
 import TabooCards from "./pages/games/taboo/Cards";
 import Tetris from "./pages/games/Tetris";
@@ -81,6 +83,8 @@ const App = () => {
             <Route path="/games/flappy-bird" element={<FlappyBird />} />
             <Route path="/games/minesweeper" element={<Minesweeper />} />
             <Route path="/games/tetris" element={<Tetris />} />
+            <Route path="/games/multiple-choice" element={<MultipleChoice />} />
+            <Route path="/games/multiple-choice/questions" element={<MultipleChoiceQuestions />} />
             <Route path="/games/taboo/cards" element={<TabooCards />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/about" element={<SettingsAbout />} />

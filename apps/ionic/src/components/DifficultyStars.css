@@ -1,0 +1,5 @@
+.difficulty-stars {
+  color: var(--ion-color-warning, #ffc409);
+  font-size: 0.9rem;
+  letter-spacing: 0.1em;
+}

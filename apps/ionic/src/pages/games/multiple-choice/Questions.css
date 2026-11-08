@@ -1,0 +1,11 @@
+.mc-chip-row {
+  flex-wrap: wrap;
+}
+
+.mc-chip-row::part(native) {
+  flex-wrap: wrap;
+}
+
+.mc-question-label h3 {
+  white-space: normal;
+}

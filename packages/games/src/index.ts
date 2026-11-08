@@ -5,6 +5,7 @@ export { DirectionalInput } from "./shared/input.ts";
 export type { DirectionalInputOptions } from "./shared/input.ts";
 export * from "./flappy/index.ts";
 export * from "./minesweeper/index.ts";
+export * from "./multiple-choice/index.ts";
 export * from "./snake/index.ts";
 export * from "./taboo/index.ts";
 export * from "./tetris/index.ts";
