@@ -3422,12 +3422,14 @@
     {
       "minzoom": 10,
       "layout": {
-        "text-size": ["interpolate", ["linear"], ["zoom"], 10, 6.5, 15, 9, 17, 18, 18, 32],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 10, 8, 15, 11.5, 17, 22.5, 18, 40],
+        "text-transform": "uppercase",
+        "text-allow-overlap": true,
         "text-max-angle": 90,
         "symbol-spacing": 30,
         "text-font": ["DIN Pro Regular", "Arial Unicode MS Regular"],
         "symbol-placement": "line",
-        "text-padding": 5,
+        "text-padding": 1,
         "text-rotation-alignment": "map",
         "text-pitch-alignment": "viewport",
         "text-field": ["coalesce", ["get", "name_en"], ["get", "name"]],
@@ -3503,7 +3505,9 @@
         "icon-image": "intersection",
         "icon-text-fit": "both",
         "icon-text-fit-padding": [1, 2, 1, 2],
-        "text-size": ["interpolate", ["exponential", 1.2], ["zoom"], 15, 9, 18, 12],
+        "text-size": ["interpolate", ["exponential", 1.2], ["zoom"], 15, 11, 18, 15],
+        "text-transform": "uppercase",
+        "text-allow-overlap": true,
         "text-font": ["DIN Pro Bold", "Arial Unicode MS Bold"]
       },
       "metadata": {
@@ -3696,11 +3700,13 @@
           ["linear"],
           ["zoom"],
           10,
-          ["match", ["get", "class"], "pedestrian", 9, 6.5],
+          ["match", ["get", "class"], "pedestrian", 11, 8],
           18,
-          ["match", ["get", "class"], "pedestrian", 14, 13]
+          ["match", ["get", "class"], "pedestrian", 17, 16]
         ],
-        "text-max-angle": 30,
+        "text-transform": "uppercase",
+        "text-allow-overlap": true,
+        "text-max-angle": 45,
         "text-font": ["DIN Pro Regular", "Arial Unicode MS Regular"],
         "symbol-placement": "line",
         "text-padding": 1,

@@ -2594,7 +2594,9 @@
         "icon-image": "intersection",
         "icon-text-fit": "both",
         "icon-text-fit-padding": [1, 2, 1, 2],
-        "text-size": 12,
+        "text-size": 14.5,
+        "text-transform": "uppercase",
+        "text-allow-overlap": true,
         "text-font": ["DIN Pro Bold", "Arial Unicode MS Bold"]
       },
       "filter": [
@@ -2631,7 +2633,7 @@
             "match",
             ["get", "class"],
             ["motorway", "trunk", "primary", "secondary", "tertiary"],
-            11,
+            13,
             [
               "motorway_link",
               "trunk_link",
@@ -2641,15 +2643,15 @@
               "street",
               "street_limited"
             ],
-            8.8,
-            7.15
+            10.5,
+            8.5
           ],
           18,
           [
             "match",
             ["get", "class"],
             ["motorway", "trunk", "primary", "secondary", "tertiary"],
-            17.6,
+            21,
             [
               "motorway_link",
               "trunk_link",
@@ -2659,15 +2661,15 @@
               "street",
               "street_limited"
             ],
-            15.400000000000002,
-            14.3
+            18.5,
+            17
           ],
           22,
           [
             "match",
             ["get", "class"],
             ["motorway", "trunk", "primary", "secondary", "tertiary"],
-            55.00000000000001,
+            66,
             [
               "motorway_link",
               "trunk_link",
@@ -2677,14 +2679,17 @@
               "street",
               "street_limited"
             ],
-            44,
-            33
+            53,
+            40
           ]
         ],
-        "text-max-angle": 30,
+        "text-transform": "uppercase",
+        "text-allow-overlap": true,
+        "text-max-angle": 45,
         "text-font": ["DIN Pro Medium", "Arial Unicode MS Regular"],
         "symbol-placement": "line",
-        "text-padding": 5,
+        "symbol-spacing": 100,
+        "text-padding": 1,
         "text-rotation-alignment": "map",
         "text-pitch-alignment": "viewport",
         "text-field": ["coalesce", ["get", "name_local"], ["get", "name"]],
