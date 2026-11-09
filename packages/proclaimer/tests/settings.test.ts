@@ -1,6 +1,10 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vite-plus/test";
+
+import { createCollection, localStorageCollectionOptions } from "@tanstack/react-db";
+
+import type { Publisher, PublisherCollection } from "../src/feature/publisher/index.ts";
 import {
   AppearanceSettingsSection,
   applyTheme,
@@ -25,6 +29,7 @@ import {
   isThemeMode,
   isValidSettingsId,
   normalizeSettingsDocument,
+  PublisherSettingsSection,
   resetDefaultSettingsStoreForTesting,
   SETTINGS_BINARY_EXTENSION,
   SETTINGS_BINARY_FILENAME,
@@ -202,6 +207,63 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
   expect(typeof SettingsSection).toBe("function");
   expect(typeof AppearanceSettingsSection).toBe("function");
   expect(typeof DataSettingsSection).toBe("function");
+  expect(typeof PublisherSettingsSection).toBe("function");
+});
+
+test("offers account sign-in only when the selected publisher is linked to an account", async () => {
+  const storageMap = new Map<string, string>();
+  const collection = createCollection(
+    localStorageCollectionOptions<Publisher, string>({
+      id: `publishers_test_${Date.now()}`,
+      storageKey: `publishers_test_${Date.now()}`,
+      storage: {
+        getItem: (key) => storageMap.get(key) ?? null,
+        setItem: (key, value) => {
+          storageMap.set(key, value);
+        },
+        removeItem: (key) => {
+          storageMap.delete(key);
+        },
+      },
+      getKey: (publisher) => publisher.id ?? "",
+      startSync: true,
+    }),
+  );
+
+  try {
+    await collection.preload();
+    const tx = collection.insert([
+      {
+        id: "p1",
+        first_name: "Alice",
+        last_name: "Anderson",
+        congregation_id: "c1",
+        auth_id: "auth-1",
+      },
+      { id: "p2", first_name: "Bob", last_name: "Brown", congregation_id: "c1" },
+    ]);
+    await tx.isPersisted.promise;
+
+    const render = (publisherId: string) =>
+      renderToStaticMarkup(
+        createElement(PublisherSettingsSection, {
+          congregationId: "c1",
+          publisherId,
+          publisherCollection: collection as unknown as PublisherCollection,
+        }),
+      );
+
+    const linked = render("p1");
+    expect(linked).toContain("Anderson, Alice");
+    expect(linked).toContain("Sign in to your account");
+    expect(linked).not.toContain("Signed in");
+
+    const unlinked = render("p2");
+    expect(unlinked).toContain("Brown, Bob");
+    expect(unlinked).not.toContain("Sign in to your account");
+  } finally {
+    await collection.cleanup().catch(() => {});
+  }
 });
 
 test("initializes LocalStorage Collection store with default system theme and updates settings", async () => {
