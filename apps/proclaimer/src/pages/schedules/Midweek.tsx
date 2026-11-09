@@ -13,12 +13,14 @@ import {
   currentWeekId,
   MidweekMeetingView,
   parseWeekId,
+  usePermissions,
   useSettings,
   weekIdOf,
 } from "proclaimer-core";
 
 const Midweek = () => {
   const { settings } = useSettings();
+  const permissions = usePermissions(settings.congregationId || undefined);
   const { weekId: weekIdParam } = useParams<{ weekId?: string }>();
   // Meeting data is keyed by Monday, so normalize any valid date to its week id.
   const parsedWeekId = weekIdParam ? parseWeekId(weekIdParam) : null;
@@ -49,6 +51,8 @@ const Midweek = () => {
           weekId={weekId}
           congregationId={settings.congregationId || undefined}
           onSelectWeek={selectWeek}
+          canEditAssignments={permissions.hasMidweekMeetingOverseer}
+          assignmentBasePath="/schedules/midweek"
         />
         <div style={{ paddingBottom: 96 }} />
       </IonContent>

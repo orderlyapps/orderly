@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const MIDWEEK_MEETING_DATA_TABLE = "midweek_meeting_data";
 export const MIDWEEK_ASSIGNMENT_TABLE = "midweek_assignment";
+export const MIDWEEK_PARTICIPATION_TABLE = "midweek_participation";
+export const CLAM_OVERSEER_PERMISSION_TABLE = "clam_overseer_permission";
 
 // Mirrors the Supabase "midweek_meeting_data" table (global meeting workbook data)
 export const midweekMeetingDataSchema = z.object({
@@ -100,3 +102,43 @@ export const midweekMeetingAssignmentSchema = z.object({
 });
 
 export type MidweekMeetingAssignment = z.infer<typeof midweekMeetingAssignmentSchema>;
+
+export const midweekParticipationIds = [
+  "chairman",
+  "prayer",
+  "treasures",
+  "gems",
+  "bible_reading",
+  "apply",
+  "talk",
+  "assistant",
+  "counselor",
+  "living",
+  "cbs_conductor",
+  "cbs_reader",
+] as const;
+
+export type MidweekParticipationId = (typeof midweekParticipationIds)[number];
+
+// Mirrors the Supabase "midweek_participation" table (which parts each
+// publisher may be assigned, global across congregations)
+export const midweekParticipationSchema = z.object({
+  participant_id: z.uuid(),
+  participation_id: z.enum(midweekParticipationIds),
+  is_participant: z.boolean().default(true),
+});
+
+export type MidweekParticipation = z.infer<typeof midweekParticipationSchema>;
+
+// Mirrors the Supabase "clam_overseer_permission" table: grants a signed-in
+// user (auth_user_id) edit rights over a congregation's midweek meeting data
+export const clamOverseerPermissionSchema = z.object({
+  auth_user_id: z.uuid(),
+  congregation_id: z.uuid(),
+  granted_by: z.uuid().nullable().optional(),
+  created_at: z.string().nullable().optional(),
+  updated_at: z.string().nullable().optional(),
+  can_edit: z.boolean(),
+});
+
+export type ClamOverseerPermission = z.infer<typeof clamOverseerPermissionSchema>;

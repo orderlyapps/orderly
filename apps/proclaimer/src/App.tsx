@@ -35,6 +35,7 @@ import SettingsAbout from "./pages/settings/About";
 import Cleaning from "./pages/schedules/Cleaning";
 import Events from "./pages/schedules/Events";
 import Midweek from "./pages/schedules/Midweek";
+import MidweekAssignment from "./pages/schedules/midweek/Assignment";
 import Weekend from "./pages/schedules/Weekend";
 
 /* Core CSS required for Ionic components to work properly */
@@ -93,6 +94,10 @@ const App = () => {
               <Route path="/ministry/schedule" element={<Schedule />} />
               <Route path="/schedules" element={<Schedules />} />
               <Route path="/schedules/midweek/:weekId?" element={<Midweek />} />
+              <Route
+                path="/schedules/midweek/:weekId/assignment/:assignmentId"
+                element={<MidweekAssignment />}
+              />
               <Route path="/schedules/weekend/:weekId?" element={<Weekend />} />
               <Route path="/schedules/cleaning" element={<Cleaning />} />
               <Route path="/schedules/events" element={<Events />} />

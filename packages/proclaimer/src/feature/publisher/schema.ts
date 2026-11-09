@@ -14,6 +14,7 @@ export const publisherSchema = z.object({
   congregation_id: z.string().nullish(),
   standing: z.string().nullish(),
   type: z.string().nullish(),
+  gender: z.enum(["male", "female"]).nullish(),
   archived_at: z.string().nullish(),
   auth_id: z.string().nullish(),
 });

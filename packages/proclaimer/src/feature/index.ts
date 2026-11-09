@@ -9,6 +9,7 @@ export * from "./map/index.ts";
 export * from "./meeting/index.ts";
 export * from "./midweek-meeting/index.ts";
 export * from "./onboarding/index.ts";
+export * from "./permission/index.ts";
 export * from "./publisher/index.ts";
 export * from "./settings/index.ts";
 export * from "./weekend-meeting/index.ts";

@@ -2,7 +2,17 @@ import { expect, test } from "vite-plus/test";
 
 import type { EventRow } from "../src/feature/event/index.ts";
 import {
+  assistantAssignmentIdFor,
   buildMeetingProgram,
+  computeAssignmentStats,
+  eligiblePublishers,
+  midweekMeetingAssignmentIds,
+  participationAssignmentIds,
+  participationTypeMap,
+  participationTypesByPublisher,
+  partnerAssignmentIdFor,
+  sortPublishersByStats,
+  statLabelFor,
   type MidweekMeetingAssignment,
   type MidweekMeetingData,
 } from "../src/feature/midweek-meeting/index.ts";
@@ -322,4 +332,115 @@ test("buildMeetingProgram handles weeks without meeting data", () => {
   expect(program.hasMeetingData).toBe(false);
   expect(program.bibleReading).toBeUndefined();
   expect(program.sections).toHaveLength(0);
+});
+
+test("participationTypeMap maps every assignment id to a participation type", () => {
+  for (const id of midweekMeetingAssignmentIds) {
+    expect(participationTypeMap[id]).toBeDefined();
+  }
+  expect(participationTypeMap.school_1_apply_2).toBe("apply");
+  expect(participationTypeMap.school_2_assistant_3).toBe("assistant");
+  expect(participationTypeMap.chairman_2).toBe("counselor");
+  expect(participationTypeMap.cbs_reader).toBe("cbs_reader");
+});
+
+test("participationAssignmentIds inverts the type map", () => {
+  for (const ids of Object.values(participationAssignmentIds)) {
+    expect(Array.isArray(ids)).toBe(true);
+  }
+  expect(participationAssignmentIds.apply).toContain("school_1_apply_1");
+  expect(participationAssignmentIds.apply).toContain("school_3_apply_4");
+  expect(participationAssignmentIds.prayer).toEqual(["prayer_1", "prayer_2"]);
+});
+
+test("assistantAssignmentIdFor pairs student parts with their assistant slot", () => {
+  expect(assistantAssignmentIdFor("school_1_apply_1")).toBe("school_1_assistant_1");
+  expect(assistantAssignmentIdFor("school_3_apply_4")).toBe("school_3_assistant_4");
+  expect(assistantAssignmentIdFor("cbs_conductor")).toBe("cbs_reader");
+  expect(assistantAssignmentIdFor("prayer_1")).toBeUndefined();
+  expect(assistantAssignmentIdFor("school_1_assistant_1")).toBeUndefined();
+});
+
+test("partnerAssignmentIdFor pairs both directions with prepositions", () => {
+  expect(partnerAssignmentIdFor("school_2_apply_3")).toEqual({
+    assignmentId: "school_2_assistant_3",
+    preposition: "with",
+  });
+  expect(partnerAssignmentIdFor("school_2_assistant_3")).toEqual({
+    assignmentId: "school_2_apply_3",
+    preposition: "for",
+  });
+  expect(partnerAssignmentIdFor("cbs_conductor")).toEqual({
+    assignmentId: "cbs_reader",
+    preposition: "with",
+  });
+  expect(partnerAssignmentIdFor("cbs_reader")).toEqual({
+    assignmentId: "cbs_conductor",
+    preposition: "for",
+  });
+  expect(partnerAssignmentIdFor("treasures")).toBeUndefined();
+});
+
+test("computeAssignmentStats finds the nearest assignment in either direction", () => {
+  const assignments = [
+    { ...assignment("school_1_apply_1", "pub-1"), week_id: "2025-10-13" },
+    { ...assignment("school_2_apply_3", "pub-1"), week_id: "2025-11-17" },
+    { ...assignment("living_1", "pub-1"), week_id: "2025-10-27" },
+    { ...assignment("prayer_1", "pub-2"), week_id: "2025-10-27" },
+  ];
+
+  const applyStats = computeAssignmentStats(assignments, ["apply"], "2025-11-03");
+  // Nearest "apply" assignment is 2 weeks away either side.
+  expect(applyStats.get("pub-1")?.weeksAwayClosest).toBe(2);
+  expect(applyStats.has("pub-2")).toBe(false);
+
+  const livingStats = computeAssignmentStats(assignments, ["living"], "2025-11-03");
+  expect(livingStats.get("pub-1")?.weeksAwayClosest).toBe(1);
+
+  const combined = computeAssignmentStats(assignments, ["apply", "prayer"], "2025-11-03");
+  expect(combined.get("pub-2")?.weeksAwayClosest).toBe(1);
+});
+
+test("eligiblePublishers filters by participation, archive and gender", () => {
+  const roster: Publisher[] = [
+    { ...publishers[0], gender: "male" },
+    { ...publishers[1], gender: "female" },
+    { id: "pub-3", first_name: "Old", last_name: "Timer", archived_at: "2020-01-01" },
+    { id: "pub-4", first_name: "No", last_name: "Part", gender: "male" },
+  ];
+  const participationTypes = participationTypesByPublisher([
+    { participant_id: "pub-1", participation_id: "apply", is_participant: true },
+    { participant_id: "pub-2", participation_id: "apply", is_participant: true },
+    { participant_id: "pub-2", participation_id: "assistant", is_participant: true },
+    { participant_id: "pub-3", participation_id: "apply", is_participant: true },
+    { participant_id: "pub-4", participation_id: "apply", is_participant: false },
+  ]);
+
+  expect(eligiblePublishers(roster, participationTypes, "apply", null).map((p) => p.id)).toEqual([
+    "pub-1",
+    "pub-2",
+  ]);
+  expect(
+    eligiblePublishers(roster, participationTypes, "apply", "female").map((p) => p.id),
+  ).toEqual(["pub-2"]);
+  expect(
+    eligiblePublishers(roster, participationTypes, "assistant", null).map((p) => p.id),
+  ).toEqual(["pub-2"]);
+});
+
+test("sortPublishersByStats orders longest-away first with fallbacks", () => {
+  const roster: Publisher[] = [publishers[0], publishers[1], publishers[2]];
+  const stats = computeAssignmentStats(
+    [
+      { ...assignment("treasures", "pub-2"), week_id: "2025-06-02" },
+      { ...assignment("treasures", "overseer-1"), week_id: "2025-10-27" },
+    ],
+    ["treasures"],
+    "2025-11-03",
+  );
+  const sorted = sortPublishersByStats(roster, stats);
+  expect(sorted.map((p) => p.id)).toEqual(["pub-1", "pub-2", "overseer-1"]);
+  expect(statLabelFor("pub-2", stats)).toBe("22w");
+  expect(statLabelFor("overseer-1", stats)).toBe("1w");
+  expect(statLabelFor("pub-1", stats)).toBeUndefined();
 });

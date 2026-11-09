@@ -6,7 +6,7 @@ export function createPublisherCollection(congregationId: string) {
     table: PUBLISHER_TABLE,
     id: `${PUBLISHER_TABLE}:${congregationId}`,
     select:
-      "id,first_name,middle_name,last_name,display_name,congregation_id,standing,type,archived_at,auth_id",
+      "id,first_name,middle_name,last_name,display_name,congregation_id,standing,type,gender,archived_at,auth_id",
     match: { congregation_id: congregationId },
     schema: publisherSchema,
   });
@@ -29,7 +29,7 @@ export function createAllPublishersCollection() {
     table: PUBLISHER_TABLE,
     id: `${PUBLISHER_TABLE}:all`,
     select:
-      "id,first_name,middle_name,last_name,display_name,congregation_id,standing,type,archived_at,auth_id",
+      "id,first_name,middle_name,last_name,display_name,congregation_id,standing,type,gender,archived_at,auth_id",
     schema: publisherSchema,
   });
 }

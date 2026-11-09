@@ -11,14 +11,42 @@ import { WeekNavigator } from "../meeting/WeekNavigator.tsx";
 import { WeekTransition } from "../meeting/WeekTransition.tsx";
 import { useMidweekMeeting } from "./hooks.ts";
 import type { MeetingProgram } from "./program.ts";
+import { midweekMeetingAssignmentIds } from "./schema.ts";
 
 export interface MidweekMeetingViewProps {
   weekId: string;
   congregationId?: string | null;
   onSelectWeek?: (weekId: string) => void;
+  /** When the user may edit assignments, rows link to the assignment editor. */
+  canEditAssignments?: boolean;
+  /** Route prefix for assignment links, e.g. "/schedules/midweek". */
+  assignmentBasePath?: string;
 }
 
-function ProgramBody({ program }: { program: MeetingProgram }) {
+const ASSIGNMENT_IDS: ReadonlySet<string> = new Set(midweekMeetingAssignmentIds);
+
+function assignmentHref(
+  itemId: string,
+  readOnly: boolean | undefined,
+  weekId: string,
+  canEdit: boolean,
+  basePath?: string,
+): string | undefined {
+  if (!canEdit || !basePath || readOnly || !ASSIGNMENT_IDS.has(itemId)) {
+    return undefined;
+  }
+  return `${basePath}/${weekId}/assignment/${itemId}`;
+}
+
+function ProgramBody({
+  program,
+  canEdit,
+  assignmentBasePath,
+}: {
+  program: MeetingProgram;
+  canEdit: boolean;
+  assignmentBasePath?: string;
+}) {
   if (program.event?.replacesMeeting) {
     return <EventBanner event={program.event} unavailableMessage="No midweek meeting this week" />;
   }
@@ -43,6 +71,13 @@ function ProgramBody({ program }: { program: MeetingProgram }) {
                       item={{ ...item, subtitle: undefined }}
                       color={section.color}
                       isLast={itemIndex === items.length - 1}
+                      href={assignmentHref(
+                        item.id,
+                        item.readOnly,
+                        program.weekId,
+                        canEdit,
+                        assignmentBasePath,
+                      )}
                     />
                   ))}
                 </IonList>
@@ -66,6 +101,8 @@ export function MidweekMeetingView({
   weekId,
   congregationId,
   onSelectWeek,
+  canEditAssignments = false,
+  assignmentBasePath,
 }: MidweekMeetingViewProps) {
   const { program, isLoading, error, canRetry, retry } = useMidweekMeeting(weekId, congregationId);
 
@@ -93,7 +130,11 @@ export function MidweekMeetingView({
         ) : isLoading ? (
           <MeetingProgramLoading />
         ) : (
-          <ProgramBody program={program} />
+          <ProgramBody
+            program={program}
+            canEdit={canEditAssignments}
+            assignmentBasePath={assignmentBasePath}
+          />
         )}
       </WeekTransition>
     </>

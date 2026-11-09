@@ -93,16 +93,25 @@ export function MeetingItemRow({
   item,
   color,
   isLast,
+  href,
 }: {
   item: MeetingProgramItem;
   color: MeetingSectionColor;
   isLast: boolean;
+  /** When set the row renders as a link (e.g. to an assignment editor). */
+  href?: string;
 }) {
   const colorVar = SECTION_COLOR_VARS[color];
   const icon = ITEM_ICON[item.kind];
 
   return (
-    <IonItem lines={isLast ? "none" : "inset"} style={{ "--min-height": "46px" }}>
+    <IonItem
+      lines={isLast ? "none" : "inset"}
+      style={{ "--min-height": "46px" }}
+      button={href !== undefined}
+      detail={href !== undefined}
+      routerLink={href}
+    >
       <div slot="start" style={{ width: 26, display: "flex", justifyContent: "center" }}>
         {icon ? (
           <IonIcon icon={icon} style={{ fontSize: 18, color: colorVar }} />
