@@ -26,17 +26,26 @@ const Ministry = () => {
         <div className="ion-padding-top" />
         <IonList>
           <IonItem routerLink="/ministry/map" detail>
-            <IonLabel style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}>
+            <IonLabel
+              style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}
+              className="ion-padding-vertical"
+            >
               Map
             </IonLabel>
           </IonItem>
           <IonItem routerLink="/ministry/letter-writing" detail>
-            <IonLabel style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}>
+            <IonLabel
+              style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}
+              className="ion-padding-vertical"
+            >
               Letter Writing
             </IonLabel>
           </IonItem>
           <IonItem routerLink="/ministry/schedule" detail>
-            <IonLabel style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}>
+            <IonLabel
+              style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}
+              className="ion-padding-vertical"
+            >
               Schedule
             </IonLabel>
           </IonItem>

@@ -37,7 +37,7 @@ function PublisherAccordion({
   return (
     <IonAccordion value={value}>
       <IonItem slot="header" lines="inset">
-        <IonLabel>
+        <IonLabel className="ion-padding-vertical">
           <div
             style={{
               display: "flex",

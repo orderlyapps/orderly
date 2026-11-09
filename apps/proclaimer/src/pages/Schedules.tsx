@@ -26,22 +26,34 @@ const Schedules = () => {
         <div className="ion-padding-top" />
         <IonList>
           <IonItem routerLink="/schedules/midweek" detail>
-            <IonLabel style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}>
+            <IonLabel
+              style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}
+              className="ion-padding-vertical"
+            >
               Midweek
             </IonLabel>
           </IonItem>
           <IonItem routerLink="/schedules/weekend" detail>
-            <IonLabel style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}>
+            <IonLabel
+              style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}
+              className="ion-padding-vertical"
+            >
               Weekend
             </IonLabel>
           </IonItem>
           <IonItem routerLink="/schedules/cleaning" detail>
-            <IonLabel style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}>
+            <IonLabel
+              style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}
+              className="ion-padding-vertical"
+            >
               Cleaning
             </IonLabel>
           </IonItem>
           <IonItem routerLink="/schedules/events" detail>
-            <IonLabel style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}>
+            <IonLabel
+              style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}
+              className="ion-padding-vertical"
+            >
               Events
             </IonLabel>
           </IonItem>
