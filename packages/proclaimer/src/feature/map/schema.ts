@@ -1,7 +1,13 @@
+import type { StyleSpecification } from "mapbox-gl";
 import { z } from "zod";
 
-export const MAPBOX_LIGHT_STYLE = "mapbox://styles/mapbox/streets-v12";
-export const MAPBOX_DARK_STYLE = "mapbox://styles/mapbox/dark-v11";
+import darkStyle from "./styles/dark.json" with { type: "json" };
+import lightStyle from "./styles/light.json" with { type: "json" };
+
+export type MapStyle = string | StyleSpecification;
+
+export const MAPBOX_LIGHT_STYLE = lightStyle as unknown as StyleSpecification;
+export const MAPBOX_DARK_STYLE = darkStyle as unknown as StyleSpecification;
 
 export const MAP_DEFAULT_ZOOM = 2;
 export const MAP_MIN_ZOOM = 0;
@@ -49,7 +55,7 @@ export const areCoordinatesEqual = (a: MapCoordinates, b: MapCoordinates): boole
 export const clampMapZoom = (zoom: number): number =>
   Math.min(MAP_MAX_ZOOM, Math.max(MAP_MIN_ZOOM, zoom));
 
-export const resolveMapStyle = (isDarkTheme: boolean, mapStyle?: string): string =>
+export const resolveMapStyle = (isDarkTheme: boolean, mapStyle?: MapStyle): MapStyle =>
   mapStyle ?? (isDarkTheme ? MAPBOX_DARK_STYLE : MAPBOX_LIGHT_STYLE);
 
 export const isValidMapViewState = (value: unknown): value is MapViewState =>

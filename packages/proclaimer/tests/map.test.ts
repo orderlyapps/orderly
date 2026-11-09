@@ -40,8 +40,10 @@ import {
 } from "../src/feature/map/index.ts";
 
 test("validates coordinates, tokens, zoom bounds, and style resolution", () => {
-  expect(MAPBOX_LIGHT_STYLE).toBe("mapbox://styles/mapbox/streets-v12");
-  expect(MAPBOX_DARK_STYLE).toBe("mapbox://styles/mapbox/dark-v11");
+  expect(MAPBOX_LIGHT_STYLE.version).toBe(8);
+  expect(MAPBOX_LIGHT_STYLE.name).toBe("Streets");
+  expect(MAPBOX_DARK_STYLE.version).toBe(8);
+  expect(MAPBOX_DARK_STYLE.name).toBe("Dark");
   expect(MAP_MIN_ZOOM).toBe(0);
   expect(MAP_MAX_ZOOM).toBe(22);
   expect(MAP_DEFAULT_ZOOM).toBe(2);

@@ -23,11 +23,12 @@ import {
   toMapboxCenter,
   writeMapViewState,
   type MapCoordinates,
+  type MapStyle,
 } from "./schema.ts";
 
 export interface UseMapViewOptions {
   accessToken?: string | null;
-  mapStyle?: string;
+  mapStyle?: MapStyle;
   center?: MapCoordinates;
   zoom?: number;
   minZoom?: number;
@@ -47,7 +48,7 @@ export interface UseMapViewResult {
   mapKey: string;
   error: string | null;
   isConfigured: boolean;
-  resolvedStyle: string;
+  resolvedStyle: MapStyle;
   mapProps: Pick<
     MapProps,
     | "initialViewState"

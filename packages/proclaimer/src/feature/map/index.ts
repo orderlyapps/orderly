@@ -22,6 +22,7 @@ export {
   writeMapViewState,
   type MapboxLngLatTuple,
   type MapCoordinates,
+  type MapStyle,
   type MapViewState,
   type MapViewStateStorage,
 } from "./schema.ts";
