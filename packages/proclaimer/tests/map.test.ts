@@ -6,6 +6,7 @@ import {
   areCoordinatesEqual,
   boundariesToBounds,
   boundaryToBounds,
+  boundaryToLabelPoint,
   boundaryToPolygonCoords,
   clampMapZoom,
   DEFAULT_MAP_CENTER,
@@ -163,6 +164,37 @@ test("validates map boundaries and computes bounds", () => {
   expect(boundaryToPolygonCoords(ring.slice(0, 3))).toBe(null);
 });
 
+test("computes a single label anchor inside each map boundary", () => {
+  const square = [
+    [151.0, -33.9],
+    [151.1, -33.9],
+    [151.1, -33.8],
+    [151.0, -33.8],
+    [151.0, -33.9],
+  ] as [number, number][];
+
+  const [squareLng, squareLat] = boundaryToLabelPoint(square)!;
+  expect(squareLng).toBeCloseTo(151.05, 4);
+  expect(squareLat).toBeCloseTo(-33.85, 4);
+  expect(boundaryToLabelPoint(null)).toBe(null);
+  expect(boundaryToLabelPoint(square.slice(0, 3))).toBe(null);
+
+  // A C-shaped ring whose centroid and bounds center both fall outside the
+  // polygon falls back to the ring vertex nearest the centroid.
+  const concave = [
+    [0, 0],
+    [4, 0],
+    [4, 1],
+    [1, 1],
+    [1, 3],
+    [4, 3],
+    [4, 4],
+    [0, 4],
+    [0, 0],
+  ] as [number, number][];
+  expect(boundaryToLabelPoint(concave)).toEqual([1, 1]);
+});
+
 test("converts map rows to a polygon feature collection", () => {
   const row = (overrides: Partial<MapRow>): MapRow => ({
     congregation_id: "cong-1",
@@ -185,13 +217,21 @@ test("converts map rows to a polygon feature collection", () => {
   ]);
 
   expect(geojson.type).toBe("FeatureCollection");
-  expect(geojson.features).toHaveLength(1);
+  // Each map emits its polygon plus one label anchor point so a map split
+  // across vector tiles never shows its name more than once.
+  expect(geojson.features).toHaveLength(2);
   expect(geojson.features[0].geometry).toEqual({ type: "Polygon", coordinates: [ring] });
   expect(geojson.features[0].properties).toEqual({
     id: "map-1",
     name: "Alpha",
     details: "Near the hall",
   });
+  const label = geojson.features[1];
+  expect(label.geometry.type).toBe("Point");
+  const [labelLng, labelLat] = (label.geometry as { coordinates: number[] }).coordinates;
+  expect(labelLng).toBeCloseTo(151.0667, 4);
+  expect(labelLat).toBeCloseTo(-33.8667, 4);
+  expect(label.properties).toEqual(geojson.features[0].properties);
 
   expect(mapRowsToBounds([row({ boundary: ring })])).toEqual([151.0, -33.9, 151.1, -33.8]);
   expect(mapRowsToBounds([row({ boundary: null })])).toBe(null);

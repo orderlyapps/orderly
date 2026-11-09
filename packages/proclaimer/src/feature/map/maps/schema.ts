@@ -50,9 +50,15 @@ export type MapPolygonFeature = {
   properties: { id: string | null; name: string; details: string | null };
 };
 
+export type MapLabelFeature = {
+  type: "Feature";
+  geometry: { type: "Point"; coordinates: number[] };
+  properties: { id: string | null; name: string; details: string | null };
+};
+
 export type MapPolygonsGeoJSON = {
   type: "FeatureCollection";
-  features: MapPolygonFeature[];
+  features: (MapPolygonFeature | MapLabelFeature)[];
 };
 
 export type MapBlockFeature = {
@@ -130,6 +136,66 @@ export function boundaryToPolygonCoords(boundary: unknown): number[][][] | null 
   return [ensureClosedRing(boundary)];
 }
 
+// Ray-cast point-in-polygon test over a closed ring.
+function isPointInRing([x, y]: [number, number], ring: MapBoundary): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+// A stable anchor inside the boundary for the map's label. GeoJSON sources are
+// re-tiled on the fly, so labeling the polygon itself renders one label per
+// tile fragment when a map straddles a tile boundary.
+export function boundaryToLabelPoint(boundary: unknown): [number, number] | null {
+  if (!isValidBoundary(boundary) || boundary.length < 4) {
+    return null;
+  }
+  const ring = ensureClosedRing(boundary);
+  let twiceArea = 0;
+  let cx = 0;
+  let cy = 0;
+  for (let i = 0; i < ring.length - 1; i++) {
+    const [x0, y0] = ring[i];
+    const [x1, y1] = ring[i + 1];
+    const cross = x0 * y1 - x1 * y0;
+    twiceArea += cross;
+    cx += (x0 + x1) * cross;
+    cy += (y0 + y1) * cross;
+  }
+  const candidates: [number, number][] = [];
+  if (Math.abs(twiceArea) > 1e-12) {
+    candidates.push([cx / (3 * twiceArea), cy / (3 * twiceArea)]);
+  }
+  const bounds = boundaryToBounds(boundary);
+  if (bounds) {
+    candidates.push([(bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2]);
+  }
+  for (const candidate of candidates) {
+    if (isPointInRing(candidate, ring)) {
+      return candidate;
+    }
+  }
+  // Concave rings can place the centroid outside; pin the label to the vertex
+  // nearest the centroid so it still sits on the map.
+  const target = candidates[0] ?? ring[0];
+  let nearest = ring[0];
+  let nearestDist = Infinity;
+  for (const vertex of ring) {
+    const dist = (vertex[0] - target[0]) ** 2 + (vertex[1] - target[1]) ** 2;
+    if (dist < nearestDist) {
+      nearestDist = dist;
+      nearest = vertex;
+    }
+  }
+  return nearest;
+}
+
 // Stable identifier for a map row, matching the expression used by map styles
 // to look up a feature: `id` when present, otherwise `name`.
 export function mapRowKey(row: MapRow): string {
@@ -170,11 +236,21 @@ export function mapRowToFeature(row: MapRow): MapPolygonFeature | null {
 }
 
 export function mapRowsToGeoJSON(rows: MapRow[]): MapPolygonsGeoJSON {
-  const features: MapPolygonFeature[] = [];
+  const features: MapPolygonsGeoJSON["features"] = [];
   for (const row of rows) {
     const feature = mapRowToFeature(row);
     if (feature) {
       features.push(feature);
+      // Labels anchor to a single point per map so a polygon split across
+      // tiles cannot render the same name more than once.
+      const labelPoint = boundaryToLabelPoint(row.boundary);
+      if (labelPoint) {
+        features.push({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: labelPoint },
+          properties: { ...feature.properties },
+        });
+      }
     }
   }
   return { type: "FeatureCollection", features };

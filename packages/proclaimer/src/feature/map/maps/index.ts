@@ -10,6 +10,7 @@ export { MapsListModal, type MapsListModalProps } from "./MapsListModal.tsx";
 export {
   boundariesToBounds,
   boundaryToBounds,
+  boundaryToLabelPoint,
   boundaryToPolygonCoords,
   ensureClosedRing,
   filterMapRows,
@@ -36,6 +37,7 @@ export {
   type MapBlocksGeoJSON,
   type MapBoundary,
   type MapBounds,
+  type MapLabelFeature,
   type MapPolygonFeature,
   type MapPolygonsGeoJSON,
   type MapRow,

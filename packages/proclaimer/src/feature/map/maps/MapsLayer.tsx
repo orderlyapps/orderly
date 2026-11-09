@@ -116,6 +116,7 @@ export function MapsLayer({
           id="maps-labels"
           type="symbol"
           minzoom={MAP_LABEL_MIN_ZOOM}
+          filter={["==", ["geometry-type"], "Point"]}
           layout={{
             "text-field": ["get", "name"],
             "text-size": ["interpolate", ["linear"], ["zoom"], MAP_LABEL_MIN_ZOOM, 0, 21, 75],
