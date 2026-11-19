@@ -66,7 +66,7 @@ const BranchReport = () => {
             onSelectMonth={selectMonth}
           />
         )}
-        <div style={{ paddingBottom: 48 }} />
+        <div style={{ paddingBottom: 128 }} />
       </IonContent>
     </IonPage>
   );

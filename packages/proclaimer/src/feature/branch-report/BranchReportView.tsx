@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 
 import {
   IonButton,
+  IonChip,
   IonItem,
   IonLabel,
   IonList,
@@ -10,7 +11,7 @@ import {
   IonSkeletonText,
 } from "@ionic/react";
 
-import { monthLabel, previousMonthId, relativeMonthLabel, shiftMonthId } from "../../util/month.ts";
+import { monthLabel, previousMonthId, relativeMonthLabel } from "../../util/month.ts";
 import { SlideTransition } from "../meeting/SlideTransition.tsx";
 import { useMeetingAttendances } from "../meeting-attendance/hooks.ts";
 import { usePublisherLocalRecords } from "../publisher-local/hooks.ts";
@@ -21,7 +22,6 @@ import { MonthNavigator } from "./MonthNavigator.tsx";
 import { PublisherReportsModal } from "./PublisherReportsModal.tsx";
 import { ReportValuesModal } from "./ReportValuesModal.tsx";
 import {
-  ACTIVE_PUBLISHER_WINDOW_MONTHS,
   activePublisherIds,
   monthReportStats,
   resolveActivePublishers,
@@ -108,7 +108,6 @@ export function BranchReportView({
     await Promise.all([retryReports(), retryAttendance()]);
   };
 
-  const windowStart = shiftMonthId(monthId, -(ACTIVE_PUBLISHER_WINDOW_MONTHS - 1));
   const { publishers: activePublishers, unresolvedCount } = useMemo(
     () => resolveActivePublishers(activePublisherIds(reports, monthId), publishers, localRecords),
     [reports, publishers, localRecords, monthId],
@@ -165,24 +164,20 @@ export function BranchReportView({
               <IonItem button detail onClick={() => setActiveModalOpen(true)}>
                 <IonLabel>
                   <h3>All Active Publishers</h3>
-                  <p>
-                    Active at least once, {monthLabel(windowStart)} – {monthLabel(monthId)}
-                  </p>
                 </IonLabel>
-                <IonNote slot="end" style={{ fontSize: "1rem" }}>
+                <IonChip slot="end" color="primary">
                   {isLoading ? (
                     <IonSkeletonText animated style={{ width: 32, height: 16 }} />
                   ) : (
                     activePublishers.length + unresolvedCount
                   )}
-                </IonNote>
+                </IonChip>
               </IonItem>
               <IonItem button detail onClick={() => setAttendanceModalOpen(true)}>
                 <IonLabel>
                   <h3>Average Weekend Meeting Attendance</h3>
-                  <p>Per week starting in {monthLabel(monthId)}</p>
                 </IonLabel>
-                <IonNote slot="end" style={{ fontSize: "1rem" }}>
+                <IonChip slot="end" color="primary">
                   {isLoading ? (
                     <IonSkeletonText animated style={{ width: 32, height: 16 }} />
                   ) : weekendAttendance.average == null ? (
@@ -190,7 +185,7 @@ export function BranchReportView({
                   ) : (
                     Math.round(weekendAttendance.average)
                   )}
-                </IonNote>
+                </IonChip>
               </IonItem>
             </IonList>
             {REPORT_CATEGORIES.map((category) => {
@@ -204,34 +199,27 @@ export function BranchReportView({
                   <IonItem button detail onClick={() => setOpenStat({ kind: "reports", category })}>
                     <IonLabel>
                       <h3>Number of Reports</h3>
-                      <p>
-                        {labels.plural[0].toUpperCase() + labels.plural.slice(1)} reporting in{" "}
-                        {monthLabel(monthId)}
-                      </p>
                     </IonLabel>
-                    <IonNote slot="end" style={{ fontSize: "1rem" }}>
+                    <IonChip slot="end" color="primary">
                       {isLoading ? (
                         <IonSkeletonText animated style={{ width: 32, height: 16 }} />
                       ) : (
                         stats.reports.entries.length + stats.reports.unresolvedCount
                       )}
-                    </IonNote>
+                    </IonChip>
                   </IonItem>
                   {labels.showHours && (
                     <IonItem button detail onClick={() => setOpenStat({ kind: "hours", category })}>
                       <IonLabel>
                         <h3>Hours</h3>
-                        <p>
-                          Reported by {labels.plural} in {monthLabel(monthId)}
-                        </p>
                       </IonLabel>
-                      <IonNote slot="end" style={{ fontSize: "1rem" }}>
+                      <IonChip slot="end" color="primary">
                         {isLoading ? (
                           <IonSkeletonText animated style={{ width: 32, height: 16 }} />
                         ) : (
                           stats.hours.total
                         )}
-                      </IonNote>
+                      </IonChip>
                     </IonItem>
                   )}
                   <IonItem
@@ -241,17 +229,14 @@ export function BranchReportView({
                   >
                     <IonLabel>
                       <h3>Bible Studies</h3>
-                      <p>
-                        Reported by {labels.plural} in {monthLabel(monthId)}
-                      </p>
                     </IonLabel>
-                    <IonNote slot="end" style={{ fontSize: "1rem" }}>
+                    <IonChip slot="end" color="primary">
                       {isLoading ? (
                         <IonSkeletonText animated style={{ width: 32, height: 16 }} />
                       ) : (
                         stats.bibleStudies.total
                       )}
-                    </IonNote>
+                    </IonChip>
                   </IonItem>
                 </IonList>
               );
