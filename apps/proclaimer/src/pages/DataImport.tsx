@@ -9,7 +9,7 @@ import {
   IonToolbar,
 } from "@ionic/react";
 import { Navigate } from "react-router-dom";
-import { usePermissions, usePublisherStanding, useSettings } from "proclaimer-core";
+import { DataImportView, usePermissions, usePublisherStanding, useSettings } from "proclaimer-core";
 
 const DataImport = () => {
   const { settings, isLoading: settingsLoading } = useSettings();
@@ -43,7 +43,9 @@ const DataImport = () => {
           <div style={{ display: "flex", justifyContent: "center", paddingTop: 64 }}>
             <IonSpinner name="crescent" />
           </div>
-        ) : null}
+        ) : (
+          <DataImportView congregationId={congregationId} />
+        )}
         <div style={{ paddingBottom: 48 }} />
       </IonContent>
     </IonPage>

@@ -12,5 +12,6 @@ export * from "./midweek-meeting/index.ts";
 export * from "./onboarding/index.ts";
 export * from "./permission/index.ts";
 export * from "./publisher/index.ts";
+export * from "./publisher-local/index.ts";
 export * from "./settings/index.ts";
 export * from "./weekend-meeting/index.ts";
