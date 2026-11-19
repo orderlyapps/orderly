@@ -1,0 +1,12 @@
+# Supabase
+.branches
+.temp
+
+# Local-only data dump — contains real production data (auth tokens, PII).
+# Regenerate with: supabase db dump --linked --data-only -f supabase/seed.sql
+seed.sql
+
+# dotenvx
+.env.keys
+.env.local
+.env.*.local

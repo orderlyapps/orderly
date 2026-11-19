@@ -30,3 +30,14 @@ release. Add a tool name to select part of the graph. For example, run
 
 - Each page must be in its own file under `src/pages/`.
 - Nest child pages in child folders matching the parent route (e.g., `src/pages/Banking.tsx` for `/banking`, and `src/pages/banking/Statements.tsx` for `/banking/statements`).
+
+## Local Supabase (proclaimer)
+
+The `packages/proclaimer/supabase/` directory is linked to the remote `orderly-apps` project and holds `config.toml` plus migrations. Requires Docker running. Run `supabase` commands from `packages/proclaimer/` (or pass `--workdir packages/proclaimer` from the repo root).
+
+- Start/stop the local stack: `supabase start` / `supabase stop`. Status and keys: `supabase status`.
+- `apps/proclaimer/.env.local` overrides `.env` to point at the local API (`http://127.0.0.1:54321`). Delete it to use the remote project again.
+- Studio: `http://127.0.0.1:54323`. Local mail (auth emails): `http://127.0.0.1:54324` (Mailpit).
+- Pull remote schema changes: `SUPABASE_DB_PASSWORD=<pw> supabase db pull` (asks for the DB password, not the anon key). Apply new local migrations: `supabase db reset`.
+- `supabase/seed.sql` is gitignored (it holds a real data dump — auth tokens, PII). Regenerate with `supabase db dump --linked --data-only -f supabase/seed.sql`; a missing seed on `db reset` only warns.
+- Regenerate `packages/proclaimer/src/feature/backend/types.ts` (from repo root): `supabase gen types typescript --local --workdir packages/proclaimer > packages/proclaimer/src/feature/backend/types.ts`.

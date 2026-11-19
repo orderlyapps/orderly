@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import { createCollection } from "@tanstack/react-db";
 import type { QueryClient } from "@tanstack/react-query";
@@ -54,7 +55,7 @@ export interface SupabaseTableCollectionOptions<T extends Record<string, unknown
 export function createSupabaseTableCollection<T extends Record<string, unknown>>(
   options: SupabaseTableCollectionOptions<T>,
 ) {
-  const table = () => getSupabaseClient().from(options.table);
+  const table = () => (getSupabaseClient() as SupabaseClient).from(options.table);
   const keyColumns: (keyof T & string)[] = options.keyColumns ?? [
     options.idColumn ?? ("id" as keyof T & string),
   ];
