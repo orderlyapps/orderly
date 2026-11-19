@@ -162,3 +162,14 @@ test("resolveActivePublishers counts ids with no matching publisher as unresolve
   expect(result.publishers).toEqual([pubA]);
   expect(result.unresolvedCount).toBe(2);
 });
+
+test("resolveActivePublishers drops archived publishers without counting them unresolved", () => {
+  const pubA = publisher("pub-a", "Alpha");
+  const archived = { ...publisher("pub-b", "Beta"), archived_at: "2025-09-01T00:00:00+00:00" };
+  const records = [localRecord("pub-a", "conf-a"), localRecord("pub-b", "conf-b")];
+
+  const result = resolveActivePublishers(["conf-a", "conf-b", "pub-b"], [pubA, archived], records);
+
+  expect(result.publishers).toEqual([pubA]);
+  expect(result.unresolvedCount).toBe(0);
+});

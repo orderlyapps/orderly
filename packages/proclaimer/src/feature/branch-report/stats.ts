@@ -1,5 +1,6 @@
 import { isMonthId, shiftMonthId } from "../../util/month.ts";
 import type { PublisherLocal } from "../publisher-local/schema.ts";
+import { isArchived } from "../publisher/presentation.ts";
 import type { Publisher } from "../publisher/schema.ts";
 import type { Report } from "./schema.ts";
 
@@ -43,7 +44,8 @@ export interface ResolvedActivePublishers {
  * on-device local record (`publisher-local`), except self-reports which store
  * the publisher id directly. Each publisher counts once even when reachable
  * through multiple ids; ids resolving to nothing are surfaced via
- * `unresolvedCount` rather than dropped.
+ * `unresolvedCount` rather than dropped. Archived publishers are resolved but
+ * excluded from the result — they are not counted as unresolved.
  */
 export function resolveActivePublishers(
   activeIds: Iterable<string>,
@@ -74,7 +76,7 @@ export function resolveActivePublishers(
   }
 
   return {
-    publishers: publishers.filter((p) => p.id != null && resolvedIds.has(p.id)),
+    publishers: publishers.filter((p) => p.id != null && resolvedIds.has(p.id) && !isArchived(p)),
     unresolvedCount,
   };
 }
