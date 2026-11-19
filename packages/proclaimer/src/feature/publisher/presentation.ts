@@ -35,6 +35,14 @@ export function isPioneer(publisher: Publisher): boolean {
   return PIONEER_TYPES.has(publisher.type ?? "");
 }
 
+export function isActiveElderOrMinisterialServant(publisher: Publisher): boolean {
+  return (
+    !isArchived(publisher) &&
+    !isRemoved(publisher) &&
+    (isElder(publisher) || isMinisterialServant(publisher))
+  );
+}
+
 const PIONEER_BADGE_LABELS: Record<string, string> = {
   continuous_auxiliary: "Auxiliary",
   special_pioneer: "Special",

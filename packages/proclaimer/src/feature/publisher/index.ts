@@ -7,10 +7,16 @@ export {
   type AllPublishersCollection,
   type PublisherCollection,
 } from "./collection.ts";
-export { usePublishers, type UsePublishersResult } from "./hooks.ts";
+export {
+  usePublishers,
+  usePublisherStanding,
+  type UsePublishersResult,
+  type UsePublisherStandingResult,
+} from "./hooks.ts";
 export {
   ELDER_STANDING,
   groupPublishers,
+  isActiveElderOrMinisterialServant,
   isArchived,
   isElder,
   isMinisterialServant,

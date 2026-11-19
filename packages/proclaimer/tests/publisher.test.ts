@@ -2,6 +2,7 @@ import { expect, test } from "vite-plus/test";
 
 import {
   groupPublishers,
+  isActiveElderOrMinisterialServant,
   isPioneer,
   pioneerBadgeLabel,
   type Publisher,
@@ -59,6 +60,21 @@ test("pioneerBadgeLabel labels auxiliary and special pioneers only", () => {
   expect(pioneerBadgeLabel(publisher("publisher", "special_pioneer"))).toBe("Special");
   expect(pioneerBadgeLabel(publisher("publisher", "regular_pioneer"))).toBeNull();
   expect(pioneerBadgeLabel(publisher("publisher", "publisher"))).toBeNull();
+});
+
+test("isActiveElderOrMinisterialServant only matches active elders and ministerial servants", () => {
+  expect(isActiveElderOrMinisterialServant(publisher("elder", "publisher"))).toBe(true);
+  expect(isActiveElderOrMinisterialServant(publisher("ministerial_servant", "publisher"))).toBe(
+    true,
+  );
+  expect(isActiveElderOrMinisterialServant(publisher("publisher", "publisher"))).toBe(false);
+  expect(
+    isActiveElderOrMinisterialServant({
+      ...publisher("elder", "publisher"),
+      archived_at: "2025-01-01T00:00:00+00:00",
+    }),
+  ).toBe(false);
+  expect(isActiveElderOrMinisterialServant(publisher("elder", "removed"))).toBe(false);
 });
 
 test("groupPublishers skips archived and removed publishers", () => {

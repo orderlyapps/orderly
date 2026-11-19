@@ -20,6 +20,7 @@ import { briefcase, calendar, home, people, settings } from "ionicons/icons";
 import { OnboardingGate, useThemeEffect } from "proclaimer-core";
 
 import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
+import DataImport from "./pages/DataImport";
 import Home from "./pages/Home";
 import Assignments from "./pages/home/Assignments";
 import HomeEvents from "./pages/home/Events";
@@ -90,6 +91,7 @@ const App = () => {
               <Route path="/home" element={<Home />} />
               <Route path="/home/assignments" element={<Assignments />} />
               <Route path="/home/events" element={<HomeEvents />} />
+              <Route path="/data-import" element={<DataImport />} />
               <Route path="/ministry" element={<Ministry />} />
               <Route path="/ministry/map" element={<Map />} />
               <Route path="/ministry/letter-writing" element={<LetterWriting />} />

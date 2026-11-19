@@ -1,11 +1,14 @@
 import { IonItem, IonLabel, IonList } from "@ionic/react";
 
 import { usePermissions, type PermissionsResult } from "../permission/hooks.ts";
+import { usePublisherStanding, type UsePublisherStandingResult } from "../publisher/hooks.ts";
 
 export interface HomeToolsProps {
   congregationId?: string | null;
   /** Injected permissions for testing; defaults to live lookups. */
   permissions?: PermissionsResult;
+  /** Injected publisher standing for testing; defaults to a live lookup. */
+  standing?: UsePublisherStandingResult;
 }
 
 interface HomeTool {
@@ -14,9 +17,11 @@ interface HomeTool {
   visible: boolean;
 }
 
-export function HomeTools({ congregationId, permissions }: HomeToolsProps) {
-  const live = usePermissions(congregationId);
-  const resolved = permissions ?? live;
+export function HomeTools({ congregationId, permissions, standing }: HomeToolsProps) {
+  const livePermissions = usePermissions(congregationId);
+  const liveStanding = usePublisherStanding(congregationId);
+  const resolved = permissions ?? livePermissions;
+  const resolvedStanding = standing ?? liveStanding;
 
   const tools: HomeTool[] = [
     {
@@ -24,10 +29,15 @@ export function HomeTools({ congregationId, permissions }: HomeToolsProps) {
       routerLink: "/secretary",
       visible: resolved.hasSecretary || resolved.isSuperAdmin,
     },
+    {
+      label: "Data Import",
+      routerLink: "/data-import",
+      visible: resolvedStanding.isElderOrMinisterialServant || resolved.isSuperAdmin,
+    },
   ];
   const visibleTools = tools.filter((tool) => tool.visible);
 
-  if (!resolved.isLoaded || visibleTools.length === 0) {
+  if (!resolved.isLoaded || !resolvedStanding.isLoaded || visibleTools.length === 0) {
     return null;
   }
 

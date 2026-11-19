@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 
 import { eq, useLiveQuery } from "@tanstack/react-db";
 
+import { useAuthSession } from "../auth/session.ts";
 import { getPublisherCollection, type PublisherCollection } from "./collection.ts";
+import { isActiveElderOrMinisterialServant } from "./presentation.ts";
 import type { Publisher } from "./schema.ts";
 
 export interface UsePublishersResult {
@@ -92,5 +94,27 @@ export function usePublishers(
     canRetry: active !== null,
     collection: active,
     retry,
+  };
+}
+
+export interface UsePublisherStandingResult {
+  /** The signed-in user's linked publisher is an active elder or ministerial servant. */
+  isElderOrMinisterialServant: boolean;
+  /** Auth session resolved and the publisher collection finished (or skipped) loading. */
+  isLoaded: boolean;
+}
+
+export function usePublisherStanding(
+  congregationId?: string | null,
+  collection?: PublisherCollection,
+): UsePublisherStandingResult {
+  const session = useAuthSession();
+  const authUserId = session?.user?.id;
+  const { publishers, isLoading } = usePublishers(congregationId, collection);
+  const linked = authUserId ? publishers.find((p) => p.auth_id === authUserId) : undefined;
+
+  return {
+    isElderOrMinisterialServant: linked != null && isActiveElderOrMinisterialServant(linked),
+    isLoaded: session !== undefined && !isLoading,
   };
 }

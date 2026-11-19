@@ -20,7 +20,11 @@ import type {
   MidweekMeetingData,
   MidweekMeetingDataCollection,
 } from "../src/feature/midweek-meeting/index.ts";
-import type { Publisher, PublisherCollection } from "../src/feature/publisher/index.ts";
+import type {
+  Publisher,
+  PublisherCollection,
+  UsePublisherStandingResult,
+} from "../src/feature/publisher/index.ts";
 import { createSettingsStore } from "../src/feature/settings/index.ts";
 import type {
   SpeakerAssignment,
@@ -659,9 +663,20 @@ function permissions(overrides: Partial<PermissionsResult>): PermissionsResult {
   };
 }
 
+function standing(overrides: Partial<UsePublisherStandingResult> = {}): UsePublisherStandingResult {
+  return {
+    isElderOrMinisterialServant: false,
+    isLoaded: true,
+    ...overrides,
+  };
+}
+
 test("shows the tools section with the secretary link for secretaries", () => {
   const markup = renderToStaticMarkup(
-    createElement(HomeTools, { permissions: permissions({ hasSecretary: true }) }),
+    createElement(HomeTools, {
+      permissions: permissions({ hasSecretary: true }),
+      standing: standing(),
+    }),
   );
   expect(markup).toContain("Tools");
   expect(markup).toContain("Secretary");
@@ -670,14 +685,42 @@ test("shows the tools section with the secretary link for secretaries", () => {
 
 test("shows the tools section for super admins", () => {
   const markup = renderToStaticMarkup(
-    createElement(HomeTools, { permissions: permissions({ isSuperAdmin: true }) }),
+    createElement(HomeTools, {
+      permissions: permissions({ isSuperAdmin: true }),
+      standing: standing(),
+    }),
   );
   expect(markup).toContain("Tools");
   expect(markup).toContain("Secretary");
+  expect(markup).toContain("Data Import");
+});
+
+test("shows the data import tool for elders and ministerial servants", () => {
+  const markup = renderToStaticMarkup(
+    createElement(HomeTools, {
+      permissions: permissions({}),
+      standing: standing({ isElderOrMinisterialServant: true }),
+    }),
+  );
+  expect(markup).toContain("Data Import");
+  expect(markup).toContain("/data-import");
+});
+
+test("hides the data import tool for other publishers", () => {
+  const markup = renderToStaticMarkup(
+    createElement(HomeTools, {
+      permissions: permissions({ hasSecretary: true }),
+      standing: standing(),
+    }),
+  );
+  expect(markup).toContain("Secretary");
+  expect(markup).not.toContain("Data Import");
 });
 
 test("hides the tools section without any tool permission", () => {
-  const markup = renderToStaticMarkup(createElement(HomeTools, { permissions: permissions({}) }));
+  const markup = renderToStaticMarkup(
+    createElement(HomeTools, { permissions: permissions({}), standing: standing() }),
+  );
   expect(markup).not.toContain("Tools");
   expect(markup).not.toContain("Secretary");
 });
@@ -686,6 +729,17 @@ test("hides the tools section while permissions are loading", () => {
   const markup = renderToStaticMarkup(
     createElement(HomeTools, {
       permissions: permissions({ hasSecretary: true, isLoaded: false }),
+      standing: standing(),
+    }),
+  );
+  expect(markup).not.toContain("Tools");
+});
+
+test("hides the tools section while the publisher standing is loading", () => {
+  const markup = renderToStaticMarkup(
+    createElement(HomeTools, {
+      permissions: permissions({ hasSecretary: true }),
+      standing: standing({ isLoaded: false }),
     }),
   );
   expect(markup).not.toContain("Tools");
