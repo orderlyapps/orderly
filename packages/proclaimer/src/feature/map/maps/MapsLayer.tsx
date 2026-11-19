@@ -169,7 +169,7 @@ export function MapsLayer({
             minzoom={MAP_VERTEX_MIN_ZOOM}
             layout={{
               "text-field": ["get", "name"],
-              "text-size": ["interpolate", ["linear"], ["zoom"], MAP_VERTEX_MIN_ZOOM, 0, 21, 75],
+              "text-size": ["interpolate", ["linear"], ["zoom"], MAP_LABEL_MIN_ZOOM, 0, 21, 75],
               "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
               "text-anchor": "center",
               "symbol-placement": "point",
@@ -182,7 +182,7 @@ export function MapsLayer({
                 ["zoom"],
                 MAP_VERTEX_MIN_ZOOM - 1,
                 0,
-                MAP_VERTEX_MIN_ZOOM + 4,
+                MAP_VERTEX_MIN_ZOOM + 3,
                 1,
               ],
               "text-halo-color": "#dddddd",
