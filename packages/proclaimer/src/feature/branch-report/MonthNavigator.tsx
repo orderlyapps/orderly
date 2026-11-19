@@ -45,6 +45,7 @@ export function MonthNavigator({
   const months = latestMonthId
     ? Array.from({ length: MONTH_LIST_COUNT }, (_, index) => shiftMonthId(latestMonthId, -index))
     : previousMonthIds(MONTH_LIST_COUNT);
+  const earliest = months[months.length - 1];
 
   const selectMonth = (nextMonthId: string) => {
     setPickerOpen(false);
@@ -64,6 +65,7 @@ export function MonthNavigator({
           zIndex: 10,
           display: "flex",
           alignItems: "center",
+          minHeight: 64,
           padding: "4px 6px",
           background: "color-mix(in srgb, var(--ion-background-color, #fff) 80%, transparent)",
           backdropFilter: "blur(16px) saturate(1.6)",
@@ -75,7 +77,7 @@ export function MonthNavigator({
           fill="clear"
           size="small"
           aria-label="Previous month"
-          disabled={!interactive}
+          disabled={!interactive || monthId <= earliest}
           onClick={() => onSelectMonth?.(shiftMonthId(monthId, -1))}
           style={{ "--padding-start": "4px", "--padding-end": "4px" }}
         >
@@ -90,7 +92,7 @@ export function MonthNavigator({
             flexDirection: "column",
             alignItems: "center",
             gap: 1,
-            padding: "8px 0",
+            padding: "10px 0",
             border: 0,
             background: "none",
             color: "inherit",
@@ -136,6 +138,7 @@ export function MonthNavigator({
         breakpoints={[0, 0.7]}
         initialBreakpoint={0.7}
         handleBehavior="cycle"
+        expandToScroll={false}
       >
         <IonHeader>
           <IonToolbar>
@@ -154,6 +157,7 @@ export function MonthNavigator({
               </IonItem>
             ))}
           </IonList>
+          <div style={{ paddingBottom: 128 }} />
         </IonContent>
       </IonModal>
     </>
