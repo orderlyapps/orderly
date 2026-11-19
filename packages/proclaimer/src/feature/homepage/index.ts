@@ -15,5 +15,6 @@ export { AssignmentRow, type AssignmentRowProps } from "./AssignmentRow.tsx";
 export { AssignmentsView, type AssignmentsViewProps } from "./AssignmentsView.tsx";
 export { HomeAssignments, type HomeAssignmentsProps } from "./HomeAssignments.tsx";
 export { HomeEvents, type HomeEventsProps } from "./HomeEvents.tsx";
+export { HomeTools, type HomeToolsProps } from "./HomeTools.tsx";
 export { HomepageView, type HomepageViewProps } from "./HomepageView.tsx";
 export { getWelcomeName } from "./welcome.ts";

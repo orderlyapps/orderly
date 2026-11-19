@@ -1,10 +1,16 @@
 import { expect, test } from "vite-plus/test";
 
 import {
+  authUserSchema,
   clamOverseerPermissionSchema,
   hasClamOverseerPermission,
+  hasSecretaryPermission,
+  isSuperAdminUser,
   midweekParticipationSchema,
+  secretaryPermissionSchema,
+  type AuthUser,
   type ClamOverseerPermission,
+  type SecretaryPermission,
 } from "../src/feature/index.ts";
 
 const authUserId = "7b15d4e5-d4fa-4eb4-a276-3790b7c4897b";
@@ -68,4 +74,65 @@ test("hasClamOverseerPermission requires can_edit", () => {
   ];
   expect(hasClamOverseerPermission(rows, authUserId, congregationId)).toBe(false);
   expect(hasClamOverseerPermission(rows, authUserId, otherCongregationId)).toBe(true);
+});
+
+function secretaryPermission(overrides: Partial<SecretaryPermission>): SecretaryPermission {
+  return {
+    auth_user_id: authUserId,
+    congregation_id: congregationId,
+    can_edit: true,
+    ...overrides,
+  };
+}
+
+test("secretaryPermissionSchema mirrors the table shape", () => {
+  const row = secretaryPermission({});
+  expect(secretaryPermissionSchema.safeParse(row).success).toBe(true);
+  expect(secretaryPermissionSchema.safeParse({ ...row, can_edit: "yes" }).success).toBe(false);
+  expect(secretaryPermissionSchema.safeParse({ ...row, auth_user_id: "x" }).success).toBe(false);
+});
+
+test("hasSecretaryPermission requires a matching editable row", () => {
+  const rows = [secretaryPermission({})];
+  expect(hasSecretaryPermission(rows, authUserId, congregationId)).toBe(true);
+  expect(hasSecretaryPermission(rows, otherUserId, congregationId)).toBe(false);
+  expect(hasSecretaryPermission(rows, authUserId, otherCongregationId)).toBe(false);
+  expect(hasSecretaryPermission(rows, undefined, congregationId)).toBe(false);
+  expect(hasSecretaryPermission(rows, authUserId, undefined)).toBe(false);
+  expect(hasSecretaryPermission(undefined, authUserId, congregationId)).toBe(false);
+});
+
+test("hasSecretaryPermission requires can_edit", () => {
+  const rows = [
+    secretaryPermission({ can_edit: false }),
+    secretaryPermission({ congregation_id: otherCongregationId, can_edit: true }),
+  ];
+  expect(hasSecretaryPermission(rows, authUserId, congregationId)).toBe(false);
+  expect(hasSecretaryPermission(rows, authUserId, otherCongregationId)).toBe(true);
+});
+
+function authUser(overrides: Partial<AuthUser>): AuthUser {
+  return {
+    auth_user_id: authUserId,
+    created_at: "2026-01-01T00:00:00Z",
+    created_by: otherUserId,
+    is_super_admin: false,
+    ...overrides,
+  };
+}
+
+test("authUserSchema mirrors the table shape", () => {
+  const row = authUser({});
+  expect(authUserSchema.safeParse(row).success).toBe(true);
+  expect(authUserSchema.safeParse({ ...row, is_super_admin: "yes" }).success).toBe(false);
+  expect(authUserSchema.safeParse({ ...row, auth_user_id: "x" }).success).toBe(false);
+});
+
+test("isSuperAdminUser requires the user's own super admin row", () => {
+  const rows = [authUser({ is_super_admin: true })];
+  expect(isSuperAdminUser(rows, authUserId)).toBe(true);
+  expect(isSuperAdminUser(rows, otherUserId)).toBe(false);
+  expect(isSuperAdminUser(rows, undefined)).toBe(false);
+  expect(isSuperAdminUser(undefined, authUserId)).toBe(false);
+  expect(isSuperAdminUser([authUser({})], authUserId)).toBe(false);
 });

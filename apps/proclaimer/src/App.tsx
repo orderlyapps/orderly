@@ -30,6 +30,7 @@ import Schedule from "./pages/ministry/Schedule";
 import Onboarding from "./pages/Onboarding";
 import Publishers from "./pages/Publishers";
 import Schedules from "./pages/Schedules";
+import Secretary from "./pages/Secretary";
 import Settings from "./pages/Settings";
 import SettingsAbout from "./pages/settings/About";
 import Cleaning from "./pages/schedules/Cleaning";
@@ -101,6 +102,7 @@ const App = () => {
               <Route path="/schedules/weekend/:weekId?" element={<Weekend />} />
               <Route path="/schedules/cleaning" element={<Cleaning />} />
               <Route path="/schedules/events" element={<Events />} />
+              <Route path="/secretary" element={<Secretary />} />
               <Route path="/publishers" element={<Publishers />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/about" element={<SettingsAbout />} />

@@ -7,6 +7,7 @@ import type { SettingsStore } from "../settings/db.ts";
 import { useSettings } from "../settings/hooks.ts";
 import { HomeAssignments } from "./HomeAssignments.tsx";
 import { HomeEvents } from "./HomeEvents.tsx";
+import { HomeTools } from "./HomeTools.tsx";
 import type { UpcomingAssignmentCollections } from "./hooks.ts";
 import { getWelcomeName } from "./welcome.ts";
 
@@ -45,6 +46,7 @@ export const HomepageView = ({
         />
       ) : null}
       <HomeEvents congregationId={settings.congregationId} collection={eventCollection} />
+      <HomeTools congregationId={settings.congregationId} />
       <div style={{ paddingBottom: 48 }} />
     </>
   );

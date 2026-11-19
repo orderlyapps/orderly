@@ -11,7 +11,9 @@ import {
   getWelcomeName,
   groupAssignmentsByMonth,
   HomepageView,
+  HomeTools,
 } from "../src/feature/homepage/index.ts";
+import type { PermissionsResult } from "../src/feature/permission/index.ts";
 import type {
   MidweekAssignmentCollection,
   MidweekMeetingAssignment,
@@ -644,4 +646,47 @@ test("hides the events section when there are no upcoming events", async () => {
     await store.close();
     await events.collection.cleanup().catch(() => {});
   }
+});
+
+function permissions(overrides: Partial<PermissionsResult>): PermissionsResult {
+  return {
+    hasMidweekMeetingOverseer: false,
+    hasSecretary: false,
+    isSuperAdmin: false,
+    isAuthenticated: true,
+    isLoaded: true,
+    ...overrides,
+  };
+}
+
+test("shows the tools section with the secretary link for secretaries", () => {
+  const markup = renderToStaticMarkup(
+    createElement(HomeTools, { permissions: permissions({ hasSecretary: true }) }),
+  );
+  expect(markup).toContain("Tools");
+  expect(markup).toContain("Secretary");
+  expect(markup).toContain("/secretary");
+});
+
+test("shows the tools section for super admins", () => {
+  const markup = renderToStaticMarkup(
+    createElement(HomeTools, { permissions: permissions({ isSuperAdmin: true }) }),
+  );
+  expect(markup).toContain("Tools");
+  expect(markup).toContain("Secretary");
+});
+
+test("hides the tools section without any tool permission", () => {
+  const markup = renderToStaticMarkup(createElement(HomeTools, { permissions: permissions({}) }));
+  expect(markup).not.toContain("Tools");
+  expect(markup).not.toContain("Secretary");
+});
+
+test("hides the tools section while permissions are loading", () => {
+  const markup = renderToStaticMarkup(
+    createElement(HomeTools, {
+      permissions: permissions({ hasSecretary: true, isLoaded: false }),
+    }),
+  );
+  expect(markup).not.toContain("Tools");
 });
