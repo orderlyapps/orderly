@@ -3,7 +3,7 @@ import type { MeetingAttendance } from "../meeting-attendance/schema.ts";
 import type { PublisherLocal } from "../publisher-local/schema.ts";
 import { isArchived } from "../publisher/presentation.ts";
 import type { Publisher } from "../publisher/schema.ts";
-import type { Report } from "./schema.ts";
+import { reportSchema, type Report } from "./schema.ts";
 
 /**
  * Size of the activity window for the branch report: the selected month plus
@@ -177,6 +177,27 @@ export function publisherConfidentialIds(
     }
   }
   return [...ids];
+}
+
+/**
+ * The confidential id a newly entered report for `publisher` should be filed
+ * under: the first local-record confidential id (the pseudonymous id
+ * secretary-entered reports use), falling back to the publisher's own id
+ * (self-reports store it directly). Ids that fail the uuid check are skipped —
+ * the report column is a uuid — and null is returned when no valid id exists.
+ */
+export function reportInsertConfidentialId(
+  publisher: Publisher | null | undefined,
+  localRecords: PublisherLocal[],
+): string | null {
+  const ids = publisherConfidentialIds(publisher, localRecords);
+  const localIds = ids.filter((id) => id !== publisher?.id);
+  for (const id of [...localIds, ...ids]) {
+    if (reportSchema.shape.confidential_id.safeParse(id).success) {
+      return id;
+    }
+  }
+  return null;
 }
 
 /** The `PUBLISHER_REPORT_WINDOW_MONTHS` month ids ending at `monthId`, newest first. */

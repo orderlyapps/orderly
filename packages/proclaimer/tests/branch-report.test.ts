@@ -7,6 +7,8 @@ import {
   publisherConfidentialIds,
   publisherReportMonthIds,
   publisherReportsByMonth,
+  reportInsertConfidentialId,
+  reportKey,
   resolveActivePublishers,
   weekendAttendanceAverage,
   weekendAttendanceWeeks,
@@ -510,6 +512,31 @@ test("publisherConfidentialIds includes the publisher id and its local record id
 test("publisherConfidentialIds returns empty for a missing or id-less publisher", () => {
   expect(publisherConfidentialIds(null, [localRecord("pub-a", "conf-a")])).toEqual([]);
   expect(publisherConfidentialIds({ first_name: "Test", last_name: "Publisher" }, [])).toEqual([]);
+});
+
+test("reportInsertConfidentialId prefers the local-record id over the publisher's own id", () => {
+  const pubA = publisher("7b15d4e5-d4fa-4eb4-a276-3790b7c4897a");
+  const records = [localRecord(pubA.id!, "7b15d4e5-d4fa-4eb4-a276-3790b7c4897c")];
+
+  expect(reportInsertConfidentialId(pubA, records)).toBe("7b15d4e5-d4fa-4eb4-a276-3790b7c4897c");
+});
+
+test("reportInsertConfidentialId falls back to the publisher id", () => {
+  const pubA = publisher("7b15d4e5-d4fa-4eb4-a276-3790b7c4897a");
+
+  expect(reportInsertConfidentialId(pubA, [])).toBe(pubA.id);
+});
+
+test("reportInsertConfidentialId skips ids that aren't uuids", () => {
+  const pubA = publisher("pub-a");
+  const records = [localRecord("pub-a", "conf-a")];
+
+  expect(reportInsertConfidentialId(pubA, records)).toBeNull();
+  expect(reportInsertConfidentialId(null, records)).toBeNull();
+});
+
+test("reportKey matches the report collection's composite getKey", () => {
+  expect(reportKey("conf-a", "cong-b", "2025-11-01")).toBe('["conf-a","cong-b","2025-11-01"]');
 });
 
 test("publisherReportMonthIds lists the window's months ending at monthId, newest first", () => {

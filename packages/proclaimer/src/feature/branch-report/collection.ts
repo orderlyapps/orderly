@@ -33,6 +33,12 @@ export function createReportCollection(congregationId: string, monthId: string) 
 
 export type ReportCollection = ReturnType<typeof createReportCollection>;
 
+// Matches the composite getKey in createSupabaseTableCollection for
+// keyColumns ["confidential_id", "congregation_id", "date"]
+export function reportKey(confidentialId: string, congregationId: string, date: string): string {
+  return JSON.stringify([confidentialId, congregationId, date]);
+}
+
 /**
  * Unique, sorted, uuid-valid report ids. `report.confidential_id` is a uuid
  * column, so any malformed id in the `in` list (e.g. a legacy local-record

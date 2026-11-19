@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import {
   IonButton,
@@ -13,12 +13,16 @@ import {
 import { monthLabel } from "../../util/month.ts";
 import { usePublisherLocalRecords } from "../publisher-local/hooks.ts";
 import { usePublishers } from "../publisher/hooks.ts";
+import { getPublisherDisplayName } from "../publisher/schema.ts";
+import { reportKey } from "./collection.ts";
 import { usePublisherReports } from "./hooks.ts";
+import { ReportEditModal, type ReportDraft } from "./ReportEditModal.tsx";
 import type { Report } from "./schema.ts";
 import {
   publisherConfidentialIds,
   publisherReportMonthIds,
   publisherReportsByMonth,
+  reportInsertConfidentialId,
 } from "./stats.ts";
 
 export interface PublisherReportViewProps {
@@ -96,10 +100,50 @@ export function PublisherReportView({
     error,
     canRetry,
     retry,
+    collection,
   } = usePublisherReports(confidentialIds, monthId);
   const isLoading = publishersLoading || localLoading || reportsLoading;
 
+  const [editingMonthId, setEditingMonthId] = useState<string | null>(null);
   const byMonth = useMemo(() => publisherReportsByMonth(reports), [reports]);
+  // Secretary-entered reports file under the publisher's pseudonymous local
+  // record id when one exists (see reportInsertConfidentialId).
+  const insertConfidentialId = useMemo(
+    () => reportInsertConfidentialId(publisher, localRecords),
+    [publisher, localRecords],
+  );
+  const canCreate = congregationId != null && insertConfidentialId != null;
+
+  const saveReport = useCallback(
+    async (draft: ReportDraft) => {
+      const editingMonth = editingMonthId;
+      if (!collection || !editingMonth) {
+        throw new Error("Reports aren't loaded yet.");
+      }
+      const existing = byMonth.get(editingMonth);
+      if (existing) {
+        const tx = collection.update(
+          reportKey(existing.confidential_id, existing.congregation_id, existing.date),
+          (current) => {
+            Object.assign(current, draft);
+          },
+        );
+        await tx.isPersisted.promise;
+        return;
+      }
+      if (!congregationId || !insertConfidentialId) {
+        throw new Error("A report can't be filed for this publisher.");
+      }
+      const tx = collection.insert({
+        confidential_id: insertConfidentialId,
+        congregation_id: congregationId,
+        date: `${editingMonth}-01`,
+        ...draft,
+      });
+      await tx.isPersisted.promise;
+    },
+    [collection, editingMonthId, byMonth, congregationId, insertConfidentialId],
+  );
   const serviceYears = useMemo(() => {
     const groups: { year: string; monthIds: string[] }[] = [];
     for (const id of publisherReportMonthIds(monthId)) {
@@ -163,8 +207,18 @@ export function PublisherReportView({
           {group.monthIds.map((id) => {
             const report = byMonth.get(id);
             const flags = report ? reportFlags(report, publisher?.type) : [];
+            // Reports filed under another congregation can't be saved here —
+            // report RLS requires edit rights on report.congregation_id.
+            const editable =
+              collection != null &&
+              (report != null ? report.congregation_id === congregationId : canCreate);
             return (
-              <IonItem key={id}>
+              <IonItem
+                key={id}
+                button={editable}
+                detail={editable}
+                onClick={editable ? () => setEditingMonthId(id) : undefined}
+              >
                 <IonLabel>
                   <h3>{monthLabel(id)}</h3>
                   {flags.length > 0 && <p>{flags.join(" · ")}</p>}
@@ -181,6 +235,14 @@ export function PublisherReportView({
           })}
         </IonList>
       ))}
+      <ReportEditModal
+        isOpen={editingMonthId != null}
+        monthId={editingMonthId ?? monthId}
+        report={editingMonthId != null ? (byMonth.get(editingMonthId) ?? null) : null}
+        publisherName={publisher ? getPublisherDisplayName(publisher) : undefined}
+        onSave={saveReport}
+        onDismiss={() => setEditingMonthId(null)}
+      />
     </>
   );
 }

@@ -8,6 +8,7 @@ export {
   createReportCollection,
   getPublisherReportCollection,
   getReportCollection,
+  reportKey,
   resetReportCollectionsForTesting,
   type ReportCollection,
 } from "./collection.ts";
@@ -18,6 +19,11 @@ export {
   PublisherReportsModal,
   type PublisherReportsModalProps,
 } from "./PublisherReportsModal.tsx";
+export {
+  ReportEditModal,
+  type ReportDraft,
+  type ReportEditModalProps,
+} from "./ReportEditModal.tsx";
 export { ReportValuesModal, type ReportValuesModalProps } from "./ReportValuesModal.tsx";
 export { REPORT_TABLE, reportSchema, type Report } from "./schema.ts";
 export {
@@ -28,6 +34,7 @@ export {
   publisherConfidentialIds,
   publisherReportMonthIds,
   publisherReportsByMonth,
+  reportInsertConfidentialId,
   resolveActivePublishers,
   weekendAttendanceAverage,
   weekendAttendanceWeeks,
