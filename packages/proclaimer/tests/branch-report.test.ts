@@ -434,36 +434,41 @@ test("monthReportStats routes aux_pio reports to the auxiliary pioneer category"
   expect(regular.bibleStudies.total).toBe(1);
 });
 
-test("monthReportStats routes regular pioneer reports by type and reg_pio flag", () => {
+test("monthReportStats categorizes regular pioneer reports by type, not reg_pio", () => {
   const pubA = publisher("pub-a", "Alpha");
   const pioneer = publisher("pub-b", "Beta", "regular_pioneer");
-  const flagged = publisher("pub-c", "Carol"); // type not yet synced — flag decides
+  const flagged = publisher("pub-c", "Carol"); // reg_pio report — still a publisher
+  const special = publisher("pub-d", "Delta", "special_pioneer");
   const records = [
     localRecord("pub-a", "conf-a"),
     localRecord("pub-b", "conf-b"),
     localRecord("pub-c", "conf-c"),
+    localRecord("pub-d", "conf-d"),
   ];
 
   const reports = [
     report("conf-a", "2025-11-01", true, { hours: 2, bible_studies: 1 }),
     report("conf-b", "2025-11-01", true, { hours: 50, bible_studies: 3 }),
     report("conf-c", "2025-11-01", true, { hours: 40, reg_pio: true }),
+    // A special pioneer's report never counts under regular pioneers, flag or not.
+    report("conf-d", "2025-11-01", true, { hours: 60, reg_pio: true }),
     report("conf-reg", "2025-11-01", true, { hours: 30, bible_studies: 2, reg_pio: true }),
   ];
 
-  const publishers = [pubA, pioneer, flagged];
+  const publishers = [pubA, pioneer, flagged, special];
   const reg = monthReportStats(reports, publishers, records, "2025-11", "regular_pioneer");
   const regular = monthReportStats(reports, publishers, records, "2025-11", "publisher");
 
-  expect(reg.reports.entries.map((entry) => entry.publisher.id)).toEqual(["pub-b", "pub-c"]);
+  expect(reg.reports.entries.map((entry) => entry.publisher.id)).toEqual(["pub-b"]);
   expect(reg.reports.unresolvedCount).toBe(1);
-  expect(reg.hours.total).toBe(90);
+  expect(reg.hours.total).toBe(50);
   expect(reg.hours.unresolvedCount).toBe(1);
   expect(reg.bibleStudies.total).toBe(3);
   expect(reg.bibleStudies.unresolvedCount).toBe(1);
 
-  // reg_pio-flagged reports never fall back to the publisher category.
-  expect(regular.reports.entries.map((entry) => entry.publisher.id)).toEqual(["pub-a"]);
+  // Type decides resolved reports: flagged type-publisher reports count as
+  // publishers, flagged unresolved reports still route to regular pioneers.
+  expect(regular.reports.entries.map((entry) => entry.publisher.id)).toEqual(["pub-a", "pub-c"]);
   expect(regular.reports.unresolvedCount).toBe(0);
 });
 

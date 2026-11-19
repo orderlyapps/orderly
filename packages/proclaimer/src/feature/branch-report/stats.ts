@@ -230,11 +230,12 @@ function resolveActiveMonthReports(
 }
 
 /**
- * Reporter categories shown on the branch report. A report's category is
- * decided by its flags before the reporting publisher's `type`, so a report
- * never counts in two categories: `aux_pio` reports are always auxiliary
- * pioneer reports, and `reg_pio` reports always count toward regular pioneers
- * even when the publisher row's `type` has not caught up.
+ * Reporter categories shown on the branch report. Resolved reports are
+ * categorized by the reporting publisher's `type` except `aux_pio`-flagged
+ * reports, which always count as auxiliary pioneer reports. `reg_pio` is only
+ * used to categorize reports that could not be resolved to a publisher row —
+ * resolved reports rely on `type` alone, so a report never counts in two
+ * categories.
  */
 export type ReportCategory = "publisher" | "auxiliary_pioneer" | "regular_pioneer";
 
@@ -247,8 +248,7 @@ interface CategoryMatcher {
 
 const CATEGORY_MATCHERS: Record<ReportCategory, CategoryMatcher> = {
   publisher: {
-    resolved: ({ report, publisher }) =>
-      publisher.type === PUBLISHER_TYPE && !report.aux_pio && !report.reg_pio,
+    resolved: ({ report, publisher }) => publisher.type === PUBLISHER_TYPE && !report.aux_pio,
     unresolved: (report) => !report.aux_pio && !report.reg_pio,
   },
   auxiliary_pioneer: {
@@ -256,8 +256,7 @@ const CATEGORY_MATCHERS: Record<ReportCategory, CategoryMatcher> = {
     unresolved: (report) => report.aux_pio,
   },
   regular_pioneer: {
-    resolved: ({ report, publisher }) =>
-      !report.aux_pio && (publisher.type === REGULAR_PIONEER_TYPE || report.reg_pio),
+    resolved: ({ report, publisher }) => !report.aux_pio && publisher.type === REGULAR_PIONEER_TYPE,
     unresolved: (report) => report.reg_pio && !report.aux_pio,
   },
 };
