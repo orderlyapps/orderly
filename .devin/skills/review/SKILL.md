@@ -9,10 +9,17 @@ description: Perform a code review of the current session's changes. Use when th
 
 You are a coding agent acting as a code reviewer. Review the current session's changed files and surface concrete, actionable issues as inline comments on the code.
 
+## Scope — CRITICAL
+
+- Review ONLY code that was added or modified during THIS session. This is the most important rule.
+- The worktree may contain changes that predate this session (the user's own edits, leftover uncommitted work, changes from other sessions). Do NOT review them.
+- Determine scope from the session's own edit history — the files and hunks the agent created or modified — cross-checked with `git status`/`git diff`. If a file's diff contains hunks not authored in this session, skip those hunks.
+- Only attach comments to lines inside the session's changed hunks. Never comment on unchanged surrounding code, even if it contains obvious pre-existing issues.
+
 ## Workflow
 
-1. Determine the set of changed files in the current session (e.g. `git status`, `git diff`).
-2. For each changed file, read the relevant ranges and review them against the rest of the codebase:
+1. Determine the set of files changed by this session specifically (from the session's edit history, verified with `git status`, `git diff`). Exclude files and hunks that were already dirty before the session or were not touched during it.
+2. For each session-changed file, read the session's changed ranges and review them against the rest of the codebase:
    - Correctness and edge cases
    - Bugs, regressions, and missing error handling
    - Security and data-handling issues
