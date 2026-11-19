@@ -228,8 +228,26 @@ export function publisherReportsByMonth(reports: Report[]): Map<string, Report> 
   return byMonth;
 }
 
+/**
+ * Total reported hours across the given months — the service-year hour total
+ * shown on a regular pioneer's report history. Only `active` reports count;
+ * `reported_elsewhere` reports still do, since the hours belong to the
+ * publisher's personal total for the year even though another congregation
+ * counted them.
+ */
+export function serviceYearHours(byMonth: Map<string, Report>, monthIds: Iterable<string>): number {
+  let total = 0;
+  for (const id of monthIds) {
+    const report = byMonth.get(id);
+    if (report?.active) {
+      total += report.hours ?? 0;
+    }
+  }
+  return total;
+}
+
 const PUBLISHER_TYPE = "publisher";
-const REGULAR_PIONEER_TYPE = "regular_pioneer";
+export const REGULAR_PIONEER_TYPE = "regular_pioneer";
 
 export interface ReportStatEntry {
   report: Report;

@@ -10,6 +10,7 @@ import {
   reportInsertConfidentialId,
   reportKey,
   resolveActivePublishers,
+  serviceYearHours,
   weekendAttendanceAverage,
   weekendAttendanceWeeks,
   type Report,
@@ -561,6 +562,21 @@ test("publisherReportsByMonth keeps one report per month, preferring the active 
   expect(byMonth.get("2025-11")?.active).toBe(true);
   expect(byMonth.get("2025-11")?.hours).toBe(3);
   expect(byMonth.get("2025-10")?.active).toBe(false);
+});
+
+test("serviceYearHours sums hours of active reports across the given months", () => {
+  const byMonth = publisherReportsByMonth([
+    report("conf-a", "2025-09-01", true, { hours: 50 }),
+    report("conf-a", "2025-10-01", true, { hours: 60 }),
+    report("conf-a", "2025-11-01", false, { hours: 70 }),
+    // reported_elsewhere hours still belong to the publisher's yearly total.
+    report("conf-a", "2025-08-01", true, { hours: 40, reported_elsewhere: true }),
+  ]);
+
+  expect(serviceYearHours(byMonth, ["2025-09", "2025-10", "2025-11"])).toBe(110);
+  expect(serviceYearHours(byMonth, ["2025-08"])).toBe(40);
+  expect(serviceYearHours(byMonth, ["2024-12"])).toBe(0);
+  expect(serviceYearHours(byMonth, [])).toBe(0);
 });
 
 test("monthReportStats excludes spe_pio reports from every category", () => {

@@ -22,7 +22,9 @@ import {
   publisherConfidentialIds,
   publisherReportMonthIds,
   publisherReportsByMonth,
+  REGULAR_PIONEER_TYPE,
   reportInsertConfidentialId,
+  serviceYearHours,
 } from "./stats.ts";
 
 export interface PublisherReportViewProps {
@@ -51,7 +53,7 @@ function reportFlags(report: Report, publisherType?: string | null): string[] {
   if (report.aux_pio || publisherType === "continuous_auxiliary") {
     flags.add("Auxiliary pioneer");
   }
-  if (report.reg_pio || publisherType === "regular_pioneer") {
+  if (report.reg_pio || publisherType === REGULAR_PIONEER_TYPE) {
     flags.add("Regular pioneer");
   }
   if (report.spe_pio || publisherType === "special_pioneer") {
@@ -197,44 +199,64 @@ export function PublisherReportView({
 
   return (
     <>
-      {serviceYears.map((group) => (
-        <IonList key={group.year}>
-          <IonListHeader>
-            <IonLabel>
-              <IonNote>{group.year} Service Year</IonNote>
-            </IonLabel>
-          </IonListHeader>
-          {group.monthIds.map((id) => {
-            const report = byMonth.get(id);
-            const flags = report ? reportFlags(report, publisher?.type) : [];
-            // Reports filed under another congregation can't be saved here —
-            // report RLS requires edit rights on report.congregation_id.
-            const editable =
-              collection != null &&
-              (report != null ? report.congregation_id === congregationId : canCreate);
-            return (
-              <IonItem
-                key={id}
-                button={editable}
-                detail={editable}
-                onClick={editable ? () => setEditingMonthId(id) : undefined}
-              >
+      {serviceYears.map((group, index) => {
+        // Regular pioneers have an annual hour requirement, so the current
+        // and previous service year groups close with their total reported
+        // hours. Older groups are truncated by the history window, where a
+        // total would only cover the visible tail of the year.
+        const hoursTotal =
+          publisher?.type === REGULAR_PIONEER_TYPE && index < 2
+            ? serviceYearHours(byMonth, group.monthIds)
+            : null;
+        return (
+          <IonList key={group.year}>
+            <IonListHeader>
+              <IonLabel>
+                <IonNote>{group.year} Service Year</IonNote>
+              </IonLabel>
+            </IonListHeader>
+            {group.monthIds.map((id) => {
+              const report = byMonth.get(id);
+              const flags = report ? reportFlags(report, publisher?.type) : [];
+              // Reports filed under another congregation can't be saved here —
+              // report RLS requires edit rights on report.congregation_id.
+              const editable =
+                collection != null &&
+                (report != null ? report.congregation_id === congregationId : canCreate);
+              return (
+                <IonItem
+                  key={id}
+                  button={editable}
+                  detail={editable}
+                  onClick={editable ? () => setEditingMonthId(id) : undefined}
+                >
+                  <IonLabel>
+                    <h3>{monthLabel(id)}</h3>
+                    {flags.length > 0 && <p>{flags.join(" · ")}</p>}
+                  </IonLabel>
+                  <IonNote slot="end">
+                    {report == null
+                      ? "No report"
+                      : !report.active
+                        ? "Not active"
+                        : reportSummary(report)}
+                  </IonNote>
+                </IonItem>
+              );
+            })}
+            {hoursTotal != null && (
+              <IonItem lines="none" color="light">
                 <IonLabel>
-                  <h3>{monthLabel(id)}</h3>
-                  {flags.length > 0 && <p>{flags.join(" · ")}</p>}
+                  <h3>Total</h3>
                 </IonLabel>
                 <IonNote slot="end">
-                  {report == null
-                    ? "No report"
-                    : !report.active
-                      ? "Not active"
-                      : reportSummary(report)}
+                  {hoursTotal} {hoursTotal === 1 ? "hr" : "hrs"}
                 </IonNote>
               </IonItem>
-            );
-          })}
-        </IonList>
-      ))}
+            )}
+          </IonList>
+        );
+      })}
       <ReportEditModal
         isOpen={editingMonthId != null}
         monthId={editingMonthId ?? monthId}
