@@ -60,9 +60,16 @@ test("table collection drops rows that fail schema validation and warns", async 
     { id: "p2", last_name: "MissingFirstName" },
     { id: "p3", first_name: "Carol", last_name: "Jones", extra_column: "stripped" },
   ];
+  // The real PostgREST builder is chainable and thenable — the query resolves
+  // to { data, error } when awaited.
   const query = {
     select: vi.fn().mockReturnThis(),
-    match: vi.fn().mockResolvedValue({ data: rows, error: null }),
+    match: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    range: vi.fn().mockReturnThis(),
+    // eslint-disable-next-line unicorn/no-thenable
+    then: (onFulfilled: (value: { data: typeof rows; error: null }) => unknown) =>
+      Promise.resolve(onFulfilled({ data: rows, error: null })),
   };
   vi.spyOn(client, "from").mockReturnValue(query as never);
   const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -87,6 +94,59 @@ test("table collection drops rows that fail schema validation and warns", async 
     expect(collection.get("p3")?.first_name).toBe("Carol");
     expect(collection.get("p3")).not.toHaveProperty("extra_column");
     expect(warn).toHaveBeenCalledOnce();
+  } finally {
+    await collection.cleanup().catch(() => {});
+  }
+});
+
+test("table collection paginates past the PostgREST row cap", async () => {
+  const client = initSupabase(TEST_CONFIG);
+  // 2500 rows -> three 1000-row pages (last page short).
+  const rows = Array.from({ length: 2500 }, (_, i) => ({
+    id: `p${i}`,
+    first_name: `First${i}`,
+    last_name: `Last${i}`,
+  }));
+  let requested: { from: number; to: number } = { from: 0, to: 0 };
+  const query = {
+    select: vi.fn().mockReturnThis(),
+    match: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    range: vi.fn((from: number, to: number) => {
+      requested = { from, to };
+      return query;
+    }),
+    // eslint-disable-next-line unicorn/no-thenable
+    then: (onFulfilled: (value: { data: typeof rows; error: null }) => unknown) =>
+      Promise.resolve(
+        onFulfilled({ data: rows.slice(requested.from, requested.to + 1), error: null }),
+      ),
+  };
+  vi.spyOn(client, "from").mockReturnValue(query as never);
+
+  const rowSchema = z.object({
+    id: z.string().min(1),
+    first_name: z.string(),
+    last_name: z.string(),
+  });
+  type Row = z.infer<typeof rowSchema>;
+
+  const collection = createSupabaseTableCollection<Row>({
+    table: "publisher",
+    id: `pages_test_${Date.now()}`,
+    schema: rowSchema,
+  });
+  try {
+    await collection.preload();
+    expect(query.range).toHaveBeenCalledTimes(3);
+    expect(query.range).toHaveBeenNthCalledWith(1, 0, 999);
+    expect(query.range).toHaveBeenNthCalledWith(2, 1000, 1999);
+    expect(query.range).toHaveBeenNthCalledWith(3, 2000, 2999);
+    // Pages are ordered by the collection's key columns for stable offsets.
+    expect(query.order).toHaveBeenCalledWith("id");
+    expect(collection.get("p0")?.first_name).toBe("First0");
+    expect(collection.get("p999")?.first_name).toBe("First999");
+    expect(collection.get("p2499")?.first_name).toBe("First2499");
   } finally {
     await collection.cleanup().catch(() => {});
   }

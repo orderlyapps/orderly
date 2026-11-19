@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PostgrestFilterBuilder, SupabaseClient } from "@supabase/supabase-js";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import { createCollection } from "@tanstack/react-db";
 import type { QueryClient } from "@tanstack/react-query";
@@ -8,6 +8,12 @@ import { getBackendQueryClient } from "./query-client.ts";
 import { getSupabaseClient } from "./supabase.ts";
 
 const MAX_CACHED_COLLECTIONS = 5;
+
+/** Matches PostgREST's default `max_rows` cap; pages are fetched in this size. */
+const PAGE_SIZE = 1000;
+
+/** The PostgREST filter builder produced by `table().select(...)`; `.from(string)` yields `any`-typed rows. */
+type SelectFilterQuery = PostgrestFilterBuilder<any, any, any, any, any, any, any, any>;
 
 /**
  * Bounds a per-key collection cache. Cache hits refresh recency; once the
@@ -46,6 +52,12 @@ export interface SupabaseTableCollectionOptions<T extends Record<string, unknown
   id?: string;
   select?: string;
   match?: Record<string, unknown>;
+  /**
+   * Extra PostgREST filters applied after `match`, e.g.
+   * `(q) => q.gte("date", "2025-06-01")`. Filter inputs must be captured in
+   * `id` so differently filtered collections never share a query key.
+   */
+  filter?: (query: SelectFilterQuery) => SelectFilterQuery;
   idColumn?: keyof T & string;
   keyColumns?: (keyof T & string)[];
   queryClient?: QueryClient;
@@ -74,17 +86,38 @@ export function createSupabaseTableCollection<T extends Record<string, unknown>>
         options.match ?? {},
       ],
       queryFn: async () => {
-        let query = table().select(options.select ?? "*");
-        if (options.match) {
-          query = query.match(options.match);
-        }
-        const { data, error } = await query;
-        if (error) {
-          throw error;
+        const buildQuery = () => {
+          let query = table().select(options.select ?? "*");
+          if (options.match) {
+            query = query.match(options.match);
+          }
+          if (options.filter) {
+            query = options.filter(query);
+          }
+          // Deterministic page order so offset pagination can't skip or
+          // repeat rows between fetches.
+          for (const column of keyColumns) {
+            query = query.order(column);
+          }
+          return query;
+        };
+        // PostgREST caps responses at max_rows (1000); page through the
+        // result set so larger tables aren't silently truncated.
+        const data: unknown[] = [];
+        for (let offset = 0; ; offset += PAGE_SIZE) {
+          const { data: page, error } = await buildQuery().range(offset, offset + PAGE_SIZE - 1);
+          if (error) {
+            throw error;
+          }
+          const rows = (page ?? []) as unknown[];
+          data.push(...rows);
+          if (rows.length < PAGE_SIZE) {
+            break;
+          }
         }
         if (options.schema) {
           const rows: T[] = [];
-          for (const [index, row] of (data ?? []).entries()) {
+          for (const [index, row] of data.entries()) {
             const parsed = options.schema.safeParse(row);
             if (parsed.success) {
               rows.push(parsed.data);
@@ -99,7 +132,7 @@ export function createSupabaseTableCollection<T extends Record<string, unknown>>
           }
           return rows;
         }
-        return data as unknown as T[];
+        return data as T[];
       },
       getKey: (item: T) =>
         keyColumns.length === 1
