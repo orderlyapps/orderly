@@ -16,13 +16,14 @@ export const ACTIVE_PUBLISHER_WINDOW_MONTHS = 6;
  * report dated in `monthId` or the months covered by
  * `ACTIVE_PUBLISHER_WINDOW_MONTHS` leading up to it. Reports flagged
  * `reported_elsewhere` are excluded — they count toward another
- * congregation's report, not this one.
+ * congregation's report, not this one — as are `spe_pio` reports, since
+ * special pioneers are not counted in these stats.
  */
 export function activePublisherIds(reports: Report[], monthId: string): string[] {
   const windowStart = shiftMonthId(monthId, -(ACTIVE_PUBLISHER_WINDOW_MONTHS - 1));
   const ids = new Set<string>();
   for (const report of reports) {
-    if (!report.active || report.reported_elsewhere) {
+    if (!report.active || report.reported_elsewhere || report.spe_pio) {
       continue;
     }
     const reportMonth = report.date.slice(0, 7);
@@ -154,8 +155,9 @@ export function resolveActivePublishers(
 }
 
 const PUBLISHER_TYPE = "publisher";
+const REGULAR_PIONEER_TYPE = "regular_pioneer";
 
-interface ResolvedMonthReport {
+export interface ReportStatEntry {
   report: Report;
   publisher: Publisher;
 }
@@ -164,7 +166,9 @@ interface ResolvedMonthReport {
  * Resolves `active` reports dated in `monthId` to publisher rows, using the
  * same confidential-id mapping as `resolveActivePublishers`. Reports flagged
  * `reported_elsewhere` are skipped entirely — they count toward another
- * congregation's report, not this one. Archived publishers resolve but are
+ * congregation's report, not this one — and `spe_pio` reports are skipped
+ * because special pioneers are not counted in any of these stats. Archived
+ * publishers resolve but are
  * excluded from the result without counting as unresolved, matching
  * `resolveActivePublishers`. A publisher reports at most once: when multiple
  * confidential ids resolve to the same publisher in the same month (e.g. a
@@ -178,7 +182,7 @@ function resolveActiveMonthReports(
   publishers: Publisher[],
   localRecords: PublisherLocal[],
   monthId: string,
-): { resolved: ResolvedMonthReport[]; unresolved: Report[] } {
+): { resolved: ReportStatEntry[]; unresolved: Report[] } {
   const byId = new Map<string, Publisher>();
   for (const publisher of publishers) {
     if (publisher.id != null) {
@@ -190,7 +194,12 @@ function resolveActiveMonthReports(
   const reportByPublisherId = new Map<string, Report>();
   const unresolved: Report[] = [];
   for (const report of reports) {
-    if (!report.active || report.reported_elsewhere || report.date.slice(0, 7) !== monthId) {
+    if (
+      !report.active ||
+      report.reported_elsewhere ||
+      report.spe_pio ||
+      report.date.slice(0, 7) !== monthId
+    ) {
       continue;
     }
     const mapped = confidentialToPublisher.get(report.confidential_id);
@@ -207,7 +216,7 @@ function resolveActiveMonthReports(
     }
   }
 
-  const resolved: ResolvedMonthReport[] = [];
+  const resolved: ReportStatEntry[] = [];
   for (const publisher of publishers) {
     if (publisher.id == null || isArchived(publisher)) {
       continue;
@@ -220,87 +229,109 @@ function resolveActiveMonthReports(
   return { resolved, unresolved };
 }
 
-export interface PublisherReportEntry {
-  /** A publisher counted in the stat. */
-  publisher: Publisher;
-  /** Bible studies on their report for the month (null when not recorded). */
-  bibleStudies: number | null;
+/**
+ * Reporter categories shown on the branch report. A report's category is
+ * decided by its flags before the reporting publisher's `type`, so a report
+ * never counts in two categories: `aux_pio` reports are always auxiliary
+ * pioneer reports, and `reg_pio` reports always count toward regular pioneers
+ * even when the publisher row's `type` has not caught up.
+ */
+export type ReportCategory = "publisher" | "auxiliary_pioneer" | "regular_pioneer";
+
+interface CategoryMatcher {
+  /** Whether a resolved report+publisher pair belongs to the category. */
+  resolved(entry: ReportStatEntry): boolean;
+  /** Whether a report matching no publisher row could belong to the category. */
+  unresolved(report: Report): boolean;
 }
 
-export interface PublisherReportStat {
+const CATEGORY_MATCHERS: Record<ReportCategory, CategoryMatcher> = {
+  publisher: {
+    resolved: ({ report, publisher }) =>
+      publisher.type === PUBLISHER_TYPE && !report.aux_pio && !report.reg_pio,
+    unresolved: (report) => !report.aux_pio && !report.reg_pio,
+  },
+  auxiliary_pioneer: {
+    resolved: ({ report }) => report.aux_pio,
+    unresolved: (report) => report.aux_pio,
+  },
+  regular_pioneer: {
+    resolved: ({ report, publisher }) =>
+      !report.aux_pio && (publisher.type === REGULAR_PIONEER_TYPE || report.reg_pio),
+    unresolved: (report) => report.reg_pio && !report.aux_pio,
+  },
+};
+
+export interface ReportCountStat {
   /** Counted publishers, in the order `publishers` was given. */
-  entries: PublisherReportEntry[];
+  entries: ReportStatEntry[];
   /**
-   * Active in-month reports that could not be matched to a publisher on this
-   * device — each may be a `type` "publisher" report missing from `entries`.
+   * Active in-month reports that could belong to the category but could not
+   * be matched to a publisher on this device — each may be missing from
+   * `entries`.
    */
   unresolvedCount: number;
 }
 
-/**
- * Publishers of `type` "publisher" with an active report dated in `monthId` —
- * the "Number of Reports" stat. Reports submitted as an auxiliary pioneer
- * (`aux_pio`) are excluded from both `entries` and `unresolvedCount`; they
- * belong to a separate reporter category.
- */
-export function publisherReports(
-  reports: Report[],
-  publishers: Publisher[],
-  localRecords: PublisherLocal[],
-  monthId: string,
-): PublisherReportStat {
-  const { resolved, unresolved } = resolveActiveMonthReports(
-    reports,
-    publishers,
-    localRecords,
-    monthId,
-  );
-  return {
-    entries: resolved
-      .filter((entry) => entry.publisher.type === PUBLISHER_TYPE && !entry.report.aux_pio)
-      .map((entry) => ({ publisher: entry.publisher, bibleStudies: entry.report.bible_studies })),
-    unresolvedCount: unresolved.filter((report) => !report.aux_pio).length,
-  };
-}
-
-export interface PublisherBibleStudiesStat extends PublisherReportStat {
-  /** Sum of bible studies across `entries`. */
+export interface ReportValueStat extends ReportCountStat {
+  /**
+   * Sum of the stat's value across `entries`. Unresolved reports' values are
+   * not included — only their count is surfaced via `unresolvedCount`.
+   */
   total: number;
 }
 
+export interface CategoryMonthStats {
+  /** The "Number of Reports" stat. */
+  reports: ReportCountStat;
+  /** The "Hours" stat: summed `hours` over reports with hours recorded. */
+  hours: ReportValueStat;
+  /** The "Bible Studies" stat: summed `bible_studies` over reports with studies recorded. */
+  bibleStudies: ReportValueStat;
+}
+
+function valueStat(
+  entries: ReportStatEntry[],
+  unresolved: Report[],
+  valueOf: (report: Report) => number | null,
+): ReportValueStat {
+  const valued = entries.filter((entry) => (valueOf(entry.report) ?? 0) > 0);
+  return {
+    entries: valued,
+    total: valued.reduce((sum, entry) => sum + (valueOf(entry.report) ?? 0), 0),
+    unresolvedCount: unresolved.filter((report) => (valueOf(report) ?? 0) > 0).length,
+  };
+}
+
 /**
- * Bible studies reported in `monthId` by publishers of `type` "publisher" —
- * the "Bible Studies" stat. Reports submitted as an auxiliary pioneer
- * (`aux_pio`) are excluded. `entries` lists only publishers that reported at
- * least one study; `unresolvedCount` counts reports with studies that could
- * not be matched to a publisher on this device.
+ * Monthly branch-report stats for `category`: active reports dated in
+ * `monthId` belonging to that reporter category. `reports.entries` lists
+ * every counted publisher; `hours` and `bibleStudies` list only publishers
+ * whose report recorded a positive value. Reports flagged
+ * `reported_elsewhere` or `spe_pio` and reports from archived publishers are
+ * excluded by `resolveActiveMonthReports`; reports matching no publisher row are
+ * surfaced through each stat's `unresolvedCount` when their flags fit the
+ * category.
  */
-export function publisherBibleStudies(
+export function monthReportStats(
   reports: Report[],
   publishers: Publisher[],
   localRecords: PublisherLocal[],
   monthId: string,
-): PublisherBibleStudiesStat {
+  category: ReportCategory,
+): CategoryMonthStats {
+  const match = CATEGORY_MATCHERS[category];
   const { resolved, unresolved } = resolveActiveMonthReports(
     reports,
     publishers,
     localRecords,
     monthId,
   );
-  const entries = resolved
-    .filter(
-      (entry) =>
-        entry.publisher.type === PUBLISHER_TYPE &&
-        !entry.report.aux_pio &&
-        entry.report.bible_studies != null &&
-        entry.report.bible_studies > 0,
-    )
-    .map((entry) => ({ publisher: entry.publisher, bibleStudies: entry.report.bible_studies }));
+  const entries = resolved.filter((entry) => match.resolved(entry));
+  const unresolvedForCategory = unresolved.filter((report) => match.unresolved(report));
   return {
-    entries,
-    total: entries.reduce((sum, entry) => sum + (entry.bibleStudies ?? 0), 0),
-    unresolvedCount: unresolved.filter(
-      (report) => !report.aux_pio && report.bible_studies != null && report.bible_studies > 0,
-    ).length,
+    reports: { entries, unresolvedCount: unresolvedForCategory.length },
+    hours: valueStat(entries, unresolvedForCategory, (report) => report.hours),
+    bibleStudies: valueStat(entries, unresolvedForCategory, (report) => report.bible_studies),
   };
 }

@@ -19,14 +19,17 @@ import {
 
 import { monthLabel } from "../../util/month.ts";
 import { getPublisherDisplayName } from "../publisher/schema.ts";
-import type { PublisherReportEntry } from "./stats.ts";
+import type { ReportStatEntry } from "./stats.ts";
 
 export interface PublisherReportsModalProps {
   isOpen: boolean;
   isLoading: boolean;
   monthId: string;
+  /** Singular/plural reporter labels, e.g. "auxiliary pioneer"/"auxiliary pioneers". */
+  singular: string;
+  plural: string;
   /** Publishers counted in the "Number of Reports" stat, in name order. */
-  entries: PublisherReportEntry[];
+  entries: ReportStatEntry[];
   /** Active reports that could not be resolved to a name on this device. */
   unresolvedCount: number;
   onDismiss: () => void;
@@ -37,6 +40,8 @@ export function PublisherReportsModal({
   isOpen,
   isLoading,
   monthId,
+  singular,
+  plural,
   entries,
   unresolvedCount,
   onDismiss,
@@ -75,7 +80,9 @@ export function PublisherReportsModal({
         <IonList>
           <IonListHeader>
             <IonLabel>
-              <IonNote>Publishers reporting in {monthLabel(monthId)}</IonNote>
+              <IonNote>
+                {plural[0].toUpperCase() + plural.slice(1)} reporting in {monthLabel(monthId)}
+              </IonNote>
             </IonLabel>
           </IonListHeader>
           {isLoading ? (
@@ -91,7 +98,7 @@ export function PublisherReportsModal({
               {filtered.length === 0 && unresolvedCount === 0 ? (
                 <IonItem lines="none">
                   <IonLabel color="medium">
-                    {query ? "No matching publishers." : "No publishers reported this month."}
+                    {query ? `No matching ${plural}.` : `No ${plural} reported this month.`}
                   </IonLabel>
                 </IonItem>
               ) : (
@@ -104,8 +111,8 @@ export function PublisherReportsModal({
               {unresolvedCount > 0 && (
                 <IonItem lines="none">
                   <IonNote>
-                    {unresolvedCount} more {unresolvedCount === 1 ? "publisher" : "publishers"}{" "}
-                    could not be matched to a name on this device.
+                    {unresolvedCount} more {unresolvedCount === 1 ? singular : plural} could not be
+                    matched to a name on this device.
                   </IonNote>
                 </IonItem>
               )}

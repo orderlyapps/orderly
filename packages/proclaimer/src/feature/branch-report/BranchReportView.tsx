@@ -16,20 +16,61 @@ import { useMeetingAttendances } from "../meeting-attendance/hooks.ts";
 import { usePublisherLocalRecords } from "../publisher-local/hooks.ts";
 import { usePublishers } from "../publisher/hooks.ts";
 import { ActivePublishersModal } from "./ActivePublishersModal.tsx";
-import { BibleStudiesModal } from "./BibleStudiesModal.tsx";
 import { useReports } from "./hooks.ts";
 import { MonthNavigator } from "./MonthNavigator.tsx";
 import { PublisherReportsModal } from "./PublisherReportsModal.tsx";
+import { ReportValuesModal } from "./ReportValuesModal.tsx";
 import {
   ACTIVE_PUBLISHER_WINDOW_MONTHS,
   activePublisherIds,
-  publisherBibleStudies,
-  publisherReports,
+  monthReportStats,
   resolveActivePublishers,
   weekendAttendanceAverage,
   weekendAttendanceWeeks,
+  type ReportCategory,
 } from "./stats.ts";
 import { WeekendAttendanceModal } from "./WeekendAttendanceModal.tsx";
+
+interface CategoryLabels {
+  /** Section header, e.g. "Auxiliary Pioneers". */
+  title: string;
+  /** Singular reporter label, e.g. "auxiliary pioneer". */
+  singular: string;
+  /** Plural reporter label, e.g. "auxiliary pioneers". */
+  plural: string;
+  /** Whether the section shows the "Hours" stat. */
+  showHours: boolean;
+}
+
+const CATEGORY_LABELS: Record<ReportCategory, CategoryLabels> = {
+  publisher: {
+    title: "Publishers",
+    singular: "publisher",
+    plural: "publishers",
+    showHours: false,
+  },
+  auxiliary_pioneer: {
+    title: "Auxiliary Pioneers",
+    singular: "auxiliary pioneer",
+    plural: "auxiliary pioneers",
+    showHours: true,
+  },
+  regular_pioneer: {
+    title: "Regular Pioneers",
+    singular: "regular pioneer",
+    plural: "regular pioneers",
+    showHours: true,
+  },
+};
+
+const REPORT_CATEGORIES = Object.keys(CATEGORY_LABELS) as ReportCategory[];
+
+type StatKind = keyof ReturnType<typeof monthReportStats>;
+
+interface OpenStat {
+  kind: StatKind;
+  category: ReportCategory;
+}
 
 export interface BranchReportViewProps {
   monthId: string;
@@ -44,8 +85,7 @@ export function BranchReportView({
 }: BranchReportViewProps) {
   const [activeModalOpen, setActiveModalOpen] = useState(false);
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
-  const [reportsModalOpen, setReportsModalOpen] = useState(false);
-  const [studiesModalOpen, setStudiesModalOpen] = useState(false);
+  const [openStat, setOpenStat] = useState<OpenStat | null>(null);
   const {
     reports,
     isLoading: reportsLoading,
@@ -81,14 +121,21 @@ export function BranchReportView({
     () => weekendAttendanceWeeks(attendances, monthId),
     [attendances, monthId],
   );
-  const reportStat = useMemo(
-    () => publisherReports(reports, publishers, localRecords, monthId),
+  const categoryStats = useMemo(
+    () =>
+      Object.fromEntries(
+        REPORT_CATEGORIES.map((category) => [
+          category,
+          monthReportStats(reports, publishers, localRecords, monthId, category),
+        ]),
+      ) as Record<ReportCategory, ReturnType<typeof monthReportStats>>,
     [reports, publishers, localRecords, monthId],
   );
-  const studiesStat = useMemo(
-    () => publisherBibleStudies(reports, publishers, localRecords, monthId),
-    [reports, publishers, localRecords, monthId],
-  );
+
+  // Fallbacks keep the modals mounted with stable content while closed.
+  const openCategory = openStat?.category ?? "publisher";
+  const openLabels = CATEGORY_LABELS[openCategory];
+  const openStats = categoryStats[openCategory];
 
   return (
     <>
@@ -146,37 +193,69 @@ export function BranchReportView({
                 </IonNote>
               </IonItem>
             </IonList>
-            <IonList>
-              <IonListHeader>
-                <IonLabel>Publishers</IonLabel>
-              </IonListHeader>
-              <IonItem button detail onClick={() => setReportsModalOpen(true)}>
-                <IonLabel>
-                  <h3>Number of Reports</h3>
-                  <p>Publishers reporting in {monthLabel(monthId)}</p>
-                </IonLabel>
-                <IonNote slot="end" style={{ fontSize: "1rem" }}>
-                  {isLoading ? (
-                    <IonSkeletonText animated style={{ width: 32, height: 16 }} />
-                  ) : (
-                    reportStat.entries.length + reportStat.unresolvedCount
+            {REPORT_CATEGORIES.map((category) => {
+              const labels = CATEGORY_LABELS[category];
+              const stats = categoryStats[category];
+              return (
+                <IonList key={category}>
+                  <IonListHeader>
+                    <IonLabel>{labels.title}</IonLabel>
+                  </IonListHeader>
+                  <IonItem button detail onClick={() => setOpenStat({ kind: "reports", category })}>
+                    <IonLabel>
+                      <h3>Number of Reports</h3>
+                      <p>
+                        {labels.plural[0].toUpperCase() + labels.plural.slice(1)} reporting in{" "}
+                        {monthLabel(monthId)}
+                      </p>
+                    </IonLabel>
+                    <IonNote slot="end" style={{ fontSize: "1rem" }}>
+                      {isLoading ? (
+                        <IonSkeletonText animated style={{ width: 32, height: 16 }} />
+                      ) : (
+                        stats.reports.entries.length + stats.reports.unresolvedCount
+                      )}
+                    </IonNote>
+                  </IonItem>
+                  {labels.showHours && (
+                    <IonItem button detail onClick={() => setOpenStat({ kind: "hours", category })}>
+                      <IonLabel>
+                        <h3>Hours</h3>
+                        <p>
+                          Reported by {labels.plural} in {monthLabel(monthId)}
+                        </p>
+                      </IonLabel>
+                      <IonNote slot="end" style={{ fontSize: "1rem" }}>
+                        {isLoading ? (
+                          <IonSkeletonText animated style={{ width: 32, height: 16 }} />
+                        ) : (
+                          stats.hours.total
+                        )}
+                      </IonNote>
+                    </IonItem>
                   )}
-                </IonNote>
-              </IonItem>
-              <IonItem button detail onClick={() => setStudiesModalOpen(true)}>
-                <IonLabel>
-                  <h3>Bible Studies</h3>
-                  <p>Reported by publishers in {monthLabel(monthId)}</p>
-                </IonLabel>
-                <IonNote slot="end" style={{ fontSize: "1rem" }}>
-                  {isLoading ? (
-                    <IonSkeletonText animated style={{ width: 32, height: 16 }} />
-                  ) : (
-                    studiesStat.total
-                  )}
-                </IonNote>
-              </IonItem>
-            </IonList>
+                  <IonItem
+                    button
+                    detail
+                    onClick={() => setOpenStat({ kind: "bibleStudies", category })}
+                  >
+                    <IonLabel>
+                      <h3>Bible Studies</h3>
+                      <p>
+                        Reported by {labels.plural} in {monthLabel(monthId)}
+                      </p>
+                    </IonLabel>
+                    <IonNote slot="end" style={{ fontSize: "1rem" }}>
+                      {isLoading ? (
+                        <IonSkeletonText animated style={{ width: 32, height: 16 }} />
+                      ) : (
+                        stats.bibleStudies.total
+                      )}
+                    </IonNote>
+                  </IonItem>
+                </IonList>
+              );
+            })}
           </>
         )}
       </SlideTransition>
@@ -197,21 +276,44 @@ export function BranchReportView({
         onDismiss={() => setAttendanceModalOpen(false)}
       />
       <PublisherReportsModal
-        isOpen={reportsModalOpen}
+        isOpen={openStat?.kind === "reports"}
         isLoading={isLoading}
         monthId={monthId}
-        entries={reportStat.entries}
-        unresolvedCount={reportStat.unresolvedCount}
-        onDismiss={() => setReportsModalOpen(false)}
+        singular={openLabels.singular}
+        plural={openLabels.plural}
+        entries={openStats.reports.entries}
+        unresolvedCount={openStats.reports.unresolvedCount}
+        onDismiss={() => setOpenStat(null)}
       />
-      <BibleStudiesModal
-        isOpen={studiesModalOpen}
+      <ReportValuesModal
+        isOpen={openStat?.kind === "hours"}
         isLoading={isLoading}
         monthId={monthId}
-        entries={studiesStat.entries}
-        total={studiesStat.total}
-        unresolvedCount={studiesStat.unresolvedCount}
-        onDismiss={() => setStudiesModalOpen(false)}
+        title="Hours"
+        singular={openLabels.singular}
+        plural={openLabels.plural}
+        unitSingular="hour"
+        unitPlural="hours"
+        entries={openStats.hours.entries}
+        valueOf={(report) => report.hours}
+        total={openStats.hours.total}
+        unresolvedCount={openStats.hours.unresolvedCount}
+        onDismiss={() => setOpenStat(null)}
+      />
+      <ReportValuesModal
+        isOpen={openStat?.kind === "bibleStudies"}
+        isLoading={isLoading}
+        monthId={monthId}
+        title="Bible Studies"
+        singular={openLabels.singular}
+        plural={openLabels.plural}
+        unitSingular="study"
+        unitPlural="studies"
+        entries={openStats.bibleStudies.entries}
+        valueOf={(report) => report.bible_studies}
+        total={openStats.bibleStudies.total}
+        unresolvedCount={openStats.bibleStudies.unresolvedCount}
+        onDismiss={() => setOpenStat(null)}
       />
     </>
   );

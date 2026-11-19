@@ -13,6 +13,8 @@ export const reportSchema = z.object({
   hours: z.number().nullable().default(null),
   bible_studies: z.number().nullable().default(null),
   aux_pio: z.boolean().default(false),
+  reg_pio: z.boolean().default(false),
+  spe_pio: z.boolean().default(false),
   reported_elsewhere: z.boolean().default(false),
 });
 

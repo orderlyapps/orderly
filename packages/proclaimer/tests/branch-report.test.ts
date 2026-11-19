@@ -2,8 +2,7 @@ import { expect, test } from "vite-plus/test";
 
 import {
   activePublisherIds,
-  publisherBibleStudies,
-  publisherReports,
+  monthReportStats,
   resolveActivePublishers,
   weekendAttendanceAverage,
   weekendAttendanceWeeks,
@@ -89,6 +88,8 @@ function report(
     hours: null,
     bible_studies: null,
     aux_pio: false,
+    reg_pio: false,
+    spe_pio: false,
     reported_elsewhere: false,
     ...overrides,
   };
@@ -121,13 +122,15 @@ test("activePublisherIds ignores inactive reports and reports after the month", 
   expect(activePublisherIds(reports, "2025-11")).toEqual([]);
 });
 
-test("activePublisherIds ignores reports submitted elsewhere", () => {
+test("activePublisherIds ignores reports submitted elsewhere or as a special pioneer", () => {
   const a = "00000000-0000-0000-0000-00000000000a";
   const b = "00000000-0000-0000-0000-00000000000b";
+  const c = "00000000-0000-0000-0000-00000000000c";
 
   const reports = [
     report(a, "2025-11-01", true, { reported_elsewhere: true }),
     report(b, "2025-11-01", true),
+    report(c, "2025-11-01", true, { spe_pio: true }),
   ];
 
   expect(activePublisherIds(reports, "2025-11")).toEqual([b]);
@@ -259,7 +262,7 @@ test("weekendAttendanceWeeks lists the counted weeks oldest first with totals", 
   ]);
 });
 
-test("publisherReports counts only type-publisher reporters in the selected month", () => {
+test("monthReportStats counts only type-publisher reporters in the selected month", () => {
   const pubA = publisher("pub-a", "Alpha");
   const pioneer = publisher("pub-b", "Beta", "regular_pioneer");
   const records = [
@@ -276,14 +279,14 @@ test("publisherReports counts only type-publisher reporters in the selected mont
     report("conf-a", "2025-10-01", true), // earlier month — excluded
   ];
 
-  const result = publisherReports(reports, [pubA, pioneer], records, "2025-11");
+  const result = monthReportStats(reports, [pubA, pioneer], records, "2025-11", "publisher");
 
-  expect(result.entries.map((entry) => entry.publisher.id)).toEqual(["pub-a"]);
+  expect(result.reports.entries.map((entry) => entry.publisher.id)).toEqual(["pub-a"]);
   // conf-c resolves to a publisher but is inactive — it is not counted as unresolved.
-  expect(result.unresolvedCount).toBe(1);
+  expect(result.reports.unresolvedCount).toBe(1);
 });
 
-test("publisherReports excludes auxiliary pioneer and reported-elsewhere reports", () => {
+test("monthReportStats excludes auxiliary pioneer and reported-elsewhere reports", () => {
   const pubA = publisher("pub-a", "Alpha");
   const pubB = publisher("pub-b", "Beta");
   const pubC = publisher("pub-c", "Carol");
@@ -302,26 +305,26 @@ test("publisherReports excludes auxiliary pioneer and reported-elsewhere reports
     report("conf-unknown", "2025-11-01", true), // unresolved
   ];
 
-  const result = publisherReports(reports, [pubA, pubB, pubC], records, "2025-11");
+  const result = monthReportStats(reports, [pubA, pubB, pubC], records, "2025-11", "publisher");
 
-  expect(result.entries.map((entry) => entry.publisher.id)).toEqual(["pub-a"]);
-  expect(result.unresolvedCount).toBe(1);
+  expect(result.reports.entries.map((entry) => entry.publisher.id)).toEqual(["pub-a"]);
+  expect(result.reports.unresolvedCount).toBe(1);
 });
 
-test("publisherReports excludes archived publishers without counting them unresolved", () => {
+test("monthReportStats excludes archived publishers without counting them unresolved", () => {
   const pubA = publisher("pub-a", "Alpha");
   const archived = { ...publisher("pub-b", "Beta"), archived_at: "2025-12-01T00:00:00+00:00" };
   const records = [localRecord("pub-a", "conf-a"), localRecord("pub-b", "conf-b")];
 
   const reports = [report("conf-a", "2025-11-01", true), report("conf-b", "2025-11-01", true)];
 
-  const result = publisherReports(reports, [pubA, archived], records, "2025-11");
+  const result = monthReportStats(reports, [pubA, archived], records, "2025-11", "publisher");
 
-  expect(result.entries.map((entry) => entry.publisher.id)).toEqual(["pub-a"]);
-  expect(result.unresolvedCount).toBe(0);
+  expect(result.reports.entries.map((entry) => entry.publisher.id)).toEqual(["pub-a"]);
+  expect(result.reports.unresolvedCount).toBe(0);
 });
 
-test("publisherReports resolves self-reports and counts each publisher once", () => {
+test("monthReportStats resolves self-reports and counts each publisher once", () => {
   const pubA = publisher("pub-a");
   const records = [localRecord("pub-a", "conf-a")];
 
@@ -329,13 +332,13 @@ test("publisherReports resolves self-reports and counts each publisher once", ()
   // report for the same month — the publisher counts once.
   const reports = [report("pub-a", "2025-11-01", true), report("conf-a", "2025-11-01", true)];
 
-  const result = publisherReports(reports, [pubA], records, "2025-11");
+  const result = monthReportStats(reports, [pubA], records, "2025-11", "publisher");
 
-  expect(result.entries.map((entry) => entry.publisher.id)).toEqual(["pub-a"]);
-  expect(result.unresolvedCount).toBe(0);
+  expect(result.reports.entries.map((entry) => entry.publisher.id)).toEqual(["pub-a"]);
+  expect(result.reports.unresolvedCount).toBe(0);
 });
 
-test("publisherBibleStudies sums studies, excluding auxiliary pioneer reports", () => {
+test("monthReportStats sums bible studies, excluding auxiliary pioneer reports", () => {
   const pubA = publisher("pub-a", "Alpha");
   const pubB = publisher("pub-b", "Beta");
   const pubC = publisher("pub-c", "Carol");
@@ -360,14 +363,20 @@ test("publisherBibleStudies sums studies, excluding auxiliary pioneer reports", 
     report("conf-a", "2025-10-01", true, { bible_studies: 7 }), // earlier month — excluded
   ];
 
-  const result = publisherBibleStudies(reports, [pubA, pubB, pubC, pioneer], records, "2025-11");
+  const result = monthReportStats(
+    reports,
+    [pubA, pubB, pubC, pioneer],
+    records,
+    "2025-11",
+    "publisher",
+  ).bibleStudies;
 
   expect(result.total).toBe(2);
-  expect(result.entries).toEqual([{ publisher: pubA, bibleStudies: 2 }]);
+  expect(result.entries.map((entry) => entry.publisher.id)).toEqual(["pub-a"]);
   expect(result.unresolvedCount).toBe(1);
 });
 
-test("publisherBibleStudies counts zero and null studies as no studies", () => {
+test("monthReportStats counts zero and null bible studies as no studies", () => {
   const pubA = publisher("pub-a");
   const pubB = publisher("pub-b", "Beta");
   const records = [localRecord("pub-a", "conf-a"), localRecord("pub-b", "conf-b")];
@@ -377,9 +386,128 @@ test("publisherBibleStudies counts zero and null studies as no studies", () => {
     report("conf-b", "2025-11-01", true, { bible_studies: null }),
   ];
 
-  const result = publisherBibleStudies(reports, [pubA, pubB], records, "2025-11");
+  const result = monthReportStats(
+    reports,
+    [pubA, pubB],
+    records,
+    "2025-11",
+    "publisher",
+  ).bibleStudies;
 
   expect(result.total).toBe(0);
   expect(result.entries).toEqual([]);
   expect(result.unresolvedCount).toBe(0);
+});
+
+test("monthReportStats routes aux_pio reports to the auxiliary pioneer category", () => {
+  const pubA = publisher("pub-a", "Alpha");
+  const pubB = publisher("pub-b", "Beta");
+  const pioneer = publisher("pub-c", "Carol", "regular_pioneer");
+  const records = [
+    localRecord("pub-a", "conf-a"),
+    localRecord("pub-b", "conf-b"),
+    localRecord("pub-c", "conf-c"),
+  ];
+
+  const reports = [
+    report("conf-a", "2025-11-01", true, { hours: 1, bible_studies: 2, aux_pio: true }),
+    report("conf-b", "2025-11-01", true, { hours: 5, bible_studies: 1 }),
+    // A regular pioneer's report is auxiliary when flagged aux_pio.
+    report("conf-c", "2025-11-01", true, { hours: 10, aux_pio: true }),
+    report("conf-aux", "2025-11-01", true, { hours: 3, bible_studies: 4, aux_pio: true }),
+  ];
+
+  const publishers = [pubA, pubB, pioneer];
+  const aux = monthReportStats(reports, publishers, records, "2025-11", "auxiliary_pioneer");
+  const regular = monthReportStats(reports, publishers, records, "2025-11", "publisher");
+
+  expect(aux.reports.entries.map((entry) => entry.publisher.id)).toEqual(["pub-a", "pub-c"]);
+  expect(aux.reports.unresolvedCount).toBe(1);
+  expect(aux.hours.total).toBe(11);
+  expect(aux.hours.unresolvedCount).toBe(1);
+  expect(aux.bibleStudies.total).toBe(2);
+  expect(aux.bibleStudies.unresolvedCount).toBe(1);
+
+  expect(regular.reports.entries.map((entry) => entry.publisher.id)).toEqual(["pub-b"]);
+  expect(regular.reports.unresolvedCount).toBe(0);
+  expect(regular.hours.total).toBe(5);
+  expect(regular.bibleStudies.total).toBe(1);
+});
+
+test("monthReportStats routes regular pioneer reports by type and reg_pio flag", () => {
+  const pubA = publisher("pub-a", "Alpha");
+  const pioneer = publisher("pub-b", "Beta", "regular_pioneer");
+  const flagged = publisher("pub-c", "Carol"); // type not yet synced — flag decides
+  const records = [
+    localRecord("pub-a", "conf-a"),
+    localRecord("pub-b", "conf-b"),
+    localRecord("pub-c", "conf-c"),
+  ];
+
+  const reports = [
+    report("conf-a", "2025-11-01", true, { hours: 2, bible_studies: 1 }),
+    report("conf-b", "2025-11-01", true, { hours: 50, bible_studies: 3 }),
+    report("conf-c", "2025-11-01", true, { hours: 40, reg_pio: true }),
+    report("conf-reg", "2025-11-01", true, { hours: 30, bible_studies: 2, reg_pio: true }),
+  ];
+
+  const publishers = [pubA, pioneer, flagged];
+  const reg = monthReportStats(reports, publishers, records, "2025-11", "regular_pioneer");
+  const regular = monthReportStats(reports, publishers, records, "2025-11", "publisher");
+
+  expect(reg.reports.entries.map((entry) => entry.publisher.id)).toEqual(["pub-b", "pub-c"]);
+  expect(reg.reports.unresolvedCount).toBe(1);
+  expect(reg.hours.total).toBe(90);
+  expect(reg.hours.unresolvedCount).toBe(1);
+  expect(reg.bibleStudies.total).toBe(3);
+  expect(reg.bibleStudies.unresolvedCount).toBe(1);
+
+  // reg_pio-flagged reports never fall back to the publisher category.
+  expect(regular.reports.entries.map((entry) => entry.publisher.id)).toEqual(["pub-a"]);
+  expect(regular.reports.unresolvedCount).toBe(0);
+});
+
+test("monthReportStats hours counts zero and null hours as no hours", () => {
+  const pubA = publisher("pub-a");
+  const pubB = publisher("pub-b", "Beta", "regular_pioneer");
+  const records = [localRecord("pub-a", "conf-a"), localRecord("pub-b", "conf-b")];
+
+  const reports = [
+    report("conf-a", "2025-11-01", true, { hours: 0 }),
+    report("conf-b", "2025-11-01", true, { hours: null }),
+    report("conf-reg", "2025-11-01", true, { hours: null, reg_pio: true }),
+  ];
+
+  const result = monthReportStats(reports, [pubA, pubB], records, "2025-11", "regular_pioneer");
+
+  expect(result.reports.entries.map((entry) => entry.publisher.id)).toEqual(["pub-b"]);
+  expect(result.reports.unresolvedCount).toBe(1);
+  expect(result.hours.total).toBe(0);
+  expect(result.hours.entries).toEqual([]);
+  expect(result.hours.unresolvedCount).toBe(0);
+});
+
+test("monthReportStats excludes spe_pio reports from every category", () => {
+  const pubA = publisher("pub-a", "Alpha");
+  const pioneer = publisher("pub-b", "Beta", "regular_pioneer");
+  const records = [localRecord("pub-a", "conf-a"), localRecord("pub-b", "conf-b")];
+
+  const reports = [
+    report("conf-a", "2025-11-01", true, { hours: 2, bible_studies: 1 }),
+    report("conf-b", "2025-11-01", true, { hours: 70, bible_studies: 4, spe_pio: true }),
+    report("conf-spe", "2025-11-01", true, { hours: 70, bible_studies: 5, spe_pio: true }),
+  ];
+
+  const publishers = [pubA, pioneer];
+  for (const category of ["publisher", "auxiliary_pioneer", "regular_pioneer"] as const) {
+    const result = monthReportStats(reports, publishers, records, "2025-11", category);
+    expect(result.reports.entries.map((entry) => entry.publisher.id)).toEqual(
+      category === "publisher" ? ["pub-a"] : [],
+    );
+    expect(result.reports.unresolvedCount).toBe(0);
+    expect(result.hours.total).toBe(category === "publisher" ? 2 : 0);
+    expect(result.hours.unresolvedCount).toBe(0);
+    expect(result.bibleStudies.total).toBe(category === "publisher" ? 1 : 0);
+    expect(result.bibleStudies.unresolvedCount).toBe(0);
+  }
 });

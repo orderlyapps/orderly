@@ -2,7 +2,6 @@ export {
   ActivePublishersModal,
   type ActivePublishersModalProps,
 } from "./ActivePublishersModal.tsx";
-export { BibleStudiesModal, type BibleStudiesModalProps } from "./BibleStudiesModal.tsx";
 export { BranchReportView, type BranchReportViewProps } from "./BranchReportView.tsx";
 export {
   createReportCollection,
@@ -16,18 +15,20 @@ export {
   PublisherReportsModal,
   type PublisherReportsModalProps,
 } from "./PublisherReportsModal.tsx";
+export { ReportValuesModal, type ReportValuesModalProps } from "./ReportValuesModal.tsx";
 export { REPORT_TABLE, reportSchema, type Report } from "./schema.ts";
 export {
   ACTIVE_PUBLISHER_WINDOW_MONTHS,
   activePublisherIds,
-  publisherBibleStudies,
-  publisherReports,
+  monthReportStats,
   resolveActivePublishers,
   weekendAttendanceAverage,
   weekendAttendanceWeeks,
-  type PublisherBibleStudiesStat,
-  type PublisherReportEntry,
-  type PublisherReportStat,
+  type CategoryMonthStats,
+  type ReportCategory,
+  type ReportCountStat,
+  type ReportStatEntry,
+  type ReportValueStat,
   type ResolvedActivePublishers,
   type WeekendAttendanceStat,
   type WeekendAttendanceWeek,
