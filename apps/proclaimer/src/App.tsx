@@ -31,6 +31,7 @@ import Onboarding from "./pages/Onboarding";
 import Publishers from "./pages/Publishers";
 import Schedules from "./pages/Schedules";
 import Secretary from "./pages/Secretary";
+import BranchReport from "./pages/secretary/BranchReport";
 import Settings from "./pages/Settings";
 import SettingsAbout from "./pages/settings/About";
 import Cleaning from "./pages/schedules/Cleaning";
@@ -103,6 +104,7 @@ const App = () => {
               <Route path="/schedules/cleaning" element={<Cleaning />} />
               <Route path="/schedules/events" element={<Events />} />
               <Route path="/secretary" element={<Secretary />} />
+              <Route path="/secretary/branch-report/:monthId?" element={<BranchReport />} />
               <Route path="/publishers" element={<Publishers />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/about" element={<SettingsAbout />} />

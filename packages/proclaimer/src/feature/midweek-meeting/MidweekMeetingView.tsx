@@ -7,8 +7,8 @@ import {
   MeetingProgramLoading,
   SectionHeader,
 } from "../meeting/components.tsx";
+import { SlideTransition } from "../meeting/SlideTransition.tsx";
 import { WeekNavigator } from "../meeting/WeekNavigator.tsx";
-import { WeekTransition } from "../meeting/WeekTransition.tsx";
 import { useMidweekMeeting } from "./hooks.ts";
 import type { MeetingProgram } from "./program.ts";
 import { midweekMeetingAssignmentIds } from "./schema.ts";
@@ -115,7 +115,7 @@ export function MidweekMeetingView({
         onSelectWeek={onSelectWeek}
       />
       <div style={{ height: 24 }} />
-      <WeekTransition weekId={weekId}>
+      <SlideTransition transitionKey={weekId}>
         {error ? (
           <div style={{ padding: "40px 24px", textAlign: "center" }}>
             <IonNote color="danger">{error.message}</IonNote>
@@ -136,7 +136,7 @@ export function MidweekMeetingView({
             assignmentBasePath={assignmentBasePath}
           />
         )}
-      </WeekTransition>
+      </SlideTransition>
     </>
   );
 }

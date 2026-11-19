@@ -4,19 +4,19 @@ const TRANSITION_MS = 320;
 const EASING = "cubic-bezier(0.32, 0.72, 0, 1)";
 
 const TRANSITION_CSS = `
-@keyframes week-transition-in-forward {
+@keyframes slide-transition-in-forward {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
 }
-@keyframes week-transition-out-forward {
+@keyframes slide-transition-out-forward {
   from { transform: translateX(0); }
   to { transform: translateX(-32%); }
 }
-@keyframes week-transition-in-back {
+@keyframes slide-transition-in-back {
   from { transform: translateX(-100%); }
   to { transform: translateX(0); }
 }
-@keyframes week-transition-out-back {
+@keyframes slide-transition-out-back {
   from { transform: translateX(0); }
   to { transform: translateX(32%); }
 }
@@ -27,32 +27,33 @@ interface OutgoingPanel {
   direction: 1 | -1;
 }
 
-export interface WeekTransitionProps {
-  weekId: string;
+export interface SlideTransitionProps {
+  /** Identifies the visible period (e.g. a week or month id); its ordering sets the slide direction. */
+  transitionKey: string;
   children: ReactNode;
 }
 
 /**
- * Slides week content horizontally when `weekId` changes: the incoming week
+ * Slides content horizontally when `transitionKey` changes: the incoming panel
  * slides over the outgoing one, which parallaxes away in the travel direction.
  * The outgoing panel reuses the previous render's element tree, so it keeps
- * showing the old week's data while the new week loads beneath it.
+ * showing the old period's data while the new period loads beneath it.
  */
-export function WeekTransition({ weekId, children }: WeekTransitionProps) {
+export function SlideTransition({ transitionKey, children }: SlideTransitionProps) {
   const [outgoing, setOutgoing] = useState<OutgoingPanel | null>(null);
-  const current = useRef({ weekId, node: children });
+  const current = useRef({ transitionKey, node: children });
 
-  if (current.current.weekId !== weekId) {
+  if (current.current.transitionKey !== transitionKey) {
     const reducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!reducedMotion) {
       setOutgoing({
         node: current.current.node,
-        direction: weekId > current.current.weekId ? 1 : -1,
+        direction: transitionKey > current.current.transitionKey ? 1 : -1,
       });
     }
-    current.current = { weekId, node: children };
+    current.current = { transitionKey, node: children };
   } else {
     current.current.node = children;
   }
@@ -82,18 +83,18 @@ export function WeekTransition({ weekId, children }: WeekTransitionProps) {
             left: 0,
             right: 0,
             pointerEvents: "none",
-            animation: `week-transition-out-${direction} ${TRANSITION_MS}ms ${EASING} forwards`,
+            animation: `slide-transition-out-${direction} ${TRANSITION_MS}ms ${EASING} forwards`,
           }}
         >
           {outgoing.node}
         </div>
       )}
       <div
-        key={weekId}
+        key={transitionKey}
         style={{
           background: "var(--ion-background-color)",
           ...(outgoing
-            ? { animation: `week-transition-in-${direction} ${TRANSITION_MS}ms ${EASING}` }
+            ? { animation: `slide-transition-in-${direction} ${TRANSITION_MS}ms ${EASING}` }
             : null),
         }}
       >
