@@ -1,6 +1,14 @@
 import { useMemo, useState } from "react";
 
-import { IonButton, IonItem, IonLabel, IonList, IonNote, IonSkeletonText } from "@ionic/react";
+import {
+  IonButton,
+  IonItem,
+  IonLabel,
+  IonList,
+  IonListHeader,
+  IonNote,
+  IonSkeletonText,
+} from "@ionic/react";
 
 import { monthLabel, previousMonthId, relativeMonthLabel, shiftMonthId } from "../../util/month.ts";
 import { SlideTransition } from "../meeting/SlideTransition.tsx";
@@ -8,11 +16,15 @@ import { useMeetingAttendances } from "../meeting-attendance/hooks.ts";
 import { usePublisherLocalRecords } from "../publisher-local/hooks.ts";
 import { usePublishers } from "../publisher/hooks.ts";
 import { ActivePublishersModal } from "./ActivePublishersModal.tsx";
+import { BibleStudiesModal } from "./BibleStudiesModal.tsx";
 import { useReports } from "./hooks.ts";
 import { MonthNavigator } from "./MonthNavigator.tsx";
+import { PublisherReportsModal } from "./PublisherReportsModal.tsx";
 import {
   ACTIVE_PUBLISHER_WINDOW_MONTHS,
   activePublisherIds,
+  publisherBibleStudies,
+  publisherReports,
   resolveActivePublishers,
   weekendAttendanceAverage,
   weekendAttendanceWeeks,
@@ -32,6 +44,8 @@ export function BranchReportView({
 }: BranchReportViewProps) {
   const [activeModalOpen, setActiveModalOpen] = useState(false);
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
+  const [reportsModalOpen, setReportsModalOpen] = useState(false);
+  const [studiesModalOpen, setStudiesModalOpen] = useState(false);
   const {
     reports,
     isLoading: reportsLoading,
@@ -67,6 +81,14 @@ export function BranchReportView({
     () => weekendAttendanceWeeks(attendances, monthId),
     [attendances, monthId],
   );
+  const reportStat = useMemo(
+    () => publisherReports(reports, publishers, localRecords, monthId),
+    [reports, publishers, localRecords, monthId],
+  );
+  const studiesStat = useMemo(
+    () => publisherBibleStudies(reports, publishers, localRecords, monthId),
+    [reports, publishers, localRecords, monthId],
+  );
 
   return (
     <>
@@ -91,38 +113,71 @@ export function BranchReportView({
             )}
           </div>
         ) : (
-          <IonList>
-            <IonItem button detail onClick={() => setActiveModalOpen(true)}>
-              <IonLabel>
-                <h3>All Active Publishers</h3>
-                <p>
-                  Active at least once, {monthLabel(windowStart)} – {monthLabel(monthId)}
-                </p>
-              </IonLabel>
-              <IonNote slot="end" style={{ fontSize: "1rem" }}>
-                {isLoading ? (
-                  <IonSkeletonText animated style={{ width: 32, height: 16 }} />
-                ) : (
-                  activePublishers.length + unresolvedCount
-                )}
-              </IonNote>
-            </IonItem>
-            <IonItem button detail onClick={() => setAttendanceModalOpen(true)}>
-              <IonLabel>
-                <h3>Average Weekend Meeting Attendance</h3>
-                <p>Per week starting in {monthLabel(monthId)}</p>
-              </IonLabel>
-              <IonNote slot="end" style={{ fontSize: "1rem" }}>
-                {isLoading ? (
-                  <IonSkeletonText animated style={{ width: 32, height: 16 }} />
-                ) : weekendAttendance.average == null ? (
-                  "—"
-                ) : (
-                  Math.round(weekendAttendance.average)
-                )}
-              </IonNote>
-            </IonItem>
-          </IonList>
+          <>
+            <IonList>
+              <IonItem button detail onClick={() => setActiveModalOpen(true)}>
+                <IonLabel>
+                  <h3>All Active Publishers</h3>
+                  <p>
+                    Active at least once, {monthLabel(windowStart)} – {monthLabel(monthId)}
+                  </p>
+                </IonLabel>
+                <IonNote slot="end" style={{ fontSize: "1rem" }}>
+                  {isLoading ? (
+                    <IonSkeletonText animated style={{ width: 32, height: 16 }} />
+                  ) : (
+                    activePublishers.length + unresolvedCount
+                  )}
+                </IonNote>
+              </IonItem>
+              <IonItem button detail onClick={() => setAttendanceModalOpen(true)}>
+                <IonLabel>
+                  <h3>Average Weekend Meeting Attendance</h3>
+                  <p>Per week starting in {monthLabel(monthId)}</p>
+                </IonLabel>
+                <IonNote slot="end" style={{ fontSize: "1rem" }}>
+                  {isLoading ? (
+                    <IonSkeletonText animated style={{ width: 32, height: 16 }} />
+                  ) : weekendAttendance.average == null ? (
+                    "—"
+                  ) : (
+                    Math.round(weekendAttendance.average)
+                  )}
+                </IonNote>
+              </IonItem>
+            </IonList>
+            <IonList>
+              <IonListHeader>
+                <IonLabel>Publishers</IonLabel>
+              </IonListHeader>
+              <IonItem button detail onClick={() => setReportsModalOpen(true)}>
+                <IonLabel>
+                  <h3>Number of Reports</h3>
+                  <p>Publishers reporting in {monthLabel(monthId)}</p>
+                </IonLabel>
+                <IonNote slot="end" style={{ fontSize: "1rem" }}>
+                  {isLoading ? (
+                    <IonSkeletonText animated style={{ width: 32, height: 16 }} />
+                  ) : (
+                    reportStat.entries.length + reportStat.unresolvedCount
+                  )}
+                </IonNote>
+              </IonItem>
+              <IonItem button detail onClick={() => setStudiesModalOpen(true)}>
+                <IonLabel>
+                  <h3>Bible Studies</h3>
+                  <p>Reported by publishers in {monthLabel(monthId)}</p>
+                </IonLabel>
+                <IonNote slot="end" style={{ fontSize: "1rem" }}>
+                  {isLoading ? (
+                    <IonSkeletonText animated style={{ width: 32, height: 16 }} />
+                  ) : (
+                    studiesStat.total
+                  )}
+                </IonNote>
+              </IonItem>
+            </IonList>
+          </>
         )}
       </SlideTransition>
       <ActivePublishersModal
@@ -140,6 +195,23 @@ export function BranchReportView({
         weeks={attendanceWeeks}
         average={weekendAttendance.average}
         onDismiss={() => setAttendanceModalOpen(false)}
+      />
+      <PublisherReportsModal
+        isOpen={reportsModalOpen}
+        isLoading={isLoading}
+        monthId={monthId}
+        entries={reportStat.entries}
+        unresolvedCount={reportStat.unresolvedCount}
+        onDismiss={() => setReportsModalOpen(false)}
+      />
+      <BibleStudiesModal
+        isOpen={studiesModalOpen}
+        isLoading={isLoading}
+        monthId={monthId}
+        entries={studiesStat.entries}
+        total={studiesStat.total}
+        unresolvedCount={studiesStat.unresolvedCount}
+        onDismiss={() => setStudiesModalOpen(false)}
       />
     </>
   );

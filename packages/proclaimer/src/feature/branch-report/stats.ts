@@ -14,13 +14,15 @@ export const ACTIVE_PUBLISHER_WINDOW_MONTHS = 6;
 /**
  * Distinct publisher ids (report `confidential_id`) with at least one `active`
  * report dated in `monthId` or the months covered by
- * `ACTIVE_PUBLISHER_WINDOW_MONTHS` leading up to it.
+ * `ACTIVE_PUBLISHER_WINDOW_MONTHS` leading up to it. Reports flagged
+ * `reported_elsewhere` are excluded — they count toward another
+ * congregation's report, not this one.
  */
 export function activePublisherIds(reports: Report[], monthId: string): string[] {
   const windowStart = shiftMonthId(monthId, -(ACTIVE_PUBLISHER_WINDOW_MONTHS - 1));
   const ids = new Set<string>();
   for (const report of reports) {
-    if (!report.active) {
+    if (!report.active || report.reported_elsewhere) {
       continue;
     }
     const reportMonth = report.date.slice(0, 7);
@@ -92,6 +94,20 @@ export function weekendAttendanceAverage(
   return { average: weeks.length === 0 ? null : total / weeks.length, weekCount: weeks.length };
 }
 
+/**
+ * Maps each publisher-local `confidential_id` to its `publisher_id`, used to
+ * resolve report `confidential_id` values to publisher rows.
+ */
+function confidentialPublisherIds(localRecords: PublisherLocal[]): Map<string, string> {
+  const confidentialToPublisher = new Map<string, string>();
+  for (const record of localRecords) {
+    if (record.confidential_id) {
+      confidentialToPublisher.set(record.confidential_id, record.publisher_id);
+    }
+  }
+  return confidentialToPublisher;
+}
+
 export interface ResolvedActivePublishers {
   /** Publisher rows matching the active ids, in the order `publishers` was given. */
   publishers: Publisher[];
@@ -116,12 +132,7 @@ export function resolveActivePublishers(
   const publisherIds = new Set(
     publishers.map((p) => p.id).filter((id): id is string => id != null),
   );
-  const confidentialToPublisher = new Map<string, string>();
-  for (const record of localRecords) {
-    if (record.confidential_id) {
-      confidentialToPublisher.set(record.confidential_id, record.publisher_id);
-    }
-  }
+  const confidentialToPublisher = confidentialPublisherIds(localRecords);
 
   const resolvedIds = new Set<string>();
   let unresolvedCount = 0;
@@ -139,5 +150,157 @@ export function resolveActivePublishers(
   return {
     publishers: publishers.filter((p) => p.id != null && resolvedIds.has(p.id) && !isArchived(p)),
     unresolvedCount,
+  };
+}
+
+const PUBLISHER_TYPE = "publisher";
+
+interface ResolvedMonthReport {
+  report: Report;
+  publisher: Publisher;
+}
+
+/**
+ * Resolves `active` reports dated in `monthId` to publisher rows, using the
+ * same confidential-id mapping as `resolveActivePublishers`. Reports flagged
+ * `reported_elsewhere` are skipped entirely — they count toward another
+ * congregation's report, not this one. Archived publishers resolve but are
+ * excluded from the result without counting as unresolved, matching
+ * `resolveActivePublishers`. A publisher reports at most once: when multiple
+ * confidential ids resolve to the same publisher in the same month (e.g. a
+ * self-report plus a secretary-entered report), the first report wins and
+ * later rows' field data (hours, studies) is dropped — the publisher still
+ * counts once. Reports matching no publisher row are returned in `unresolved`
+ * so each stat can decide how to surface them.
+ */
+function resolveActiveMonthReports(
+  reports: Report[],
+  publishers: Publisher[],
+  localRecords: PublisherLocal[],
+  monthId: string,
+): { resolved: ResolvedMonthReport[]; unresolved: Report[] } {
+  const byId = new Map<string, Publisher>();
+  for (const publisher of publishers) {
+    if (publisher.id != null) {
+      byId.set(publisher.id, publisher);
+    }
+  }
+  const confidentialToPublisher = confidentialPublisherIds(localRecords);
+
+  const reportByPublisherId = new Map<string, Report>();
+  const unresolved: Report[] = [];
+  for (const report of reports) {
+    if (!report.active || report.reported_elsewhere || report.date.slice(0, 7) !== monthId) {
+      continue;
+    }
+    const mapped = confidentialToPublisher.get(report.confidential_id);
+    const publisherId =
+      mapped != null && byId.has(mapped)
+        ? mapped
+        : byId.has(report.confidential_id)
+          ? report.confidential_id
+          : null;
+    if (publisherId == null) {
+      unresolved.push(report);
+    } else if (!reportByPublisherId.has(publisherId)) {
+      reportByPublisherId.set(publisherId, report);
+    }
+  }
+
+  const resolved: ResolvedMonthReport[] = [];
+  for (const publisher of publishers) {
+    if (publisher.id == null || isArchived(publisher)) {
+      continue;
+    }
+    const report = reportByPublisherId.get(publisher.id);
+    if (report) {
+      resolved.push({ report, publisher });
+    }
+  }
+  return { resolved, unresolved };
+}
+
+export interface PublisherReportEntry {
+  /** A publisher counted in the stat. */
+  publisher: Publisher;
+  /** Bible studies on their report for the month (null when not recorded). */
+  bibleStudies: number | null;
+}
+
+export interface PublisherReportStat {
+  /** Counted publishers, in the order `publishers` was given. */
+  entries: PublisherReportEntry[];
+  /**
+   * Active in-month reports that could not be matched to a publisher on this
+   * device — each may be a `type` "publisher" report missing from `entries`.
+   */
+  unresolvedCount: number;
+}
+
+/**
+ * Publishers of `type` "publisher" with an active report dated in `monthId` —
+ * the "Number of Reports" stat. Reports submitted as an auxiliary pioneer
+ * (`aux_pio`) are excluded from both `entries` and `unresolvedCount`; they
+ * belong to a separate reporter category.
+ */
+export function publisherReports(
+  reports: Report[],
+  publishers: Publisher[],
+  localRecords: PublisherLocal[],
+  monthId: string,
+): PublisherReportStat {
+  const { resolved, unresolved } = resolveActiveMonthReports(
+    reports,
+    publishers,
+    localRecords,
+    monthId,
+  );
+  return {
+    entries: resolved
+      .filter((entry) => entry.publisher.type === PUBLISHER_TYPE && !entry.report.aux_pio)
+      .map((entry) => ({ publisher: entry.publisher, bibleStudies: entry.report.bible_studies })),
+    unresolvedCount: unresolved.filter((report) => !report.aux_pio).length,
+  };
+}
+
+export interface PublisherBibleStudiesStat extends PublisherReportStat {
+  /** Sum of bible studies across `entries`. */
+  total: number;
+}
+
+/**
+ * Bible studies reported in `monthId` by publishers of `type` "publisher" —
+ * the "Bible Studies" stat. Reports submitted as an auxiliary pioneer
+ * (`aux_pio`) are excluded. `entries` lists only publishers that reported at
+ * least one study; `unresolvedCount` counts reports with studies that could
+ * not be matched to a publisher on this device.
+ */
+export function publisherBibleStudies(
+  reports: Report[],
+  publishers: Publisher[],
+  localRecords: PublisherLocal[],
+  monthId: string,
+): PublisherBibleStudiesStat {
+  const { resolved, unresolved } = resolveActiveMonthReports(
+    reports,
+    publishers,
+    localRecords,
+    monthId,
+  );
+  const entries = resolved
+    .filter(
+      (entry) =>
+        entry.publisher.type === PUBLISHER_TYPE &&
+        !entry.report.aux_pio &&
+        entry.report.bible_studies != null &&
+        entry.report.bible_studies > 0,
+    )
+    .map((entry) => ({ publisher: entry.publisher, bibleStudies: entry.report.bible_studies }));
+  return {
+    entries,
+    total: entries.reduce((sum, entry) => sum + (entry.bibleStudies ?? 0), 0),
+    unresolvedCount: unresolved.filter(
+      (report) => !report.aux_pio && report.bible_studies != null && report.bible_studies > 0,
+    ).length,
   };
 }

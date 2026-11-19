@@ -18,7 +18,8 @@ export function createReportCollection(congregationId: string, monthId: string) 
   return createSupabaseTableCollection<Report>({
     table: REPORT_TABLE,
     id: `${REPORT_TABLE}:${congregationId}:${monthId}`,
-    select: "confidential_id,congregation_id,date,active,hours,bible_studies",
+    select:
+      "confidential_id,congregation_id,date,active,hours,bible_studies,aux_pio,reported_elsewhere",
     match: { congregation_id: congregationId },
     filter: (query) => query.gte("date", windowStart).lt("date", windowEnd),
     keyColumns: ["confidential_id", "congregation_id", "date"],

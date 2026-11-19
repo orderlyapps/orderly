@@ -12,6 +12,8 @@ export const reportSchema = z.object({
   active: z.boolean(),
   hours: z.number().nullable().default(null),
   bible_studies: z.number().nullable().default(null),
+  aux_pio: z.boolean().default(false),
+  reported_elsewhere: z.boolean().default(false),
 });
 
 export type Report = z.infer<typeof reportSchema>;
