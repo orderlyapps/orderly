@@ -18,7 +18,7 @@ import {
 } from "@ionic/react";
 
 import { monthLabel } from "../../util/month.ts";
-import { getPublisherDisplayName } from "../publisher/schema.ts";
+import { getPublisherDisplayName, type Publisher } from "../publisher/schema.ts";
 import type { Report } from "./schema.ts";
 import type { ReportStatEntry } from "./stats.ts";
 
@@ -42,6 +42,8 @@ export interface ReportValuesModalProps {
   total: number;
   /** Reports with a value that could not be resolved to a name on this device. */
   unresolvedCount: number;
+  /** Called with a tapped publisher (e.g. to open their report history). */
+  onSelectPublisher?: (publisher: Publisher) => void;
   onDismiss: () => void;
 }
 
@@ -59,6 +61,7 @@ export function ReportValuesModal({
   valueOf,
   total,
   unresolvedCount,
+  onSelectPublisher,
   onDismiss,
 }: ReportValuesModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -119,12 +122,27 @@ export function ReportValuesModal({
                   </IonLabel>
                 </IonItem>
               ) : (
-                filtered.map(({ publisher, displayName, report }) => (
-                  <IonItem key={publisher.id ?? displayName}>
-                    <IonLabel>{displayName}</IonLabel>
-                    <IonNote slot="end">{valueOf(report) ?? 0}</IonNote>
-                  </IonItem>
-                ))
+                filtered.map(({ publisher, displayName, report }) => {
+                  const selectable = onSelectPublisher != null && publisher.id != null;
+                  return (
+                    <IonItem
+                      key={publisher.id ?? displayName}
+                      button={selectable}
+                      detail={selectable}
+                      onClick={
+                        selectable
+                          ? () => {
+                              onSelectPublisher(publisher);
+                              handleDismiss();
+                            }
+                          : undefined
+                      }
+                    >
+                      <IonLabel>{displayName}</IonLabel>
+                      <IonNote slot="end">{valueOf(report) ?? 0}</IonNote>
+                    </IonItem>
+                  );
+                })
               )}
               {unresolvedCount > 0 && (
                 <IonItem lines="none">

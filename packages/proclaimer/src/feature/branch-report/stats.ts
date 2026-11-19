@@ -11,6 +11,9 @@ import type { Report } from "./schema.ts";
  */
 export const ACTIVE_PUBLISHER_WINDOW_MONTHS = 6;
 
+/** Months of history shown on a publisher's report page, ending at the viewed month. */
+export const PUBLISHER_REPORT_WINDOW_MONTHS = 24;
+
 /**
  * Distinct publisher ids (report `confidential_id`) with at least one `active`
  * report dated in `monthId` or the months covered by
@@ -152,6 +155,56 @@ export function resolveActivePublishers(
     publishers: publishers.filter((p) => p.id != null && resolvedIds.has(p.id) && !isArchived(p)),
     unresolvedCount,
   };
+}
+
+/**
+ * The `confidential_id` values a publisher's reports may be filed under: the
+ * publisher's own id (self-reports store it directly, matching
+ * `resolveActiveMonthReports`) plus the `confidential_id` of each on-device
+ * local record for that publisher.
+ */
+export function publisherConfidentialIds(
+  publisher: Publisher | null | undefined,
+  localRecords: PublisherLocal[],
+): string[] {
+  if (publisher?.id == null) {
+    return [];
+  }
+  const ids = new Set<string>([publisher.id]);
+  for (const record of localRecords) {
+    if (record.publisher_id === publisher.id && record.confidential_id) {
+      ids.add(record.confidential_id);
+    }
+  }
+  return [...ids];
+}
+
+/** The `PUBLISHER_REPORT_WINDOW_MONTHS` month ids ending at `monthId`, newest first. */
+export function publisherReportMonthIds(monthId: string): string[] {
+  return Array.from({ length: PUBLISHER_REPORT_WINDOW_MONTHS }, (_, index) =>
+    shiftMonthId(monthId, -index),
+  );
+}
+
+/**
+ * One report per month ("YYYY-MM") for a publisher's report set. When
+ * duplicate reports exist for a month (e.g. a self-report plus a
+ * secretary-entered report under different confidential ids) the active
+ * report wins; otherwise the first wins.
+ */
+export function publisherReportsByMonth(reports: Report[]): Map<string, Report> {
+  const byMonth = new Map<string, Report>();
+  for (const report of reports) {
+    const monthId = report.date.slice(0, 7);
+    if (!isMonthId(monthId)) {
+      continue;
+    }
+    const existing = byMonth.get(monthId);
+    if (existing == null || (!existing.active && report.active)) {
+      byMonth.set(monthId, report);
+    }
+  }
+  return byMonth;
 }
 
 const PUBLISHER_TYPE = "publisher";

@@ -3,6 +3,10 @@ import { expect, test } from "vite-plus/test";
 import {
   activePublisherIds,
   monthReportStats,
+  PUBLISHER_REPORT_WINDOW_MONTHS,
+  publisherConfidentialIds,
+  publisherReportMonthIds,
+  publisherReportsByMonth,
   resolveActivePublishers,
   weekendAttendanceAverage,
   weekendAttendanceWeeks,
@@ -490,6 +494,46 @@ test("monthReportStats hours counts zero and null hours as no hours", () => {
   expect(result.hours.total).toBe(0);
   expect(result.hours.entries).toEqual([]);
   expect(result.hours.unresolvedCount).toBe(0);
+});
+
+test("publisherConfidentialIds includes the publisher id and its local record ids", () => {
+  const pubA = publisher("pub-a");
+  const records = [
+    localRecord("pub-a", "conf-a"),
+    localRecord("pub-b", "conf-b"), // another publisher — excluded
+  ];
+
+  expect(publisherConfidentialIds(pubA, records).sort()).toEqual(["conf-a", "pub-a"].sort());
+  expect(publisherConfidentialIds(pubA, [])).toEqual(["pub-a"]);
+});
+
+test("publisherConfidentialIds returns empty for a missing or id-less publisher", () => {
+  expect(publisherConfidentialIds(null, [localRecord("pub-a", "conf-a")])).toEqual([]);
+  expect(publisherConfidentialIds({ first_name: "Test", last_name: "Publisher" }, [])).toEqual([]);
+});
+
+test("publisherReportMonthIds lists the window's months ending at monthId, newest first", () => {
+  const ids = publisherReportMonthIds("2025-11");
+
+  expect(ids).toHaveLength(PUBLISHER_REPORT_WINDOW_MONTHS);
+  expect(ids[0]).toBe("2025-11");
+  expect(ids[PUBLISHER_REPORT_WINDOW_MONTHS - 1]).toBe("2023-12");
+});
+
+test("publisherReportsByMonth keeps one report per month, preferring the active one", () => {
+  const reports = [
+    report("conf-a", "2025-11-01", false),
+    report("pub-a", "2025-11-01", true, { hours: 3 }),
+    report("conf-a", "2025-10-01", false),
+    report("conf-a", "junk", true), // malformed date — dropped
+  ];
+
+  const byMonth = publisherReportsByMonth(reports);
+
+  expect(byMonth.size).toBe(2);
+  expect(byMonth.get("2025-11")?.active).toBe(true);
+  expect(byMonth.get("2025-11")?.hours).toBe(3);
+  expect(byMonth.get("2025-10")?.active).toBe(false);
 });
 
 test("monthReportStats excludes spe_pio reports from every category", () => {

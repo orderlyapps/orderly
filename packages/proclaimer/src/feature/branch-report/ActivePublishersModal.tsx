@@ -28,6 +28,8 @@ export interface ActivePublishersModalProps {
   publishers: Publisher[];
   /** Active reporters that could not be resolved to a name on this device. */
   unresolvedCount: number;
+  /** Called with a tapped publisher (e.g. to open their report history). */
+  onSelectPublisher?: (publisher: Publisher) => void;
   onDismiss: () => void;
 }
 
@@ -38,6 +40,7 @@ export function ActivePublishersModal({
   monthId,
   publishers,
   unresolvedCount,
+  onSelectPublisher,
   onDismiss,
 }: ActivePublishersModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -97,11 +100,26 @@ export function ActivePublishersModal({
                   </IonLabel>
                 </IonItem>
               ) : (
-                filtered.map(({ publisher, displayName }) => (
-                  <IonItem key={publisher.id ?? displayName}>
-                    <IonLabel>{displayName}</IonLabel>
-                  </IonItem>
-                ))
+                filtered.map(({ publisher, displayName }) => {
+                  const selectable = onSelectPublisher != null && publisher.id != null;
+                  return (
+                    <IonItem
+                      key={publisher.id ?? displayName}
+                      button={selectable}
+                      detail={selectable}
+                      onClick={
+                        selectable
+                          ? () => {
+                              onSelectPublisher(publisher);
+                              handleDismiss();
+                            }
+                          : undefined
+                      }
+                    >
+                      <IonLabel>{displayName}</IonLabel>
+                    </IonItem>
+                  );
+                })
               )}
               {unresolvedCount > 0 && (
                 <IonItem lines="none">

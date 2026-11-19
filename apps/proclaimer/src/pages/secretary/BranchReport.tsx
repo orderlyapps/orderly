@@ -7,6 +7,7 @@ import {
   IonSpinner,
   IonTitle,
   IonToolbar,
+  useIonRouter,
 } from "@ionic/react";
 import { useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
@@ -19,6 +20,7 @@ import {
 } from "proclaimer-core";
 
 const BranchReport = () => {
+  const router = useIonRouter();
   const { settings, isLoading: settingsLoading } = useSettings();
   const permissions = usePermissions(settings.congregationId || undefined);
   const { monthId: monthIdParam } = useParams<{ monthId?: string }>();
@@ -64,6 +66,15 @@ const BranchReport = () => {
             monthId={monthId}
             congregationId={settings.congregationId || undefined}
             onSelectMonth={selectMonth}
+            onSelectPublisher={(publisher) => {
+              if (publisher.id == null) {
+                return;
+              }
+              router.push(
+                `/secretary/branch-report/${monthId}/publisher/${publisher.id}`,
+                "forward",
+              );
+            }}
           />
         )}
         <div style={{ paddingBottom: 128 }} />

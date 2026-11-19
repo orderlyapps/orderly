@@ -18,7 +18,7 @@ import {
 } from "@ionic/react";
 
 import { monthLabel } from "../../util/month.ts";
-import { getPublisherDisplayName } from "../publisher/schema.ts";
+import { getPublisherDisplayName, type Publisher } from "../publisher/schema.ts";
 import type { ReportStatEntry } from "./stats.ts";
 
 export interface PublisherReportsModalProps {
@@ -32,6 +32,8 @@ export interface PublisherReportsModalProps {
   entries: ReportStatEntry[];
   /** Active reports that could not be resolved to a name on this device. */
   unresolvedCount: number;
+  /** Called with a tapped publisher (e.g. to open their report history). */
+  onSelectPublisher?: (publisher: Publisher) => void;
   onDismiss: () => void;
 }
 
@@ -44,6 +46,7 @@ export function PublisherReportsModal({
   plural,
   entries,
   unresolvedCount,
+  onSelectPublisher,
   onDismiss,
 }: PublisherReportsModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -102,11 +105,26 @@ export function PublisherReportsModal({
                   </IonLabel>
                 </IonItem>
               ) : (
-                filtered.map(({ publisher, displayName }) => (
-                  <IonItem key={publisher.id ?? displayName}>
-                    <IonLabel>{displayName}</IonLabel>
-                  </IonItem>
-                ))
+                filtered.map(({ publisher, displayName }) => {
+                  const selectable = onSelectPublisher != null && publisher.id != null;
+                  return (
+                    <IonItem
+                      key={publisher.id ?? displayName}
+                      button={selectable}
+                      detail={selectable}
+                      onClick={
+                        selectable
+                          ? () => {
+                              onSelectPublisher(publisher);
+                              handleDismiss();
+                            }
+                          : undefined
+                      }
+                    >
+                      <IonLabel>{displayName}</IonLabel>
+                    </IonItem>
+                  );
+                })
               )}
               {unresolvedCount > 0 && (
                 <IonItem lines="none">

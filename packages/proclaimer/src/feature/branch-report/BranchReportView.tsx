@@ -16,6 +16,7 @@ import { SlideTransition } from "../meeting/SlideTransition.tsx";
 import { useMeetingAttendances } from "../meeting-attendance/hooks.ts";
 import { usePublisherLocalRecords } from "../publisher-local/hooks.ts";
 import { usePublishers } from "../publisher/hooks.ts";
+import type { Publisher } from "../publisher/schema.ts";
 import { ActivePublishersModal } from "./ActivePublishersModal.tsx";
 import { useReports } from "./hooks.ts";
 import { MonthNavigator } from "./MonthNavigator.tsx";
@@ -76,12 +77,15 @@ export interface BranchReportViewProps {
   monthId: string;
   congregationId?: string | null;
   onSelectMonth?: (monthId: string) => void;
+  /** Called with a publisher tapped in any of the stat modals (e.g. to open their report history). */
+  onSelectPublisher?: (publisher: Publisher) => void;
 }
 
 export function BranchReportView({
   monthId,
   congregationId,
   onSelectMonth,
+  onSelectPublisher,
 }: BranchReportViewProps) {
   const [activeModalOpen, setActiveModalOpen] = useState(false);
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
@@ -250,6 +254,7 @@ export function BranchReportView({
         monthId={monthId}
         publishers={activePublishers}
         unresolvedCount={unresolvedCount}
+        onSelectPublisher={onSelectPublisher}
         onDismiss={() => setActiveModalOpen(false)}
       />
       <WeekendAttendanceModal
@@ -268,6 +273,7 @@ export function BranchReportView({
         plural={openLabels.plural}
         entries={openStats.reports.entries}
         unresolvedCount={openStats.reports.unresolvedCount}
+        onSelectPublisher={onSelectPublisher}
         onDismiss={() => setOpenStat(null)}
       />
       <ReportValuesModal
@@ -283,6 +289,7 @@ export function BranchReportView({
         valueOf={(report) => report.hours}
         total={openStats.hours.total}
         unresolvedCount={openStats.hours.unresolvedCount}
+        onSelectPublisher={onSelectPublisher}
         onDismiss={() => setOpenStat(null)}
       />
       <ReportValuesModal
@@ -298,6 +305,7 @@ export function BranchReportView({
         valueOf={(report) => report.bible_studies}
         total={openStats.bibleStudies.total}
         unresolvedCount={openStats.bibleStudies.unresolvedCount}
+        onSelectPublisher={onSelectPublisher}
         onDismiss={() => setOpenStat(null)}
       />
     </>
