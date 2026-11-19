@@ -3,8 +3,11 @@ import { expect, test } from "vite-plus/test";
 import {
   activePublisherIds,
   resolveActivePublishers,
+  weekendAttendanceAverage,
+  weekendAttendanceWeeks,
   type Report,
 } from "../src/feature/branch-report/index.ts";
+import type { MeetingAttendance } from "../src/feature/meeting-attendance/index.ts";
 import type { Publisher } from "../src/feature/publisher/index.ts";
 import type { PublisherLocal } from "../src/feature/publisher-local/index.ts";
 import {
@@ -172,4 +175,64 @@ test("resolveActivePublishers drops archived publishers without counting them un
 
   expect(result.publishers).toEqual([pubA]);
   expect(result.unresolvedCount).toBe(0);
+});
+
+function attendance(
+  weekId: string,
+  inPerson: number | null,
+  remote: number | null,
+): MeetingAttendance {
+  return {
+    week_id: weekId,
+    congregation_id: congregationId,
+    weekend_in_person_count: inPerson,
+    weekend_remote_count: remote,
+    midweek_in_person_count: null,
+    midweek_remote_count: null,
+  };
+}
+
+test("weekendAttendanceAverage averages weeks whose Monday starts in the month", () => {
+  const rows = [
+    attendance("2025-11-03", 80, 10), // 90
+    attendance("2025-11-10", 95, null), // 95
+    attendance("2025-11-24", 70, 15), // 85
+    attendance("2025-10-27", 200, 0), // week ends in November but starts in October
+    attendance("2025-12-01", 50, 50), // starts in the next month
+  ];
+
+  const result = weekendAttendanceAverage(rows, "2025-11");
+
+  expect(result.weekCount).toBe(3);
+  expect(result.average).toBe(90);
+});
+
+test("weekendAttendanceAverage skips weeks with no recorded count", () => {
+  const rows = [attendance("2025-11-03", null, null), attendance("2025-11-10", 60, 20)];
+
+  const result = weekendAttendanceAverage(rows, "2025-11");
+
+  expect(result.weekCount).toBe(1);
+  expect(result.average).toBe(80);
+});
+
+test("weekendAttendanceAverage returns a null average when no week has data", () => {
+  const result = weekendAttendanceAverage([attendance("2025-10-27", 90, 5)], "2025-11");
+
+  expect(result.weekCount).toBe(0);
+  expect(result.average).toBeNull();
+});
+
+test("weekendAttendanceWeeks lists the counted weeks oldest first with totals", () => {
+  const rows = [
+    attendance("2025-11-24", 70, 15),
+    attendance("2025-11-03", 80, null),
+    attendance("2025-11-10", null, null),
+    attendance("2025-10-27", 200, 0),
+  ];
+
+  expect(weekendAttendanceWeeks(rows, "2025-11")).toEqual([
+    { weekId: "2025-11-03", inPerson: 80, remote: 0, attendance: 80 },
+    { weekId: "2025-11-24", inPerson: 70, remote: 15, attendance: 85 },
+  ]);
 });

@@ -4,6 +4,7 @@ import { IonButton, IonItem, IonLabel, IonList, IonNote, IonSkeletonText } from 
 
 import { monthLabel, previousMonthId, relativeMonthLabel, shiftMonthId } from "../../util/month.ts";
 import { SlideTransition } from "../meeting/SlideTransition.tsx";
+import { useMeetingAttendances } from "../meeting-attendance/hooks.ts";
 import { usePublisherLocalRecords } from "../publisher-local/hooks.ts";
 import { usePublishers } from "../publisher/hooks.ts";
 import { ActivePublishersModal } from "./ActivePublishersModal.tsx";
@@ -13,7 +14,10 @@ import {
   ACTIVE_PUBLISHER_WINDOW_MONTHS,
   activePublisherIds,
   resolveActivePublishers,
+  weekendAttendanceAverage,
+  weekendAttendanceWeeks,
 } from "./stats.ts";
+import { WeekendAttendanceModal } from "./WeekendAttendanceModal.tsx";
 
 export interface BranchReportViewProps {
   monthId: string;
@@ -27,21 +31,41 @@ export function BranchReportView({
   onSelectMonth,
 }: BranchReportViewProps) {
   const [activeModalOpen, setActiveModalOpen] = useState(false);
+  const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
   const {
     reports,
     isLoading: reportsLoading,
     error,
     canRetry,
-    retry,
+    retry: retryReports,
   } = useReports(congregationId, monthId);
   const { publishers, isLoading: publishersLoading } = usePublishers(congregationId);
   const { records: localRecords, isLoading: localLoading } = usePublisherLocalRecords();
-  const isLoading = reportsLoading || publishersLoading || localLoading;
+  const {
+    attendances,
+    isLoading: attendanceLoading,
+    error: attendanceError,
+    canRetry: canRetryAttendance,
+    retry: retryAttendance,
+  } = useMeetingAttendances(congregationId, monthId);
+  const isLoading = reportsLoading || publishersLoading || localLoading || attendanceLoading;
+  const loadError = error ?? attendanceError;
+  const retry = async () => {
+    await Promise.all([retryReports(), retryAttendance()]);
+  };
 
   const windowStart = shiftMonthId(monthId, -(ACTIVE_PUBLISHER_WINDOW_MONTHS - 1));
   const { publishers: activePublishers, unresolvedCount } = useMemo(
     () => resolveActivePublishers(activePublisherIds(reports, monthId), publishers, localRecords),
     [reports, publishers, localRecords, monthId],
+  );
+  const weekendAttendance = useMemo(
+    () => weekendAttendanceAverage(attendances, monthId),
+    [attendances, monthId],
+  );
+  const attendanceWeeks = useMemo(
+    () => weekendAttendanceWeeks(attendances, monthId),
+    [attendances, monthId],
   );
 
   return (
@@ -55,10 +79,10 @@ export function BranchReportView({
       />
       <div style={{ height: 24 }} />
       <SlideTransition transitionKey={monthId}>
-        {error ? (
+        {loadError ? (
           <div style={{ padding: "40px 24px", textAlign: "center" }}>
-            <IonNote color="danger">{error.message}</IonNote>
-            {canRetry && (
+            <IonNote color="danger">{loadError.message}</IonNote>
+            {(canRetry || canRetryAttendance) && (
               <div>
                 <IonButton fill="clear" size="small" onClick={() => void retry()}>
                   Try Again
@@ -83,6 +107,21 @@ export function BranchReportView({
                 )}
               </IonNote>
             </IonItem>
+            <IonItem button detail onClick={() => setAttendanceModalOpen(true)}>
+              <IonLabel>
+                <h3>Average Weekend Meeting Attendance</h3>
+                <p>Per week starting in {monthLabel(monthId)}</p>
+              </IonLabel>
+              <IonNote slot="end" style={{ fontSize: "1rem" }}>
+                {isLoading ? (
+                  <IonSkeletonText animated style={{ width: 32, height: 16 }} />
+                ) : weekendAttendance.average == null ? (
+                  "—"
+                ) : (
+                  Math.round(weekendAttendance.average)
+                )}
+              </IonNote>
+            </IonItem>
           </IonList>
         )}
       </SlideTransition>
@@ -93,6 +132,14 @@ export function BranchReportView({
         publishers={activePublishers}
         unresolvedCount={unresolvedCount}
         onDismiss={() => setActiveModalOpen(false)}
+      />
+      <WeekendAttendanceModal
+        isOpen={attendanceModalOpen}
+        isLoading={isLoading}
+        monthId={monthId}
+        weeks={attendanceWeeks}
+        average={weekendAttendance.average}
+        onDismiss={() => setAttendanceModalOpen(false)}
       />
     </>
   );

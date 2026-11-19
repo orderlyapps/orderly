@@ -16,8 +16,16 @@ export {
   ACTIVE_PUBLISHER_WINDOW_MONTHS,
   activePublisherIds,
   resolveActivePublishers,
+  weekendAttendanceAverage,
+  weekendAttendanceWeeks,
   type ResolvedActivePublishers,
+  type WeekendAttendanceStat,
+  type WeekendAttendanceWeek,
 } from "./stats.ts";
+export {
+  WeekendAttendanceModal,
+  type WeekendAttendanceModalProps,
+} from "./WeekendAttendanceModal.tsx";
 export {
   currentMonthId,
   formatMonthId,

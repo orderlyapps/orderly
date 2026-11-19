@@ -1,4 +1,5 @@
 import { isMonthId, shiftMonthId } from "../../util/month.ts";
+import type { MeetingAttendance } from "../meeting-attendance/schema.ts";
 import type { PublisherLocal } from "../publisher-local/schema.ts";
 import { isArchived } from "../publisher/presentation.ts";
 import type { Publisher } from "../publisher/schema.ts";
@@ -29,6 +30,66 @@ export function activePublisherIds(reports: Report[], monthId: string): string[]
     ids.add(report.confidential_id);
   }
   return [...ids];
+}
+
+export interface WeekendAttendanceWeek {
+  /** The week's `week_id` — the Monday it starts on. */
+  weekId: string;
+  inPerson: number;
+  remote: number;
+  /** Total attendance: `inPerson + remote`. */
+  attendance: number;
+}
+
+/**
+ * Weeks counted toward `monthId`'s weekend attendance stat, oldest first. A
+ * week counts toward the month its Monday (`week_id`) falls in — weeks
+ * spanning a boundary count in the month they start. Weeks with no recorded
+ * count are excluded.
+ */
+export function weekendAttendanceWeeks(
+  attendances: MeetingAttendance[],
+  monthId: string,
+): WeekendAttendanceWeek[] {
+  const weeks: WeekendAttendanceWeek[] = [];
+  for (const row of attendances) {
+    if (row.week_id.slice(0, 7) !== monthId) {
+      continue;
+    }
+    const inPerson = row.weekend_in_person_count;
+    const remote = row.weekend_remote_count;
+    if (inPerson == null && remote == null) {
+      continue;
+    }
+    weeks.push({
+      weekId: row.week_id,
+      inPerson: inPerson ?? 0,
+      remote: remote ?? 0,
+      attendance: (inPerson ?? 0) + (remote ?? 0),
+    });
+  }
+  weeks.sort((a, b) => a.weekId.localeCompare(b.weekId));
+  return weeks;
+}
+
+export interface WeekendAttendanceStat {
+  /** Mean total attendance (in-person + remote) per counted week. */
+  average: number | null;
+  /** Weeks starting in the month with at least one recorded count. */
+  weekCount: number;
+}
+
+/**
+ * Average weekend meeting attendance for `monthId` across the weeks returned
+ * by `weekendAttendanceWeeks`; `average` is null when no week has data.
+ */
+export function weekendAttendanceAverage(
+  attendances: MeetingAttendance[],
+  monthId: string,
+): WeekendAttendanceStat {
+  const weeks = weekendAttendanceWeeks(attendances, monthId);
+  const total = weeks.reduce((sum, week) => sum + week.attendance, 0);
+  return { average: weeks.length === 0 ? null : total / weeks.length, weekCount: weeks.length };
 }
 
 export interface ResolvedActivePublishers {
