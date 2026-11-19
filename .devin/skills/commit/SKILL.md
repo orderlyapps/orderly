@@ -7,6 +7,15 @@ description: Commit the current worktree's changes with a well-formed commit mes
 
 Create a commit for the changes in the current worktree.
 
+## Scope — CRITICAL
+
+- Commit ONLY files that were created or modified during THIS session. This is the most important rule.
+- The worktree may contain changes that predate this session (the user's own edits, leftover uncommitted work, changes from other sessions). Do NOT stage or commit them, even partially.
+- Determine the session's files from the session's own edit history, cross-checked with `git status`/`git diff`. Never rely on `git status` alone to decide what to stage.
+- Stage files explicitly by path. NEVER use `git add -A`, `git add .`, `git commit -a`, or any other blanket staging — these will sweep up changes that are not yours.
+- If a file contains both session changes and pre-existing changes, stage the file only if the session touched it, and warn the user that their unrelated changes in the same file will be included — or ask before staging.
+- When unsure whether a change belongs to this session, ask the user before staging it.
+
 ## Guidelines
 
 - **Never commit secrets** — check the diff for credentials, tokens, or keys before staging.
