@@ -10,6 +10,10 @@ import {
   reportInsertConfidentialId,
   reportKey,
   resolveActivePublishers,
+  creditedHours,
+  creditHourLines,
+  reportSchema,
+  serviceYearCreditedHours,
   serviceYearHours,
   weekendAttendanceAverage,
   weekendAttendanceWeeks,
@@ -94,6 +98,7 @@ function report(
     active,
     hours: null,
     bible_studies: null,
+    credit_hours: null,
     aux_pio: false,
     reg_pio: false,
     spe_pio: false,
@@ -577,6 +582,90 @@ test("serviceYearHours sums hours of active reports across the given months", ()
   expect(serviceYearHours(byMonth, ["2025-08"])).toBe(40);
   expect(serviceYearHours(byMonth, ["2024-12"])).toBe(0);
   expect(serviceYearHours(byMonth, [])).toBe(0);
+});
+
+test("creditedHours adds credit hours up to the 55-hour monthly cap", () => {
+  // Hours alone at or above the cap count as-is — credits add nothing.
+  expect(creditedHours(report("conf-a", "2025-11-01", true, { hours: 60 }))).toBe(60);
+  expect(
+    creditedHours(
+      report("conf-a", "2025-11-01", true, {
+        hours: 60,
+        credit_hours: { pioneer_school: 10 },
+      }),
+    ),
+  ).toBe(60);
+  // Credits top a month up to 55 and no further.
+  expect(
+    creditedHours(
+      report("conf-a", "2025-11-01", true, {
+        hours: 50,
+        credit_hours: { pioneer_school: 10 },
+      }),
+    ),
+  ).toBe(55);
+  expect(
+    creditedHours(
+      report("conf-a", "2025-11-01", true, {
+        hours: 40,
+        credit_hours: { pioneer_school: 6, elders_school: 4 },
+      }),
+    ),
+  ).toBe(50);
+  // Legacy "school" credits are preserved in stored data but never counted.
+  expect(
+    creditedHours(
+      report("conf-a", "2025-11-01", true, {
+        hours: 50,
+        credit_hours: { school: 10 },
+      }),
+    ),
+  ).toBe(50);
+  expect(creditedHours(report("conf-a", "2025-11-01", true, { hours: null }))).toBe(0);
+});
+
+test("reportSchema keeps a malformed credit_hours value from failing the row", () => {
+  const a = "00000000-0000-4000-8000-00000000000a";
+  const parsed = reportSchema.safeParse({
+    ...report(a, "2025-11-01", true),
+    credit_hours: { school: "not a number" },
+  });
+  expect(parsed.success).toBe(true);
+  expect(parsed.data?.credit_hours).toBeNull();
+});
+
+test("serviceYearCreditedHours applies the monthly cap across the year", () => {
+  const byMonth = publisherReportsByMonth([
+    report("conf-a", "2025-09-01", true, {
+      hours: 50,
+      credit_hours: { pioneer_school: 10 },
+    }),
+    report("conf-a", "2025-10-01", true, { hours: 60 }),
+    report("conf-a", "2025-11-01", false, {
+      hours: 50,
+      credit_hours: { elders_school: 10 },
+    }),
+    report("conf-a", "2025-08-01", true, {
+      hours: 40,
+      credit_hours: { ldc: 5 },
+      reported_elsewhere: true,
+    }),
+  ]);
+
+  expect(serviceYearCreditedHours(byMonth, ["2025-09", "2025-10", "2025-11"])).toBe(115);
+  expect(serviceYearCreditedHours(byMonth, ["2025-08"])).toBe(45);
+  expect(serviceYearCreditedHours(byMonth, [])).toBe(0);
+});
+
+test("creditHourLines labels credits in display order, excluding legacy school", () => {
+  expect(creditHourLines({ elders_school: 4, ldc: 5, pioneer_school: 6, school: 3 })).toEqual([
+    "LDC 5 hrs",
+    "Pioneer school 6 hrs",
+    "Elders school 4 hrs",
+  ]);
+  expect(creditHourLines({ pioneer_school: 1 })).toEqual(["Pioneer school 1 hr"]);
+  expect(creditHourLines(null)).toEqual([]);
+  expect(creditHourLines({})).toEqual([]);
 });
 
 test("monthReportStats excludes spe_pio reports from every category", () => {

@@ -19,11 +19,14 @@ import { usePublisherReports } from "./hooks.ts";
 import { ReportEditModal, type ReportDraft } from "./ReportEditModal.tsx";
 import type { Report } from "./schema.ts";
 import {
+  creditedHours,
+  creditHourLines,
   publisherConfidentialIds,
   publisherReportMonthIds,
   publisherReportsByMonth,
   REGULAR_PIONEER_TYPE,
   reportInsertConfidentialId,
+  serviceYearCreditedHours,
   serviceYearHours,
 } from "./stats.ts";
 
@@ -65,11 +68,21 @@ function reportFlags(report: Report, publisherType?: string | null): string[] {
   return [...flags];
 }
 
-/** End-of-row summary for an active report, e.g. "12 hrs · 3 studies". */
+/**
+ * End-of-row summary for an active report, e.g. "12 hrs · 3 studies". When
+ * hour credits change what the month counts toward the annual requirement,
+ * the credited total follows in parentheses: "50 hrs (55)".
+ */
 function reportSummary(report: Report): string {
   const parts: string[] = [];
   if (report.hours != null && report.hours > 0) {
-    parts.push(`${report.hours} ${report.hours === 1 ? "hr" : "hrs"}`);
+    const credited = creditedHours(report);
+    const unit = report.hours === 1 ? "hr" : "hrs";
+    parts.push(
+      credited === report.hours
+        ? `${report.hours} ${unit}`
+        : `${report.hours} ${unit} (${credited})`,
+    );
   }
   if (report.bible_studies != null && report.bible_studies > 0) {
     parts.push(`${report.bible_studies} ${report.bible_studies === 1 ? "study" : "studies"}`);
@@ -206,7 +219,10 @@ export function PublisherReportView({
         // total would only cover the visible tail of the year.
         const hoursTotal =
           publisher?.type === REGULAR_PIONEER_TYPE && index < 2
-            ? serviceYearHours(byMonth, group.monthIds)
+            ? {
+                reported: serviceYearHours(byMonth, group.monthIds),
+                credited: serviceYearCreditedHours(byMonth, group.monthIds),
+              }
             : null;
         return (
           <IonList key={group.year}>
@@ -218,6 +234,7 @@ export function PublisherReportView({
             {group.monthIds.map((id) => {
               const report = byMonth.get(id);
               const flags = report ? reportFlags(report, publisher?.type) : [];
+              const credits = report ? creditHourLines(report.credit_hours) : [];
               // Reports filed under another congregation can't be saved here —
               // report RLS requires edit rights on report.congregation_id.
               const editable =
@@ -233,6 +250,7 @@ export function PublisherReportView({
                   <IonLabel>
                     <h3>{monthLabel(id)}</h3>
                     {flags.length > 0 && <p>{flags.join(" · ")}</p>}
+                    {credits.length > 0 && <p>{credits.join(" · ")}</p>}
                   </IonLabel>
                   <IonNote slot="end">
                     {report == null
@@ -250,7 +268,9 @@ export function PublisherReportView({
                   <h3>Total</h3>
                 </IonLabel>
                 <IonNote slot="end">
-                  {hoursTotal} {hoursTotal === 1 ? "hr" : "hrs"}
+                  {hoursTotal.credited === hoursTotal.reported
+                    ? `${hoursTotal.reported} ${hoursTotal.reported === 1 ? "hr" : "hrs"}`
+                    : `${hoursTotal.reported} hrs (${hoursTotal.credited})`}
                 </IonNote>
               </IonItem>
             )}

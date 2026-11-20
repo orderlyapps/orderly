@@ -25,10 +25,21 @@ export {
   type ReportEditModalProps,
 } from "./ReportEditModal.tsx";
 export { ReportValuesModal, type ReportValuesModalProps } from "./ReportValuesModal.tsx";
-export { REPORT_TABLE, reportSchema, type Report } from "./schema.ts";
+export {
+  CREDIT_HOUR_FIELDS,
+  CREDIT_HOUR_LABELS,
+  creditHoursSchema,
+  REPORT_TABLE,
+  reportSchema,
+  type CreditHours,
+  type Report,
+} from "./schema.ts";
 export {
   ACTIVE_PUBLISHER_WINDOW_MONTHS,
   activePublisherIds,
+  creditedHours,
+  creditHourLines,
+  MONTHLY_CREDIT_CAP,
   monthReportStats,
   PUBLISHER_REPORT_WINDOW_MONTHS,
   publisherConfidentialIds,
@@ -37,6 +48,7 @@ export {
   REGULAR_PIONEER_TYPE,
   reportInsertConfidentialId,
   resolveActivePublishers,
+  serviceYearCreditedHours,
   serviceYearHours,
   weekendAttendanceAverage,
   weekendAttendanceWeeks,

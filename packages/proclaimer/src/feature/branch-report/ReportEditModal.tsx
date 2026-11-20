@@ -18,13 +18,14 @@ import {
 } from "@ionic/react";
 
 import { monthLabel } from "../../util/month.ts";
-import type { Report } from "./schema.ts";
+import { CREDIT_HOUR_FIELDS, type CreditHours, type Report } from "./schema.ts";
 
 /** Editable report fields — everything except the report's key columns. */
 export interface ReportDraft {
   active: boolean;
   hours: number | null;
   bible_studies: number | null;
+  credit_hours: CreditHours | null;
   aux_pio: boolean;
   reg_pio: boolean;
   spe_pio: boolean;
@@ -48,6 +49,7 @@ function draftFrom(report: Report | null): ReportDraft {
     active: report?.active ?? false,
     hours: report?.hours ?? null,
     bible_studies: report?.bible_studies ?? null,
+    credit_hours: report?.credit_hours ?? null,
     aux_pio: report?.aux_pio ?? false,
     reg_pio: report?.reg_pio ?? false,
     spe_pio: report?.spe_pio ?? false,
@@ -94,6 +96,18 @@ export function ReportEditModal({
   }, [isOpen, report]);
 
   const update = (patch: Partial<ReportDraft>) => setDraft((current) => ({ ...current, ...patch }));
+
+  const updateCredit = (key: string, raw: string | null | undefined) =>
+    setDraft((current) => {
+      const next = { ...current.credit_hours };
+      const parsed = parseCount(raw);
+      if (parsed == null) {
+        delete next[key];
+      } else {
+        next[key] = parsed;
+      }
+      return { ...current, credit_hours: Object.keys(next).length > 0 ? next : null };
+    });
 
   async function handleSave() {
     setSaving(true);
@@ -164,6 +178,23 @@ export function ReportEditModal({
               onIonInput={(event) => update({ bible_studies: parseCount(event.detail.value) })}
             />
           </IonItem>
+          <IonListHeader>
+            <IonLabel>
+              <IonNote>Hour credits</IonNote>
+            </IonLabel>
+          </IonListHeader>
+          {CREDIT_HOUR_FIELDS.map(({ key, label }) => (
+            <IonItem key={key}>
+              <IonInput
+                label={label}
+                type="number"
+                inputmode="numeric"
+                min={0}
+                value={draft.credit_hours?.[key] ?? ""}
+                onIonInput={(event) => updateCredit(key, event.detail.value)}
+              />
+            </IonItem>
+          ))}
           <IonItem>
             <IonToggle
               checked={draft.aux_pio}

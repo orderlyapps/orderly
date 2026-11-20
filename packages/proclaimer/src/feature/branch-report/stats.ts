@@ -3,7 +3,14 @@ import type { MeetingAttendance } from "../meeting-attendance/schema.ts";
 import type { PublisherLocal } from "../publisher-local/schema.ts";
 import { isArchived } from "../publisher/presentation.ts";
 import type { Publisher } from "../publisher/schema.ts";
-import { reportSchema, type Report } from "./schema.ts";
+import {
+  CREDIT_HOUR_FIELDS,
+  CREDIT_HOUR_LABELS,
+  LEGACY_SCHOOL_CREDIT,
+  reportSchema,
+  type CreditHours,
+  type Report,
+} from "./schema.ts";
 
 /**
  * Size of the activity window for the branch report: the selected month plus
@@ -244,6 +251,76 @@ export function serviceYearHours(byMonth: Map<string, Report>, monthIds: Iterabl
     }
   }
   return total;
+}
+
+/** Maximum hours creditable to a pioneer's annual requirement in one month. */
+export const MONTHLY_CREDIT_CAP = 55;
+
+/**
+ * Hours a report counts toward the pioneer's annual requirement: `hours` plus
+ * `credit_hours`, capped at `MONTHLY_CREDIT_CAP` for the month. Credits only
+ * top a month up to the cap — a report of 60 hours and 10 credits counts 60,
+ * while 50 hours and 10 credits counts 55.
+ */
+export function creditedHours(report: Pick<Report, "hours" | "credit_hours">): number {
+  if (report.hours == null) {
+    return 0;
+  }
+  if (report.hours >= MONTHLY_CREDIT_CAP) {
+    return report.hours;
+  }
+  const credits = Object.entries(report.credit_hours ?? {}).reduce(
+    (sum, [key, hours]) => (key === LEGACY_SCHOOL_CREDIT ? sum : sum + (hours ?? 0)),
+    0,
+  );
+  return Math.min(MONTHLY_CREDIT_CAP, report.hours + credits);
+}
+
+/**
+ * `serviceYearHours` with each month's `credit_hours` applied under the
+ * `MONTHLY_CREDIT_CAP` cap — the total a regular pioneer can actually claim
+ * for the year.
+ */
+export function serviceYearCreditedHours(
+  byMonth: Map<string, Report>,
+  monthIds: Iterable<string>,
+): number {
+  let total = 0;
+  for (const id of monthIds) {
+    const report = byMonth.get(id);
+    if (report?.active) {
+      total += creditedHours(report);
+    }
+  }
+  return total;
+}
+
+/**
+ * Credit entries in display order — `["LDC 5 hrs", "Pioneer school 6 hrs"]`.
+ * Known types come first; other keys follow in their stored order so no
+ * recorded credit is hidden — except legacy `school`, which is never shown.
+ */
+export function creditHourLines(creditHours: CreditHours | null | undefined): string[] {
+  if (creditHours == null) {
+    return [];
+  }
+  const format = (key: string, hours: number) =>
+    `${CREDIT_HOUR_LABELS[key] ?? key} ${hours} ${hours === 1 ? "hr" : "hrs"}`;
+  const lines: string[] = [];
+  const seen = new Set<string>();
+  for (const { key } of CREDIT_HOUR_FIELDS) {
+    const hours = creditHours[key];
+    if (hours != null && hours > 0) {
+      lines.push(format(key, hours));
+      seen.add(key);
+    }
+  }
+  for (const [key, hours] of Object.entries(creditHours)) {
+    if (!seen.has(key) && key !== LEGACY_SCHOOL_CREDIT && typeof hours === "number" && hours > 0) {
+      lines.push(format(key, hours));
+    }
+  }
+  return lines;
 }
 
 const PUBLISHER_TYPE = "publisher";
