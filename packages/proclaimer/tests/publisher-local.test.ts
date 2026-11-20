@@ -459,3 +459,35 @@ test("buildImportPreviewItems falls back to the publisher id when unknown", () =
   });
   expect(items[0]?.publisher_name).toBe("pub-1");
 });
+
+test("buildImportPreviewItems includes previous values for changed fields only", () => {
+  const items = buildImportPreviewItems({
+    records: [
+      record({
+        phone: [
+          { id: "p1", number: "222", label: "Mobile", version: version({ updated_at: 2 }) },
+          { id: "p2", number: "333", label: "Work", version: version({ updated_at: 2 }) },
+        ],
+        birth_date: { value: "1981-06-06", version: version({ updated_at: 2 }) },
+      }),
+    ],
+    existing: [
+      record({
+        phone: [{ id: "p1", number: "111", label: "Mobile", version: version() }],
+        birth_date: { value: "1980-05-05", version: version() },
+      }),
+    ],
+    publishers: [],
+  });
+
+  const changedPhone = items[0]?.fields.find((f) => f.key === "phone-p1");
+  expect(changedPhone?.value).toBe("222");
+  expect(changedPhone?.previousValue).toBe("111");
+
+  const newPhone = items[0]?.fields.find((f) => f.key === "phone-p2");
+  expect(newPhone?.previousValue).toBeUndefined();
+
+  const dob = items[0]?.fields.find((f) => f.key === "birth_date");
+  expect(dob?.value).toBe("June 6, 1981");
+  expect(dob?.previousValue).toBe("May 5, 1980");
+});

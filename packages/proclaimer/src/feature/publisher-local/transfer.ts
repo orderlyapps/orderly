@@ -405,18 +405,25 @@ function diffSinglePublisherLocal(
 }
 
 /**
+ * Normalizes records into a publisher_id → record map so lookups and diffs
+ * can share a single normalization pass.
+ */
+export function normalizedPublisherLocalMap(docs: PublisherLocal[]): Map<string, PublisherLocal> {
+  return new Map(docs.map((doc) => [doc.publisher_id, normalizePublisherLocal(doc)]));
+}
+
+/**
  * Computes which fields would be added or updated for each publisher if
  * `records` were merged into `existing`.
  */
 export function diffPublisherLocalRecords(
   existing: PublisherLocal[],
   records: PublisherLocal[],
-): PublisherLocalUpdatedFields[] {
   // Normalize the existing docs too — stored records may carry legacy
   // unversioned fields, and the diff must reflect what a merge would produce.
-  const beforeMap = new Map(
-    existing.map((doc) => [doc.publisher_id, normalizePublisherLocal(doc)]),
-  );
+  // Callers that already normalized `existing` may pass the map themselves.
+  beforeMap: Map<string, PublisherLocal> = normalizedPublisherLocalMap(existing),
+): PublisherLocalUpdatedFields[] {
   const afterMap = new Map<string, PublisherLocal>();
 
   for (const raw of records) {
@@ -495,8 +502,8 @@ export async function importPublisherLocalRecords(
   const existingList = collection.toArray.map((doc) =>
     normalizePublisherLocal(doc as PublisherLocal),
   );
-  const updated = diffPublisherLocalRecords(existingList, records);
   const existingMap = new Map(existingList.map((doc) => [doc.publisher_id, doc]));
+  const updated = diffPublisherLocalRecords(existingList, records, existingMap);
 
   const inserts = new Map<string, PublisherLocal>();
   for (const raw of records) {

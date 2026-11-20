@@ -57,6 +57,7 @@ export {
   importPublisherLocalRecords,
   mergePublisherLocal,
   normalizePublisherLocal,
+  normalizedPublisherLocalMap,
   OPTIONAL_PUBLISHER_EXPORT_FIELDS,
   parsePublisherLocalRecords,
   PUBLISHER_LOCAL_FILE_ACCEPT,

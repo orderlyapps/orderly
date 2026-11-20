@@ -1,14 +1,6 @@
 import { useRef, useState } from "react";
 
-import {
-  IonButton,
-  IonItem,
-  IonLabel,
-  IonList,
-  IonNote,
-  IonSpinner,
-  useIonAlert,
-} from "@ionic/react";
+import { IonButton, IonNote, IonSpinner, useIonAlert } from "@ionic/react";
 
 import { usePublishers, type PublisherCollection } from "../publisher/index.ts";
 import {
@@ -45,6 +37,7 @@ export function DataImportView({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedFileRef = useRef<File | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [readingFile, setReadingFile] = useState(false);
   const [parsedRecords, setParsedRecords] = useState<PublisherLocal[] | null>(null);
   const [importing, setImporting] = useState(false);
   const [imported, setImported] = useState(false);
@@ -71,6 +64,7 @@ export function DataImportView({
     if (!file) return;
     selectedFileRef.current = file;
     setFileName(file.name);
+    setReadingFile(true);
     setError(null);
     setImported(false);
     setParsedRecords(null);
@@ -79,6 +73,7 @@ export function DataImportView({
     reader.onload = () => {
       // Ignore a stale read if a different file has since been selected.
       if (selectedFileRef.current !== file) return;
+      setReadingFile(false);
       try {
         const records = parsePublisherLocalRecords(reader.result as string);
         setParsedRecords(records);
@@ -88,9 +83,17 @@ export function DataImportView({
     };
     reader.onerror = () => {
       if (selectedFileRef.current !== file) return;
+      setReadingFile(false);
       setError("Failed to read file");
     };
-    reader.readAsText(file);
+    try {
+      reader.readAsText(file);
+    } catch {
+      // A synchronous throw (e.g. a detached File) never fires onerror — reset
+      // state so the loading indicator doesn't spin forever.
+      setReadingFile(false);
+      setError("Failed to read file");
+    }
   }
 
   function handleImport() {
@@ -121,11 +124,12 @@ export function DataImportView({
   }
 
   return (
-    <div className="ion-padding">
-      <IonNote color="medium" style={{ display: "block", marginBottom: "0.75rem" }}>
-        Import confidential publisher data from a file exported by another device. Imported records
-        are merged with existing data — where values conflict, the most recently updated value is
-        kept.
+    <div
+      className="ion-padding"
+      style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}
+    >
+      <IonNote color="medium" style={{ display: "block" }}>
+        Import publisher data exported from Secretary.
       </IonNote>
       <input
         ref={fileInputRef}
@@ -134,17 +138,21 @@ export function DataImportView({
         onChange={handleFileChange}
         style={{ display: "none" }}
       />
-      <IonList>
-        <IonItem button onClick={() => fileInputRef.current?.click()}>
-          <IonLabel>
-            {fileName ? (
-              <>{fileName}</>
-            ) : (
-              <IonNote color="medium">Select a file to import…</IonNote>
-            )}
-          </IonLabel>
-        </IonItem>
-      </IonList>
+      <IonButton expand="block" fill="outline" onClick={() => fileInputRef.current?.click()}>
+        {fileName ?? "Select file"}
+      </IonButton>
+      {readingFile && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <IonSpinner name="crescent" />
+          <IonNote color="medium">Reading file…</IonNote>
+        </div>
+      )}
+      {!readingFile && fileName && recordsLoading && !recordsError && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <IonSpinner name="crescent" />
+          <IonNote color="medium">Loading existing publisher data…</IonNote>
+        </div>
+      )}
       {error && (
         <IonNote style={{ color: "var(--ion-color-danger)", display: "block" }}>{error}</IonNote>
       )}
@@ -153,6 +161,24 @@ export function DataImportView({
           Existing publisher data on this device could not be loaded, so the import preview is
           unavailable. Reload the app and try again.
         </IonNote>
+      )}
+      {fileName && (
+        <IonButton
+          expand="block"
+          onClick={handleImport}
+          disabled={
+            importing || !parsedRecords || parsedRecords.length === 0 || imported || recordsError
+          }
+        >
+          {importing ? (
+            <>
+              <IonSpinner name="crescent" style={{ marginRight: 8 }} />
+              Importing…
+            </>
+          ) : (
+            "Import from file"
+          )}
+        </IonButton>
       )}
       {parsedRecords && !imported && !recordsLoading && !recordsError && (
         <ImportPreviewList
@@ -168,23 +194,6 @@ export function DataImportView({
           Import complete. Records were merged with existing data.
         </IonNote>
       )}
-      <IonButton
-        expand="block"
-        onClick={handleImport}
-        disabled={
-          importing || !parsedRecords || parsedRecords.length === 0 || imported || recordsError
-        }
-        style={{ marginTop: 16 }}
-      >
-        {importing ? (
-          <>
-            <IonSpinner name="crescent" style={{ marginRight: 8 }} />
-            Importing…
-          </>
-        ) : (
-          "Import from file"
-        )}
-      </IonButton>
     </div>
   );
 }
