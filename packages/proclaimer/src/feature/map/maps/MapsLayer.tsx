@@ -123,6 +123,8 @@ export function MapsLayer({
             "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
             "text-anchor": "center",
             "symbol-placement": "point",
+            "text-allow-overlap": true,
+            "text-ignore-placement": true,
           }}
           paint={{
             "text-color": ["case", isSelected, MAP_SELECTED_COLOR, MAP_POLYGON_COLOR],
@@ -167,12 +169,15 @@ export function MapsLayer({
             id="map-blocks-labels"
             type="symbol"
             minzoom={MAP_VERTEX_MIN_ZOOM}
+            filter={["==", ["geometry-type"], "Point"]}
             layout={{
               "text-field": ["get", "name"],
               "text-size": ["interpolate", ["linear"], ["zoom"], MAP_LABEL_MIN_ZOOM, 0, 21, 75],
               "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
               "text-anchor": "center",
               "symbol-placement": "point",
+              "text-allow-overlap": true,
+              "text-ignore-placement": true,
             }}
             paint={{
               "text-color": MAP_BLOCK_COLOR,

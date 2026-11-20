@@ -299,14 +299,25 @@ test("converts map blocks to polygon and line features", () => {
     face({ id: "face-2", coordinates: [] }),
   ]);
   expect(geojson.type).toBe("FeatureCollection");
-  // Each face emits its line plus a point at its end coordinate so the label
-  // can render at the end of the line as well.
-  expect(geojson.features).toHaveLength(3);
-  expect(geojson.features[2].geometry).toEqual({
+  // Each block and face also emits a label anchor point so the labels layer
+  // renders one name per feature: blocks anchor inside their ring, faces at
+  // their last coordinate.
+  expect(geojson.features).toHaveLength(4);
+  const blockLabel = geojson.features[1];
+  expect(blockLabel.geometry.type).toBe("Point");
+  const [blockLng, blockLat] = (blockLabel.geometry as { coordinates: number[] }).coordinates;
+  expect(blockLng).toBeCloseTo(151.0667, 4);
+  expect(blockLat).toBeCloseTo(-33.8667, 4);
+  expect(blockLabel.properties).toEqual({
+    id: "block-1",
+    name: "Block 1",
+    type: "block",
+  });
+  expect(geojson.features[3].geometry).toEqual({
     type: "Point",
     coordinates: [151.1, -33.9],
   });
-  expect(geojson.features[2].properties).toEqual({
+  expect(geojson.features[3].properties).toEqual({
     id: "face-1",
     name: "Main St",
     type: "face",

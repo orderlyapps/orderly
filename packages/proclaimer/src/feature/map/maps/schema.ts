@@ -290,18 +290,19 @@ export function mapBlocksToGeoJSON(blocks: MapBlock[] | null | undefined): MapBl
     const feature = mapBlockToFeature(block);
     if (feature) {
       features.push(feature);
-      // Mapbox cannot place a label at a line's end, so faces also emit a
-      // point at their last coordinate for the labels layer to anchor to.
-      if (block.type === "face") {
-        features.push({
-          type: "Feature",
-          geometry: {
-            type: "Point",
-            coordinates: block.coordinates[block.coordinates.length - 1],
-          },
-          properties: { id: block.id, name: block.name, type: block.type },
-        });
-      }
+      // Labels anchor to a single point per feature so a block or face split
+      // across tiles cannot render its name more than once. Mapbox cannot
+      // place a label at a line's end, so faces anchor at their last
+      // coordinate; blocks anchor inside their ring.
+      const anchor =
+        block.type === "face"
+          ? block.coordinates[block.coordinates.length - 1]
+          : (boundaryToLabelPoint(ensureClosedRing(block.coordinates)) ?? block.coordinates[0]);
+      features.push({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: anchor },
+        properties: { id: block.id, name: block.name, type: block.type },
+      });
     }
   }
   return { type: "FeatureCollection", features };
