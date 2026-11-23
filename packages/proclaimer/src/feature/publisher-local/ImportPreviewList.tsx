@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   IonAccordion,
@@ -10,69 +10,25 @@ import {
   IonSpinner,
 } from "@ionic/react";
 
-import type { Publisher } from "../publisher/schema.ts";
-import type { NameLookup } from "./address.ts";
-import { buildImportPreviewItems, type PublisherImportPreviewItem } from "./preview.ts";
-import type { PublisherLocal } from "./schema.ts";
+import type { PublisherImportPreviewItem } from "./preview.ts";
 
 export interface ImportPreviewListProps {
-  records: PublisherLocal[];
-  existing: PublisherLocal[];
-  publishers: Publisher[];
-  suburbs?: NameLookup[];
-  streets?: NameLookup[];
+  /** Null while the diff against existing data is still being computed. */
+  items: PublisherImportPreviewItem[] | null;
 }
 
-// Shared empty defaults — a fresh `[]` per render would churn the useEffect
-// dependency array and loop the deferred diff forever.
-const EMPTY_LOOKUPS: NameLookup[] = [];
-
-export function ImportPreviewList({
-  records,
-  existing,
-  publishers,
-  suburbs = EMPTY_LOOKUPS,
-  streets = EMPTY_LOOKUPS,
-}: ImportPreviewListProps) {
-  const [result, setResult] = useState<{
-    records: PublisherLocal[];
-    existing: PublisherLocal[];
-    publishers: Publisher[];
-    suburbs: NameLookup[];
-    streets: NameLookup[];
-    items: PublisherImportPreviewItem[];
-  } | null>(null);
-
-  useEffect(() => {
-    // Defer the synchronous diff so the loading indicator can paint first.
-    const timer = setTimeout(() => {
-      setResult({
-        records,
-        existing,
-        publishers,
-        suburbs,
-        streets,
-        items: buildImportPreviewItems({ records, existing, publishers, suburbs, streets }),
-      });
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [records, existing, publishers, suburbs, streets]);
-
-  // Only trust a result computed from the current inputs — anything older is
-  // stale and would paint the previous preview until the effect reruns.
-  const items =
-    result &&
-    result.records === records &&
-    result.existing === existing &&
-    result.publishers === publishers &&
-    result.suburbs === suburbs &&
-    result.streets === streets
-      ? result.items
-      : null;
-
+export function ImportPreviewList({ items }: ImportPreviewListProps) {
+  const [openId, setOpenId] = useState<string | undefined>(undefined);
   if (items === null) {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+        }}
+      >
         <IonSpinner name="crescent" />
         <IonNote color="medium">Comparing with existing data…</IonNote>
       </div>
@@ -81,8 +37,8 @@ export function ImportPreviewList({
 
   if (items.length === 0) {
     return (
-      <IonNote color="medium" style={{ display: "block", marginBottom: "0.5rem" }}>
-        No new or updated publisher data found in this import.
+      <IonNote color="danger" style={{ display: "block", marginBottom: "0.5rem" }}>
+        No new or updated publisher data found in this file.
       </IonNote>
     );
   }
@@ -92,7 +48,12 @@ export function ImportPreviewList({
       <IonNote style={{ display: "block", marginBottom: "0.5rem" }}>
         {items.length} publisher{items.length !== 1 ? "s" : ""} will be updated:
       </IonNote>
-      <IonAccordionGroup>
+      <IonAccordionGroup
+        onIonChange={(e) => {
+          const value = e.detail.value;
+          setOpenId(typeof value === "string" ? value : undefined);
+        }}
+      >
         {items.map((item) => (
           <IonAccordion key={item.publisher_id} value={item.publisher_id}>
             <IonItem slot="header">
@@ -104,25 +65,64 @@ export function ImportPreviewList({
                     justifyContent: "space-between",
                   }}
                 >
-                  <span>{item.publisher_name}</span>
+                  <span
+                    style={
+                      item.publisher_id === openId
+                        ? { fontWeight: "bold", fontSize: "1.1rem" }
+                        : undefined
+                    }
+                  >
+                    {item.publisher_name}
+                  </span>
                   <IonNote style={{ marginInlineEnd: 8 }}>
                     {item.fields.length} update{item.fields.length !== 1 ? "s" : ""}
                   </IonNote>
                 </div>
               </IonLabel>
             </IonItem>
-            <div slot="content">
+            <div slot="content" style={{ paddingBottom: "2.5rem" }}>
               <IonList>
                 {item.fields.map((field) => (
                   <IonItem key={field.key} lines="none">
-                    <IonLabel className="ion-text-wrap">
-                      <p>{field.label}</p>
-                      {field.previousValue != null && (
-                        <p>
-                          <IonNote>Current: {field.previousValue}</IonNote>
+                    <IonLabel className="ion-text-wrap" style={{ margin: "0.375rem 0" }}>
+                      <p style={{ color: "var(--ion-color-secondary)" }}>{field.label}</p>
+                      <div
+                        style={{
+                          display: "inline-grid",
+                          gridTemplateColumns: "auto auto",
+                          columnGap: "0.75rem",
+                          textAlign: "left",
+                          // These <p>s aren't direct slotted children of
+                          // ion-label, so they miss its ::slotted(p) styles —
+                          // reapply the same size/margins here.
+                          fontSize: "0.875rem",
+                        }}
+                      >
+                        {field.previousValue != null && (
+                          <>
+                            <p style={{ margin: 0, color: "var(--ion-color-medium)" }}>Current:</p>
+                            <p
+                              style={{
+                                margin: 0,
+                                color:
+                                  "var(--ion-color-step-600, var(--ion-text-color-step-400, #666666))",
+                              }}
+                            >
+                              {field.previousValue}
+                            </p>
+                          </>
+                        )}
+                        <p style={{ margin: 0, color: "var(--ion-color-medium)" }}>New:</p>
+                        <p
+                          style={{
+                            margin: 0,
+                            color:
+                              "var(--ion-color-step-600, var(--ion-text-color-step-400, #666666))",
+                          }}
+                        >
+                          {field.value}
                         </p>
-                      )}
-                      <h3>New: {field.value}</h3>
+                      </div>
                     </IonLabel>
                   </IonItem>
                 ))}

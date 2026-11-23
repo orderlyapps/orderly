@@ -9,7 +9,7 @@ import {
   type StreetCollection,
   type SuburbCollection,
 } from "./collection.ts";
-import { usePublisherLocalRecords, useTerritoryNames } from "./hooks.ts";
+import { useImportPreviewItems, usePublisherLocalRecords, useTerritoryNames } from "./hooks.ts";
 import { ImportPreviewList } from "./ImportPreviewList.tsx";
 import type { PublisherLocal } from "./schema.ts";
 import {
@@ -55,6 +55,13 @@ export function DataImportView({
     suburbCollection,
     streetCollection,
   );
+  const previewItems = useImportPreviewItems({
+    records: parsedRecords,
+    existing: existingRecords,
+    publishers,
+    suburbs,
+    streets,
+  });
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -97,7 +104,7 @@ export function DataImportView({
   }
 
   function handleImport() {
-    if (!parsedRecords || parsedRecords.length === 0) return;
+    if (!parsedRecords || parsedRecords.length === 0 || !previewItems?.length) return;
     void presentAlert({
       header: "Import Data",
       message:
@@ -126,7 +133,12 @@ export function DataImportView({
   return (
     <div
       className="ion-padding"
-      style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "1.25rem",
+        textAlign: "center",
+      }}
     >
       <IonNote color="medium" style={{ display: "block" }}>
         Import publisher data exported from Secretary.
@@ -139,16 +151,35 @@ export function DataImportView({
         style={{ display: "none" }}
       />
       <IonButton expand="block" fill="outline" onClick={() => fileInputRef.current?.click()}>
-        {fileName ?? "Select file"}
+        Select file
       </IonButton>
+      {fileName && (
+        <IonNote color="medium" style={{ display: "block" }}>
+          {fileName}
+        </IonNote>
+      )}
       {readingFile && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
+        >
           <IonSpinner name="crescent" />
           <IonNote color="medium">Reading file…</IonNote>
         </div>
       )}
       {!readingFile && fileName && recordsLoading && !recordsError && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
+        >
           <IonSpinner name="crescent" />
           <IonNote color="medium">Loading existing publisher data…</IonNote>
         </div>
@@ -162,32 +193,24 @@ export function DataImportView({
           unavailable. Reload the app and try again.
         </IonNote>
       )}
-      {fileName && (
-        <IonButton
-          expand="block"
-          onClick={handleImport}
-          disabled={
-            importing || !parsedRecords || parsedRecords.length === 0 || imported || recordsError
-          }
-        >
-          {importing ? (
-            <>
-              <IonSpinner name="crescent" style={{ marginRight: 8 }} />
-              Importing…
-            </>
-          ) : (
-            "Import from file"
-          )}
-        </IonButton>
-      )}
+      {previewItems !== null &&
+        previewItems.length > 0 &&
+        !recordsLoading &&
+        !recordsError &&
+        !imported && (
+          <IonButton expand="block" onClick={handleImport} disabled={importing}>
+            {importing ? (
+              <>
+                <IonSpinner name="crescent" style={{ marginRight: 8 }} />
+                Importing…
+              </>
+            ) : (
+              "Import"
+            )}
+          </IonButton>
+        )}
       {parsedRecords && !imported && !recordsLoading && !recordsError && (
-        <ImportPreviewList
-          records={parsedRecords}
-          existing={existingRecords}
-          publishers={publishers}
-          suburbs={suburbs}
-          streets={streets}
-        />
+        <ImportPreviewList items={previewItems} />
       )}
       {imported && (
         <IonNote style={{ color: "var(--ion-color-success)", display: "block" }}>
