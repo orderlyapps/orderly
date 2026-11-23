@@ -56,6 +56,14 @@ const Secretary = () => {
                   Branch Report
                 </IonLabel>
               </IonItem>
+              <IonItem routerLink="/secretary/emergency-contacts" detail>
+                <IonLabel
+                  style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}
+                  className="ion-padding-vertical"
+                >
+                  Emergency Contacts
+                </IonLabel>
+              </IonItem>
             </IonList>
           </>
         )}

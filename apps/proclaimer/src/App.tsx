@@ -33,6 +33,7 @@ import Publishers from "./pages/Publishers";
 import Schedules from "./pages/Schedules";
 import Secretary from "./pages/Secretary";
 import BranchReport from "./pages/secretary/BranchReport";
+import EmergencyContacts from "./pages/secretary/EmergencyContacts";
 import PublisherReport from "./pages/secretary/branch-report/Publisher";
 import Settings from "./pages/Settings";
 import SettingsAbout from "./pages/settings/About";
@@ -112,6 +113,7 @@ const App = () => {
                 path="/secretary/branch-report/:monthId/publisher/:publisherId"
                 element={<PublisherReport />}
               />
+              <Route path="/secretary/emergency-contacts" element={<EmergencyContacts />} />
               <Route path="/publishers" element={<Publishers />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/about" element={<SettingsAbout />} />
