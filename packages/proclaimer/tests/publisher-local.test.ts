@@ -139,6 +139,62 @@ test("normalizePublisherLocal drops duplicate item ids, keeping the last", () =>
   ]);
 });
 
+test("normalizePublisherLocal formats valid numbers as Australian phones", () => {
+  const doc = {
+    publisher_id: "pub-1",
+    phone: [
+      { id: "p1", number: "0412345678", label: "Mobile" },
+      { id: "p2", number: "0412 345 678", label: "Mobile" },
+      { id: "p3", number: "+61412345678", label: "Mobile" },
+      { id: "p4", number: "(02) 9876 5432", label: "Home" },
+      { id: "p5", number: "123", label: "Other" },
+      { id: "p7", number: "1800123456", label: "Freecall" },
+      { id: "p8", number: "+18005551234", label: "US Freecall" },
+      { id: "p9", number: "not a phone", label: "Junk" },
+    ],
+    emergency_contact: [
+      {
+        id: "e1",
+        first_name: "Jane",
+        last_name: "Doe",
+        relationship: "Wife",
+        phone: [{ id: "p6", number: "61412345678", label: "Mobile" }],
+      },
+    ],
+  } as unknown as PublisherLocal;
+
+  const normalized = normalizePublisherLocal(doc);
+
+  expect(normalized.phone?.map((p) => [p.id, p.number])).toEqual([
+    ["p1", "+61 412 345 678"],
+    ["p2", "+61 412 345 678"],
+    ["p3", "+61 412 345 678"],
+    ["p4", "+61 2 9876 5432"],
+    // Unparseable values are kept as entered
+    ["p5", "123"],
+    // National-only service numbers keep their national form
+    ["p7", "1800 123 456"],
+    // Foreign numbers keep the international form, service type or not
+    ["p8", "+1 800 555 1234"],
+    ["p9", "not a phone"],
+  ]);
+  expect(normalized.emergency_contact?.[0]?.phone[0]?.number).toBe("+61 412 345 678");
+});
+
+test("diffPublisherLocalRecords ignores formatting-only phone differences", () => {
+  const existing = [
+    record({
+      phone: [{ id: "p1", number: "0412345678", label: "Mobile", version: version() }],
+    }),
+  ];
+  const incoming = [
+    record({
+      phone: [{ id: "p1", number: "0412 345 678", label: "Mobile", version: version() }],
+    }),
+  ];
+  expect(diffPublisherLocalRecords(existing, incoming)).toEqual([]);
+});
+
 test("createPublisherLocalCollection drops corrupted stored data", async () => {
   const storage = new Map<string, string>([["corrupt", "not json"]]);
   const storageApi: StorageApi = {

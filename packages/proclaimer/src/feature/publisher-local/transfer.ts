@@ -1,4 +1,5 @@
 import type { PublisherLocalCollection } from "./collection.ts";
+import { formatPhoneNumber } from "./phone.ts";
 import { isPublisherLocalRecord, type PublisherLocal, type Version } from "./schema.ts";
 
 /**
@@ -114,10 +115,15 @@ export function normalizePublisherLocal(doc: PublisherLocal): PublisherLocal {
         )
       : undefined;
 
+  // Source files store whatever was typed — normalize phone numbers to the
+  // canonical format so display, merge equality, and re-exports agree.
+  const phoneItems = (list: PublisherLocal["phone"] | undefined) =>
+    items(list)?.map((item) => ({ ...item, number: formatPhoneNumber(item.number) }));
+
   return {
     publisher_id: doc.publisher_id,
     confidential_id: doc.confidential_id ?? "",
-    phone: items(doc.phone),
+    phone: phoneItems(doc.phone),
     address: items(doc.address),
     email: items(doc.email),
     emergency_contact: Array.isArray(doc.emergency_contact)
@@ -135,7 +141,7 @@ export function normalizePublisherLocal(doc: PublisherLocal): PublisherLocal {
                   last_name: contact.last_name ?? "",
                   relationship: contact.relationship ?? "",
                   email: items(contact.email),
-                  phone: items(contact.phone) ?? [],
+                  phone: phoneItems(contact.phone) ?? [],
                   address: items(contact.address),
                   version: contact.version ?? emptyVersion(),
                 }) as NonNullable<PublisherLocal["emergency_contact"]>[number],

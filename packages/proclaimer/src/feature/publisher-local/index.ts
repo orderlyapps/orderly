@@ -26,6 +26,7 @@ export {
   type UseTerritoryNamesResult,
 } from "./hooks.ts";
 export { ImportPreviewList, type ImportPreviewListProps } from "./ImportPreviewList.tsx";
+export { formatPhoneNumber } from "./phone.ts";
 export {
   buildImportPreviewItems,
   type BuildImportPreviewInput,
