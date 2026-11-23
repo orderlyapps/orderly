@@ -85,7 +85,9 @@ export function ImportPreviewList({ items }: ImportPreviewListProps) {
                 {item.fields.map((field) => (
                   <IonItem key={field.key} lines="none">
                     <IonLabel className="ion-text-wrap" style={{ margin: "0.375rem 0" }}>
-                      <p style={{ color: "var(--ion-color-secondary)" }}>{field.label}</p>
+                      <p style={{ color: "var(--ion-color-secondary)", fontWeight: "bold" }}>
+                        {field.label}
+                      </p>
                       <div
                         style={{
                           display: "inline-grid",
