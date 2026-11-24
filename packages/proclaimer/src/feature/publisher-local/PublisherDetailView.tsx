@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import {
   IonAvatar,
   IonButton,
@@ -6,7 +7,16 @@ import {
   IonList,
   IonNote,
   IonSpinner,
+  useIonActionSheet,
+  type ActionSheetButton,
 } from "@ionic/react";
+import {
+  callOutline,
+  chatbubbleOutline,
+  copyOutline,
+  mailOutline,
+  navigateOutline,
+} from "ionicons/icons";
 
 import {
   isArchived,
@@ -26,7 +36,7 @@ import {
 } from "./collection.ts";
 import { usePublisherLocalRecords, useTerritoryNames } from "./hooks.ts";
 import { formatDate } from "./preview.ts";
-import type { PublisherLocalAddress, PublisherLocalEmergencyContact } from "./schema.ts";
+import type { PublisherLocalAddress } from "./schema.ts";
 
 export interface PublisherDetailViewProps {
   publisherId?: string;
@@ -58,6 +68,90 @@ function DetailItem({ label, value }: { label: string; value: string }) {
   );
 }
 
+function ActionItem({
+  label,
+  value,
+  onSelect,
+}: {
+  label: string;
+  value: string;
+  onSelect: () => void;
+}) {
+  return (
+    <IonItem lines="inset" button detail onClick={onSelect}>
+      <IonLabel className="ion-text-wrap">
+        <p>{label}</p>
+        <h3>{value}</h3>
+      </IonLabel>
+    </IonItem>
+  );
+}
+
+const openUri = (uri: string) => {
+  window.location.href = uri;
+};
+
+const openExternalUrl = (url: string) => {
+  window.open(url, "_blank", "noopener,noreferrer");
+};
+
+const copyToClipboard = (value: string) => {
+  void navigator.clipboard?.writeText(value);
+};
+
+function phoneActions(number: string): ActionSheetButton[] {
+  const sanitized = number.replace(/[^\d+*#]/g, "");
+  const buttons: ActionSheetButton[] = [];
+  if (sanitized.length > 0) {
+    buttons.push(
+      { text: "Call", icon: callOutline, handler: () => openUri(`tel:${sanitized}`) },
+      { text: "Message", icon: chatbubbleOutline, handler: () => openUri(`sms:${sanitized}`) },
+    );
+  }
+  buttons.push({ text: "Copy Number", icon: copyOutline, handler: () => copyToClipboard(number) });
+  return buttons;
+}
+
+function emailActions(address: string): ActionSheetButton[] {
+  return [
+    {
+      text: "Email",
+      icon: mailOutline,
+      handler: () => openUri(`mailto:${encodeURIComponent(address)}`),
+    },
+    { text: "Copy Address", icon: copyOutline, handler: () => copyToClipboard(address) },
+  ];
+}
+
+function addressActions(address: PublisherLocalAddress, formatted: string): ActionSheetButton[] {
+  const buttons: ActionSheetButton[] = [];
+  const coordinates = address.coordinates;
+  const destination =
+    coordinates && coordinates.length >= 2
+      ? `${coordinates[1]},${coordinates[0]}`
+      : formatted === "-"
+        ? ""
+        : formatted;
+  if (destination) {
+    buttons.push({
+      text: "Navigate",
+      icon: navigateOutline,
+      handler: () =>
+        openExternalUrl(
+          `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`,
+        ),
+    });
+  }
+  if (formatted !== "-") {
+    buttons.push({
+      text: "Copy Address",
+      icon: copyOutline,
+      handler: () => copyToClipboard(formatted),
+    });
+  }
+  return buttons;
+}
+
 function formatAddress(
   address: PublisherLocalAddress,
   suburbs: NameLookup[],
@@ -67,19 +161,6 @@ function formatAddress(
   return formatted === "-" && (address.coordinates?.length ?? 0) >= 2
     ? `${address.coordinates?.[1]}, ${address.coordinates?.[0]}`
     : formatted;
-}
-
-function emergencyContactDetails(
-  contact: PublisherLocalEmergencyContact,
-  suburbs: NameLookup[],
-  streets: NameLookup[],
-): string {
-  const phones = (contact.phone ?? []).map((p) => p.number);
-  const emails = (contact.email ?? []).map((e) => e.address);
-  const addresses = (contact.address ?? [])
-    .map((a) => formatAddress(a, suburbs, streets))
-    .filter((v) => v !== "-");
-  return [...phones, ...emails, ...addresses].join(" • ");
 }
 
 function genderLabel(publisher: Publisher): string | null {
@@ -118,6 +199,17 @@ export function PublisherDetailView({
     suburbCollection,
     streetCollection,
   );
+  const [presentActionSheet] = useIonActionSheet();
+
+  const showActions = (header: string, buttons: ActionSheetButton[]) => {
+    if (buttons.length === 0) {
+      return;
+    }
+    void presentActionSheet({
+      header,
+      buttons: [...buttons, { text: "Cancel", role: "cancel" }],
+    });
+  };
 
   const publisher = publishers.find((p) => p.id === publisherId);
   const record = records.find((r) => r.publisher_id === publisherId);
@@ -185,6 +277,105 @@ export function PublisherDetailView({
           </IonAvatar>
         </div>
       )}
+      {!record && (
+        <div className="ion-padding" style={{ textAlign: "center" }}>
+          <IonNote color="medium">No contact details stored on this device.</IonNote>
+        </div>
+      )}
+      {phones.length + emails.length + addresses.length > 0 && (
+        <IonList>
+          <SectionHeader label="Contact" />
+          {phones.map((phone) => (
+            <ActionItem
+              key={`phone-${phone.id}`}
+              label={phone.label ? `${phone.label} Phone` : "Phone"}
+              value={phone.number}
+              onSelect={() => showActions(phone.number, phoneActions(phone.number))}
+            />
+          ))}
+          {emails.map((email) => (
+            <ActionItem
+              key={`email-${email.id}`}
+              label={email.label ? `${email.label} Email` : "Email"}
+              value={email.address}
+              onSelect={() => showActions(email.address, emailActions(email.address))}
+            />
+          ))}
+          {addresses.map((address) => {
+            const formatted = formatAddress(address, suburbs, streets);
+            const label = address.label ? `${address.label} Address` : "Address";
+            const actions = addressActions(address, formatted);
+            if (actions.length === 0) {
+              return <DetailItem key={`address-${address.id}`} label={label} value={formatted} />;
+            }
+            return (
+              <ActionItem
+                key={`address-${address.id}`}
+                label={label}
+                value={formatted}
+                onSelect={() => showActions(formatted === "-" ? "Address" : formatted, actions)}
+              />
+            );
+          })}
+        </IonList>
+      )}
+      {emergencyContacts.length > 0 && (
+        <IonList>
+          <SectionHeader label="Emergency Contacts" />
+          {emergencyContacts.map((contact) => {
+            const name = `${contact.first_name} ${contact.last_name}`.trim() || "Emergency Contact";
+            return (
+              <Fragment key={contact.id}>
+                <IonItem lines="inset">
+                  <IonLabel className="ion-text-wrap">
+                    <p>
+                      Emergency Contact
+                      {contact.relationship ? ` — ${contact.relationship}` : ""}
+                    </p>
+                    <h3>{name}</h3>
+                  </IonLabel>
+                </IonItem>
+                {(contact.phone ?? []).map((phone) => (
+                  <ActionItem
+                    key={`phone-${phone.id}`}
+                    label={phone.label ? `${phone.label} Phone` : "Phone"}
+                    value={phone.number}
+                    onSelect={() => showActions(phone.number, phoneActions(phone.number))}
+                  />
+                ))}
+                {(contact.email ?? []).map((email) => (
+                  <ActionItem
+                    key={`email-${email.id}`}
+                    label={email.label ? `${email.label} Email` : "Email"}
+                    value={email.address}
+                    onSelect={() => showActions(email.address, emailActions(email.address))}
+                  />
+                ))}
+                {(contact.address ?? []).map((address) => {
+                  const formatted = formatAddress(address, suburbs, streets);
+                  const label = address.label ? `${address.label} Address` : "Address";
+                  const actions = addressActions(address, formatted);
+                  if (actions.length === 0) {
+                    return (
+                      <DetailItem key={`address-${address.id}`} label={label} value={formatted} />
+                    );
+                  }
+                  return (
+                    <ActionItem
+                      key={`address-${address.id}`}
+                      label={label}
+                      value={formatted}
+                      onSelect={() =>
+                        showActions(formatted === "-" ? "Address" : formatted, actions)
+                      }
+                    />
+                  );
+                })}
+              </Fragment>
+            );
+          })}
+        </IonList>
+      )}
       <IonList>
         <SectionHeader label="Details" />
         {standing && <DetailItem label="Standing" value={standing} />}
@@ -198,55 +389,6 @@ export function PublisherDetailView({
           <DetailItem label="Baptism Date" value={formatDate(record.baptism_date.value)} />
         )}
       </IonList>
-      {!record && (
-        <div className="ion-padding" style={{ textAlign: "center" }}>
-          <IonNote color="medium">No contact details stored on this device.</IonNote>
-        </div>
-      )}
-      {phones.length + emails.length + addresses.length > 0 && (
-        <IonList>
-          <SectionHeader label="Contact" />
-          {phones.map((phone) => (
-            <DetailItem
-              key={phone.id}
-              label={phone.label ? `${phone.label} Phone` : "Phone"}
-              value={phone.number}
-            />
-          ))}
-          {emails.map((email) => (
-            <DetailItem
-              key={email.id}
-              label={email.label ? `${email.label} Email` : "Email"}
-              value={email.address}
-            />
-          ))}
-          {addresses.map((address) => (
-            <DetailItem
-              key={address.id}
-              label={address.label ? `${address.label} Address` : "Address"}
-              value={formatAddress(address, suburbs, streets)}
-            />
-          ))}
-        </IonList>
-      )}
-      {emergencyContacts.length > 0 && (
-        <IonList>
-          <SectionHeader label="Emergency Contacts" />
-          {emergencyContacts.map((contact) => {
-            const details = emergencyContactDetails(contact, suburbs, streets);
-            const name = `${contact.first_name} ${contact.last_name}`.trim() || "Emergency Contact";
-            return (
-              <IonItem key={contact.id} lines="inset">
-                <IonLabel className="ion-text-wrap">
-                  <p>Emergency Contact{contact.relationship ? ` — ${contact.relationship}` : ""}</p>
-                  <h3>{name}</h3>
-                  {details && <p style={{ marginTop: 4 }}>{details}</p>}
-                </IonLabel>
-              </IonItem>
-            );
-          })}
-        </IonList>
-      )}
     </>
   );
 }
