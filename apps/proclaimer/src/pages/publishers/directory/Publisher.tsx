@@ -11,6 +11,7 @@ import {
 import { Navigate, useParams } from "react-router-dom";
 import {
   getPublisherDisplayName,
+  isRestrictedDirectoryEntry,
   PublisherDetailView,
   usePermissions,
   usePublishers,
@@ -22,13 +23,23 @@ const PublisherDetail = () => {
   const congregationId = settings.congregationId || undefined;
   const permissions = usePermissions(congregationId);
   const { publisherId } = useParams<{ publisherId?: string }>();
-  const { publishers } = usePublishers(congregationId);
+  const { publishers, isLoading: publishersLoading } = usePublishers(congregationId);
   const publisher = publishers.find((p) => p.id === publisherId);
   const canViewDirectory = permissions.hasElder || permissions.isSuperAdmin;
+  const canViewRestricted = permissions.hasSecretary || permissions.isSuperAdmin;
   const isLoading = settingsLoading || !permissions.isLoaded;
 
   if (!isLoading && !canViewDirectory) {
     return <Navigate to="/publishers" replace />;
+  }
+  if (
+    permissions.isLoaded &&
+    !publishersLoading &&
+    publisher &&
+    isRestrictedDirectoryEntry(publisher) &&
+    !canViewRestricted
+  ) {
+    return <Navigate to="/publishers/directory" replace />;
   }
 
   return (

@@ -43,7 +43,10 @@ const PublisherDirectory = () => {
             <IonSpinner name="crescent" />
           </div>
         ) : (
-          <PublisherDirectoryView congregationId={congregationId} />
+          <PublisherDirectoryView
+            congregationId={congregationId}
+            includeRestricted={permissions.hasSecretary || permissions.isSuperAdmin}
+          />
         )}
         <div style={{ paddingBottom: 48 }} />
       </IonContent>

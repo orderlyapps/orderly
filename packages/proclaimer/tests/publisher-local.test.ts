@@ -1,6 +1,7 @@
 import { expect, test } from "vite-plus/test";
 
 import type { StorageApi } from "../src/feature/settings/index.ts";
+import type { Publisher } from "../src/feature/publisher/index.ts";
 import {
   addContactDetail,
   buildContactDetailItem,
@@ -9,8 +10,10 @@ import {
   buildPublisherLocalExport,
   createPublisherLocalCollection,
   diffPublisherLocalRecords,
+  filterDirectoryPublishers,
   generateExportFilename,
   importPublisherLocalRecords,
+  isRestrictedDirectoryEntry,
   mergePublisherLocal,
   normalizePublisherLocal,
   parsePublisherLocalRecords,
@@ -785,4 +788,67 @@ test("addContactDetail appends to an already populated field array", async () =>
   } finally {
     await collection.cleanup().catch(() => {});
   }
+});
+
+function directoryPublisher(overrides: Partial<Publisher> = {}): Publisher {
+  return {
+    first_name: "Test",
+    last_name: "Publisher",
+    ...overrides,
+  };
+}
+
+test("isRestrictedDirectoryEntry flags archived, speaker, and congregation entries", () => {
+  expect(isRestrictedDirectoryEntry(directoryPublisher())).toBe(false);
+  expect(isRestrictedDirectoryEntry(directoryPublisher({ archived_at: "2024-01-01" }))).toBe(true);
+  expect(isRestrictedDirectoryEntry(directoryPublisher({ type: "speaker" }))).toBe(true);
+  expect(isRestrictedDirectoryEntry(directoryPublisher({ type: "congregation" }))).toBe(true);
+  expect(isRestrictedDirectoryEntry(directoryPublisher({ type: "removed" }))).toBe(false);
+});
+
+test("filterDirectoryPublishers hides restricted entries unless included", () => {
+  const active = directoryPublisher({ id: "a", first_name: "Amy", last_name: "Active" });
+  const archived = directoryPublisher({
+    id: "b",
+    first_name: "Bob",
+    last_name: "Archived",
+    archived_at: "2024-01-01",
+  });
+  const speaker = directoryPublisher({
+    id: "c",
+    first_name: "Sam",
+    last_name: "Speaker",
+    type: "speaker",
+  });
+  const congregation = directoryPublisher({
+    id: "d",
+    first_name: "City",
+    last_name: "Congregation",
+    type: "congregation",
+  });
+  const all = [active, archived, speaker, congregation];
+
+  expect(filterDirectoryPublishers(all)).toEqual([active]);
+  expect(filterDirectoryPublishers(all, { includeRestricted: true })).toEqual(all);
+  expect(filterDirectoryPublishers(all, { includeRestricted: true, query: "speaker" })).toEqual([
+    speaker,
+  ]);
+});
+
+test("filterDirectoryPublishers matches names case-insensitively across fields", () => {
+  const smith = directoryPublisher({
+    id: "a",
+    first_name: "John",
+    last_name: "Smith",
+    display_name: "Johnny",
+  });
+  const jones = directoryPublisher({ id: "b", first_name: "Jane", last_name: "Jones" });
+  const all = [smith, jones];
+
+  expect(filterDirectoryPublishers(all, { query: "smith" })).toEqual([smith]);
+  expect(filterDirectoryPublishers(all, { query: "SMITH, JOHN" })).toEqual([smith]);
+  expect(filterDirectoryPublishers(all, { query: "john smith" })).toEqual([smith]);
+  expect(filterDirectoryPublishers(all, { query: "johnny" })).toEqual([smith]);
+  expect(filterDirectoryPublishers(all, { query: "  " })).toEqual(all);
+  expect(filterDirectoryPublishers(all, { query: "no match" })).toEqual([]);
 });

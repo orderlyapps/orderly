@@ -22,6 +22,11 @@ export {
   type AddContactDetailModalProps,
 } from "./AddContactDetailModal.tsx";
 export { DataImportView, type DataImportViewProps } from "./DataImportView.tsx";
+export {
+  filterDirectoryPublishers,
+  isRestrictedDirectoryEntry,
+  type FilterDirectoryPublishersOptions,
+} from "./directory.ts";
 export { PublisherDetailView, type PublisherDetailViewProps } from "./PublisherDetailView.tsx";
 export {
   PublisherDirectoryView,
