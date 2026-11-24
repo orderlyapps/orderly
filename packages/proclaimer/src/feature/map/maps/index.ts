@@ -5,6 +5,7 @@ export {
   type MapCollection,
 } from "./collection.ts";
 export { useMapPolygons, type UseMapPolygonsResult } from "./hooks.ts";
+export { MapImageModal, type MapImageModalProps } from "./MapImageModal.tsx";
 export { MapsLayer, type MapsLayerProps } from "./MapsLayer.tsx";
 export { MapsListModal, type MapsListModalProps } from "./MapsListModal.tsx";
 export {
