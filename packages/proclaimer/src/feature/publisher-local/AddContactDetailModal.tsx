@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { Maskito } from "@maskito/core";
+import { useCallback, useEffect, useRef, useState, type ComponentRef } from "react";
 
 import {
   IonButton,
@@ -67,6 +68,35 @@ function emptyDraft(): ContactDetailDraft {
 const PERSONAL_EMAIL_LABEL = "Personal";
 const JW_PUB_EMAIL_LABEL = "JW Pub";
 const EMAIL_LABELS = [PERSONAL_EMAIL_LABEL, JW_PUB_EMAIL_LABEL];
+
+const RELATIONSHIP_OPTIONS = [
+  "Husband",
+  "Wife",
+  "Father",
+  "Mother",
+  "Son",
+  "Daughter",
+  "Brother",
+  "Sister",
+  "Grandfather",
+  "Grandmother",
+  "Grandson",
+  "Granddaughter",
+  "Uncle",
+  "Aunt",
+  "Nephew",
+  "Niece",
+  "Cousin",
+  "Father-in-law",
+  "Mother-in-law",
+  "Son-in-law",
+  "Daughter-in-law",
+  "Brother-in-law",
+  "Sister-in-law",
+  "Friend",
+  "Relative",
+  "Other",
+];
 
 function isJwPubAddress(value: string): boolean {
   return /^.+@jwpub\.org$/i.test(value.trim());
@@ -156,6 +186,44 @@ export function AddContactDetailModal({
   const update = (patch: Partial<ContactDetailDraft>) =>
     setDraft((current) => ({ ...current, ...patch }));
 
+  // IonModal mounts its children lazily on willPresent, so the mask must be
+  // attached from a callback ref rather than an effect keyed on `isOpen`.
+  const initPhoneMask = useCallback((el: ComponentRef<typeof IonInput> | null) => {
+    if (!el) {
+      return;
+    }
+    let cancelled = false;
+    let maskito: Maskito | undefined;
+
+    void (async () => {
+      try {
+        const [input, { maskitoPhoneOptionsGenerator }, metadata] = await Promise.all([
+          el.getInputElement(),
+          import("@maskito/phone"),
+          import("libphonenumber-js/min/metadata"),
+        ]);
+        if (!input || cancelled) {
+          return;
+        }
+        maskito = new Maskito(
+          input,
+          maskitoPhoneOptionsGenerator({
+            countryIsoCode: "AU",
+            metadata: metadata.default,
+            strict: true,
+          }),
+        );
+      } catch {
+        // Ignore mask initialization errors if the input unmounted before resolving
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      maskito?.destroy();
+    };
+  }, []);
+
   const onIonInput =
     (key: keyof ContactDetailDraft) => (event: CustomEvent<{ value?: string | null }>) =>
       update({ [key]: event.detail.value ?? "" });
@@ -208,6 +276,7 @@ export function AddContactDetailModal({
             <>
               <IonItem>
                 <IonInput
+                  ref={initPhoneMask}
                   label="Number"
                   type="tel"
                   inputmode="tel"
@@ -312,15 +381,25 @@ export function AddContactDetailModal({
                 />
               </IonItem>
               <IonItem>
-                <IonInput
+                <IonSelect
                   label="Relationship"
-                  placeholder="e.g. Wife"
+                  interface="alert"
+                  interfaceOptions={{ header: "Relationship" }}
+                  placeholder="Select"
                   value={draft.relationship}
-                  onIonInput={onIonInput("relationship")}
-                />
+                  onIonChange={(event) => update({ relationship: event.detail.value ?? "" })}
+                >
+                  <IonSelectOption value="">None</IonSelectOption>
+                  {RELATIONSHIP_OPTIONS.map((option) => (
+                    <IonSelectOption key={option} value={option}>
+                      {option}
+                    </IonSelectOption>
+                  ))}
+                </IonSelect>
               </IonItem>
               <IonItem>
                 <IonInput
+                  ref={initPhoneMask}
                   label="Phone"
                   type="tel"
                   inputmode="tel"

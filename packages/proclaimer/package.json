@@ -20,6 +20,8 @@
     "check": "vp check"
   },
   "dependencies": {
+    "@maskito/core": "catalog:",
+    "@maskito/phone": "catalog:",
     "@supabase/supabase-js": "catalog:",
     "@tanstack/db": "catalog:",
     "@tanstack/query-db-collection": "catalog:",
