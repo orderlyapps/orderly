@@ -4,6 +4,36 @@ export const PUBLISHER_TABLE = "publisher";
 
 export const publisherRowIdSchema = z.string().min(1);
 
+export const publisherStandingSchema = z.enum([
+  "elder",
+  "ministerial_servant",
+  "publisher",
+  "unbaptised_publisher",
+  "associate",
+  "congregation",
+  "other",
+]);
+
+export type PublisherStanding = z.infer<typeof publisherStandingSchema>;
+
+export const publisherTypeSchema = z.enum([
+  "publisher",
+  "unbaptised_publisher",
+  "regular_pioneer",
+  "special_pioneer",
+  "continuous_auxiliary",
+  "inactive",
+  "speaker",
+  "associate",
+  "removed",
+  "circuit_overseer",
+  "congregation",
+  "child",
+  "spouse",
+]);
+
+export type PublisherType = z.infer<typeof publisherTypeSchema>;
+
 // Mirrors the Supabase "publisher" table
 export const publisherSchema = z.object({
   id: publisherRowIdSchema.optional(),
@@ -12,8 +42,10 @@ export const publisherSchema = z.object({
   last_name: z.string(),
   display_name: z.string().nullish(),
   congregation_id: z.string().nullish(),
-  standing: z.string().nullish(),
-  type: z.string().nullish(),
+  // DB columns are unconstrained text shared with other apps; unknown values
+  // fall back to null so the row is kept instead of dropped.
+  standing: publisherStandingSchema.nullish().catch(null),
+  type: publisherTypeSchema.nullish().catch(null),
   gender: z.enum(["male", "female"]).nullish(),
   archived_at: z.string().nullish(),
   auth_id: z.string().nullish(),

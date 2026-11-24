@@ -6,11 +6,13 @@ import {
   isPioneer,
   pioneerBadgeLabel,
   type Publisher,
+  type PublisherStanding,
+  type PublisherType,
 } from "../src/feature/publisher/index.ts";
 
 const congregationId = "7b15d4e5-d4fa-4eb4-a276-3790b7c4897b";
 
-function publisher(standing: string, type: string): Publisher {
+function publisher(standing: PublisherStanding, type: PublisherType): Publisher {
   return {
     first_name: "Test",
     last_name: "Publisher",

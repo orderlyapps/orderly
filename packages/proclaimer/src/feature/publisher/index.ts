@@ -39,5 +39,9 @@ export {
   PUBLISHER_TABLE,
   publisherRowIdSchema,
   publisherSchema,
+  publisherStandingSchema,
+  publisherTypeSchema,
   type Publisher,
+  type PublisherStanding,
+  type PublisherType,
 } from "./schema.ts";

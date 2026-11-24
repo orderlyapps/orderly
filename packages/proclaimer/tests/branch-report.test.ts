@@ -20,7 +20,7 @@ import {
   type Report,
 } from "../src/feature/branch-report/index.ts";
 import type { MeetingAttendance } from "../src/feature/meeting-attendance/index.ts";
-import type { Publisher } from "../src/feature/publisher/index.ts";
+import type { Publisher, PublisherType } from "../src/feature/publisher/index.ts";
 import type { PublisherLocal } from "../src/feature/publisher-local/index.ts";
 import {
   currentMonthId,
@@ -154,7 +154,11 @@ test("activePublisherIds ignores malformed report dates", () => {
   expect(activePublisherIds([report(a, "2025-11-01", true)], "2025-11")).toEqual([a]);
 });
 
-function publisher(id: string, lastName = "Publisher", type = "publisher"): Publisher {
+function publisher(
+  id: string,
+  lastName = "Publisher",
+  type: PublisherType = "publisher",
+): Publisher {
   return { id, first_name: "Test", last_name: lastName, congregation_id: congregationId, type };
 }
 
