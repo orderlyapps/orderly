@@ -13,10 +13,9 @@ import {
   IonNote,
   IonSpinner,
   IonTitle,
+  IonToast,
   IonToolbar,
-  useIonActionSheet,
   useIonAlert,
-  type ActionSheetButton,
 } from "@ionic/react";
 import {
   callOutline,
@@ -92,6 +91,54 @@ function ActionItem({
   );
 }
 
+interface ContactAction {
+  text: string;
+  icon: string;
+  handler: () => void;
+}
+
+function ContactItem({
+  label,
+  value,
+  actions,
+}: {
+  label: string;
+  value: string;
+  actions: ContactAction[];
+}) {
+  return (
+    <IonItem lines="inset">
+      <IonLabel className="ion-text-wrap">
+        <p>{label}</p>
+        <h3>{value}</h3>
+        {actions.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: 16,
+              marginTop: 4,
+              marginRight: -12,
+            }}
+          >
+            {actions.map((action) => (
+              <IonButton
+                key={action.text}
+                fill="clear"
+                size="small"
+                aria-label={action.text}
+                onClick={action.handler}
+              >
+                <IonIcon slot="icon-only" icon={action.icon} />
+              </IonButton>
+            ))}
+          </div>
+        )}
+      </IonLabel>
+    </IonItem>
+  );
+}
+
 const openUri = (uri: string) => {
   window.location.href = uri;
 };
@@ -104,32 +151,36 @@ const copyToClipboard = (value: string) => {
   void navigator.clipboard?.writeText(value);
 };
 
-function phoneActions(number: string): ActionSheetButton[] {
+function phoneActions(number: string, copy: (value: string) => void): ContactAction[] {
   const sanitized = number.replace(/[^\d+*#]/g, "");
-  const buttons: ActionSheetButton[] = [];
+  const buttons: ContactAction[] = [];
   if (sanitized.length > 0) {
     buttons.push(
       { text: "Call", icon: callOutline, handler: () => openUri(`tel:${sanitized}`) },
       { text: "Message", icon: chatbubbleOutline, handler: () => openUri(`sms:${sanitized}`) },
     );
   }
-  buttons.push({ text: "Copy Number", icon: copyOutline, handler: () => copyToClipboard(number) });
+  buttons.push({ text: "Copy Number", icon: copyOutline, handler: () => copy(number) });
   return buttons;
 }
 
-function emailActions(address: string): ActionSheetButton[] {
+function emailActions(address: string, copy: (value: string) => void): ContactAction[] {
   return [
     {
       text: "Email",
       icon: mailOutline,
       handler: () => openUri(`mailto:${encodeURIComponent(address)}`),
     },
-    { text: "Copy Address", icon: copyOutline, handler: () => copyToClipboard(address) },
+    { text: "Copy Address", icon: copyOutline, handler: () => copy(address) },
   ];
 }
 
-function addressActions(address: PublisherLocalAddress, formatted: string): ActionSheetButton[] {
-  const buttons: ActionSheetButton[] = [];
+function addressActions(
+  address: PublisherLocalAddress,
+  formatted: string,
+  copy: (value: string) => void,
+): ContactAction[] {
+  const buttons: ContactAction[] = [];
   const coordinates = address.coordinates;
   const destination =
     coordinates && coordinates.length >= 2
@@ -151,7 +202,7 @@ function addressActions(address: PublisherLocalAddress, formatted: string): Acti
     buttons.push({
       text: "Copy Address",
       icon: copyOutline,
-      handler: () => copyToClipboard(formatted),
+      handler: () => copy(formatted),
     });
   }
   return buttons;
@@ -205,19 +256,14 @@ export function PublisherDetailView({
     suburbCollection,
     streetCollection,
   );
-  const [presentActionSheet] = useIonActionSheet();
   const [presentAlert] = useIonAlert();
   const [isFamilyHeadModalOpen, setIsFamilyHeadModalOpen] = useState(false);
+  const [showCopiedToast, setShowCopiedToast] = useState(false);
   const permissions = usePermissions(congregationId);
 
-  const showActions = (header: string, buttons: ActionSheetButton[]) => {
-    if (buttons.length === 0) {
-      return;
-    }
-    void presentActionSheet({
-      header,
-      buttons: [...buttons, { text: "Cancel", role: "cancel" }],
-    });
+  const copyDetail = (value: string) => {
+    copyToClipboard(value);
+    setShowCopiedToast(true);
   };
 
   const publisher = publishers.find((p) => p.id === publisherId);
@@ -318,34 +364,29 @@ export function PublisherDetailView({
           <SectionHeader title="Contact" color="medium" />
           <IonList>
             {phones.map((phone) => (
-              <ActionItem
+              <ContactItem
                 key={`phone-${phone.id}`}
                 label={phone.label ? `${phone.label} Phone` : "Phone"}
                 value={phone.number}
-                onSelect={() => showActions(phone.number, phoneActions(phone.number))}
+                actions={phoneActions(phone.number, copyDetail)}
               />
             ))}
             {emails.map((email) => (
-              <ActionItem
+              <ContactItem
                 key={`email-${email.id}`}
                 label={email.label ? `${email.label} Email` : "Email"}
                 value={email.address}
-                onSelect={() => showActions(email.address, emailActions(email.address))}
+                actions={emailActions(email.address, copyDetail)}
               />
             ))}
             {addresses.map((address) => {
               const formatted = formatAddress(address, suburbs, streets);
-              const label = address.label ? `${address.label} Address` : "Address";
-              const actions = addressActions(address, formatted);
-              if (actions.length === 0) {
-                return <DetailItem key={`address-${address.id}`} label={label} value={formatted} />;
-              }
               return (
-                <ActionItem
+                <ContactItem
                   key={`address-${address.id}`}
-                  label={label}
+                  label={address.label ? `${address.label} Address` : "Address"}
                   value={formatted}
-                  onSelect={() => showActions(formatted === "-" ? "Address" : formatted, actions)}
+                  actions={addressActions(address, formatted, copyDetail)}
                 />
               );
             })}
@@ -371,38 +412,29 @@ export function PublisherDetailView({
                     </IonLabel>
                   </IonItem>
                   {(contact.phone ?? []).map((phone) => (
-                    <ActionItem
+                    <ContactItem
                       key={`phone-${phone.id}`}
                       label={phone.label ? `${phone.label} Phone` : "Phone"}
                       value={phone.number}
-                      onSelect={() => showActions(phone.number, phoneActions(phone.number))}
+                      actions={phoneActions(phone.number, copyDetail)}
                     />
                   ))}
                   {(contact.email ?? []).map((email) => (
-                    <ActionItem
+                    <ContactItem
                       key={`email-${email.id}`}
                       label={email.label ? `${email.label} Email` : "Email"}
                       value={email.address}
-                      onSelect={() => showActions(email.address, emailActions(email.address))}
+                      actions={emailActions(email.address, copyDetail)}
                     />
                   ))}
                   {(contact.address ?? []).map((address) => {
                     const formatted = formatAddress(address, suburbs, streets);
-                    const label = address.label ? `${address.label} Address` : "Address";
-                    const actions = addressActions(address, formatted);
-                    if (actions.length === 0) {
-                      return (
-                        <DetailItem key={`address-${address.id}`} label={label} value={formatted} />
-                      );
-                    }
                     return (
-                      <ActionItem
+                      <ContactItem
                         key={`address-${address.id}`}
-                        label={label}
+                        label={address.label ? `${address.label} Address` : "Address"}
                         value={formatted}
-                        onSelect={() =>
-                          showActions(formatted === "-" ? "Address" : formatted, actions)
-                        }
+                        actions={addressActions(address, formatted, copyDetail)}
                       />
                     );
                   })}
@@ -483,6 +515,15 @@ export function PublisherDetailView({
           </PublisherSelect>
         </IonContent>
       </IonModal>
+      <IonToast
+        isOpen={showCopiedToast}
+        message="Copied to clipboard"
+        position="bottom"
+        duration={2000}
+        onDidDismiss={() => {
+          setShowCopiedToast(false);
+        }}
+      />
     </>
   );
 }
