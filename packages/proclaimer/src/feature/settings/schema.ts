@@ -37,11 +37,23 @@ export const selectedMapsSchema = z.record(
 
 export const settingsIdSchema = z.string().min(1).max(SETTINGS_ID_MAX_LENGTH);
 
+export const NOT_AT_HOME_VISIBILITIES = ["all", "hide_old", "hide_new"] as const;
+
+export const notAtHomeVisibilitySchema = z.enum(NOT_AT_HOME_VISIBILITIES);
+
+export type NotAtHomeVisibility = z.infer<typeof notAtHomeVisibilitySchema>;
+
+export const NOT_AT_HOME_STALE_DAYS_MAX = 365;
+
+export const notAtHomeStaleDaysSchema = z.number().int().min(0).max(NOT_AT_HOME_STALE_DAYS_MAX);
+
 const SETTINGS_FIELD_SCHEMAS = {
   theme: themeModeSchema,
   congregationId: congregationIdSchema,
   publisherId: publisherIdSchema,
   selectedMaps: selectedMapsSchema,
+  notAtHomeStaleDays: notAtHomeStaleDaysSchema,
+  notAtHomeVisibility: notAtHomeVisibilitySchema,
 } as const;
 
 export const settingsDocumentSchema = z.object({
@@ -65,6 +77,8 @@ export const DEFAULT_SETTINGS: SettingsDocument = {
   congregationId: "",
   publisherId: "",
   selectedMaps: {},
+  notAtHomeStaleDays: 90,
+  notAtHomeVisibility: "all",
 };
 
 export function isThemeMode(value: unknown): value is ThemeMode {
@@ -85,6 +99,14 @@ export function isSelectedMap(value: unknown): value is string {
 
 export function isSelectedMaps(value: unknown): value is Record<string, string> {
   return selectedMapsSchema.safeParse(value).success;
+}
+
+export function isNotAtHomeStaleDays(value: unknown): value is number {
+  return notAtHomeStaleDaysSchema.safeParse(value).success;
+}
+
+export function isNotAtHomeVisibility(value: unknown): value is NotAtHomeVisibility {
+  return notAtHomeVisibilitySchema.safeParse(value).success;
 }
 
 export function isValidSettingsId(value: unknown): value is string {

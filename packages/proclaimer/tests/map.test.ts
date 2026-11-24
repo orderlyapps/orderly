@@ -8,10 +8,12 @@ import {
   boundaryToBounds,
   boundaryToLabelPoint,
   boundaryToPolygonCoords,
+  buildNotAtHomeFeatures,
   clampMapZoom,
   DEFAULT_MAP_CENTER,
   ensureClosedRing,
   filterMapRows,
+  groupNotAtHomeMarkers,
   isClosedRing,
   isMapboxAccessToken,
   isValidBoundary,
@@ -29,15 +31,23 @@ import {
   mapRowsToBounds,
   mapRowsToGeoJSON,
   MapsLayer,
+  MapSettingsModal,
   MapView,
+  NOT_AT_HOME_STALE_DAY_CHOICES,
+  notAtHomeRowSchema,
+  notAtHomeRowToMarker,
+  NotAtHomesLayer,
   readMapViewState,
   resolveMapStyle,
   toMapboxCenter,
   useMapPolygons,
   useMapView,
+  useNotAtHomes,
   writeMapViewState,
   type MapBlock,
   type MapRow,
+  type NotAtHomeMarker,
+  type NotAtHomeRow,
 } from "../src/feature/map/index.ts";
 
 test("validates coordinates, tokens, zoom bounds, and style resolution", () => {
@@ -364,4 +374,189 @@ test("renders a fallback message when no access token is configured", () => {
     createElement(MapView, { accessToken: "", missingTokenMessage: "No token configured" }),
   );
   expect(custom).toContain("No token configured");
+});
+
+test("converts not-at-home view rows to markers grouped by address", () => {
+  const row = (overrides: Partial<NotAtHomeRow>): NotAtHomeRow => ({
+    id: "nah-1",
+    congregation_id: "cong-1",
+    house_number: "12",
+    longitude: 151.2,
+    latitude: -33.8,
+    ...overrides,
+  });
+
+  expect(notAtHomeRowSchema.safeParse(row({})).success).toBe(true);
+  expect(notAtHomeRowSchema.safeParse(row({ id: "" })).success).toBe(false);
+  expect(notAtHomeRowSchema.safeParse({ ...row({}), house_number: null }).success).toBe(false);
+
+  expect(
+    notAtHomeRowToMarker(row({ street_name: "Main St", suburb_name: "Springfield" })),
+  ).toMatchObject({
+    street: "Main St",
+    suburb: "Springfield",
+    coordinates: [151.2, -33.8],
+  });
+  expect(notAtHomeRowToMarker(row({}))).toMatchObject({ street: "", suburb: "" });
+  // Nullable view columns normalize so marker logic and Mapbox filters agree.
+  expect(notAtHomeRowToMarker(row({ write: null }))?.write).toBe(false);
+  expect(notAtHomeRowToMarker(row({ longitude: null }))).toBe(null);
+  expect(notAtHomeRowToMarker(row({ latitude: null }))).toBe(null);
+
+  // Units of one house share a suburb|street|house_number key; other houses do not.
+  const groups = groupNotAtHomeMarkers([
+    row({ id: "nah-1", unit_number: "3", street_name: "Main St", suburb_name: "Springfield" }),
+    row({ id: "nah-2", unit_number: "7", street_name: "Main St", suburb_name: "Springfield" }),
+    row({ id: "nah-3", house_number: "14", street_name: "Main St", suburb_name: "Springfield" }),
+    row({ id: "nah-4", house_number: "12", street_name: "Main St", suburb_name: "Other" }),
+    row({ id: "nah-5", house_number: "99", longitude: null }),
+  ]);
+  expect(Object.keys(groups)).toHaveLength(3);
+  expect(groups["Springfield|Main St|12"]).toHaveLength(2);
+  expect(groups["Springfield|Main St|14"]).toHaveLength(1);
+  expect(groups["Other|Main St|12"]).toHaveLength(1);
+
+  expect(NOT_AT_HOME_STALE_DAY_CHOICES).toContain(0);
+  expect(NOT_AT_HOME_STALE_DAY_CHOICES).toContain(90);
+  expect(typeof NotAtHomesLayer).toBe("function");
+  expect(typeof useNotAtHomes).toBe("function");
+  expect(typeof MapSettingsModal).toBe("function");
+});
+
+test("builds not-at-home features with unit grouping, counts, and stale flags", () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const now = Date.parse("2026-06-01T00:00:00Z");
+  const fresh = new Date(now - 10 * DAY_MS).toISOString();
+  const old = new Date(now - 100 * DAY_MS).toISOString();
+
+  const marker = (overrides: Partial<NotAtHomeMarker>): NotAtHomeMarker => ({
+    id: "nah-1",
+    congregation_id: "cong-1",
+    house_number: "12",
+    unit_number: null,
+    street_name: "Main St",
+    suburb_name: "Springfield",
+    full_address: "12 Main St, Springfield",
+    write: false,
+    created_at: fresh,
+    longitude: 151.2,
+    latitude: -33.8,
+    street: "Main St",
+    suburb: "Springfield",
+    coordinates: [151.2, -33.8],
+    ...overrides,
+  });
+
+  const single = buildNotAtHomeFeatures({ "Springfield|Main St|12": [marker({})] }, 90, now)[0];
+  expect(single.id).toBe("nah-1");
+  expect(single.geometry).toEqual({ type: "Point", coordinates: [151.2, -33.8] });
+  expect(single.properties).toMatchObject({
+    group_key: "Springfield|Main St|12",
+    unit_count: 1,
+    write_count: 0,
+    return_count: 1,
+    stale: false,
+  });
+
+  const grouped = buildNotAtHomeFeatures(
+    {
+      "Springfield|Main St|12": [
+        marker({ id: "nah-1", unit_number: "3" }),
+        marker({ id: "nah-2", unit_number: "7", write: true }),
+      ],
+    },
+    90,
+    now,
+  )[0];
+  expect(grouped.properties).toMatchObject({
+    unit_count: 2,
+    write_count: 1,
+    return_count: 1,
+    stale: false,
+  });
+  expect(grouped.properties.unit_data).toHaveLength(2);
+
+  // A return visit older than staleDays is stale; write entries never are.
+  const stale = buildNotAtHomeFeatures(
+    { "Springfield|Main St|12": [marker({ created_at: old })] },
+    90,
+    now,
+  )[0];
+  expect(stale.properties.stale).toBe(true);
+  const stillFresh = buildNotAtHomeFeatures(
+    { "Springfield|Main St|12": [marker({ created_at: fresh })] },
+    90,
+    now,
+  )[0];
+  expect(stillFresh.properties.stale).toBe(false);
+  const writeEntry = buildNotAtHomeFeatures(
+    { "Springfield|Main St|12": [marker({ write: true, created_at: old })] },
+    90,
+    now,
+  )[0];
+  expect(writeEntry.properties.stale).toBe(false);
+
+  // staleDays of 0 disables aging entirely.
+  const neverStale = buildNotAtHomeFeatures(
+    { "Springfield|Main St|12": [marker({ created_at: old })] },
+    0,
+    now,
+  )[0];
+  expect(neverStale.properties.stale).toBe(false);
+
+  // A group is only stale when every return visit in it is stale.
+  const mixedAge = buildNotAtHomeFeatures(
+    {
+      "Springfield|Main St|12": [
+        marker({ id: "nah-1", unit_number: "3", created_at: old }),
+        marker({ id: "nah-2", unit_number: "7", created_at: fresh }),
+      ],
+    },
+    90,
+    now,
+  )[0];
+  expect(mixedAge.properties.stale).toBe(false);
+});
+
+test("filters not-at-home features by the hide_old and hide_new visibility options", () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const now = Date.parse("2026-06-01T00:00:00Z");
+  const fresh = new Date(now - 10 * DAY_MS).toISOString();
+  const old = new Date(now - 100 * DAY_MS).toISOString();
+
+  const marker = (overrides: Partial<NotAtHomeMarker>): NotAtHomeMarker => ({
+    id: "nah-1",
+    congregation_id: "cong-1",
+    house_number: "12",
+    unit_number: null,
+    street_name: "Main St",
+    suburb_name: "Springfield",
+    full_address: null,
+    write: false,
+    created_at: fresh,
+    longitude: 151.2,
+    latitude: -33.8,
+    street: "Main St",
+    suburb: "Springfield",
+    coordinates: [151.2, -33.8],
+    ...overrides,
+  });
+
+  const groups = {
+    "Springfield|Main St|12": [marker({ id: "fresh", created_at: fresh })],
+    "Springfield|Main St|14": [marker({ id: "stale", house_number: "14", created_at: old })],
+    "Springfield|Main St|16": [
+      marker({ id: "write", house_number: "16", write: true, created_at: old }),
+    ],
+  };
+
+  const all = buildNotAtHomeFeatures(groups, 90, now, "all");
+  expect(all.map((feature) => feature.id).sort()).toEqual(["fresh", "stale", "write"]);
+
+  const hideOld = buildNotAtHomeFeatures(groups, 90, now, "hide_old");
+  expect(hideOld.map((feature) => feature.id).sort()).toEqual(["fresh", "write"]);
+
+  // Hide New keeps stale groups and write-only houses; fresh return visits go.
+  const hideNew = buildNotAtHomeFeatures(groups, 90, now, "hide_new");
+  expect(hideNew.map((feature) => feature.id).sort()).toEqual(["stale", "write"]);
 });

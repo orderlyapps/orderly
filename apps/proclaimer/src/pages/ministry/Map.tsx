@@ -10,12 +10,14 @@ import {
   IonPage,
   IonToolbar,
 } from "@ionic/react";
-import { mapOutline } from "ionicons/icons";
+import { mapOutline, settingsOutline } from "ionicons/icons";
 import {
   MAP_VIEW_STATE_STORAGE_KEY,
+  MapSettingsModal,
   MapsLayer,
   MapsListModal,
   MapView,
+  NotAtHomesLayer,
   readMapViewState,
   useSettings,
 } from "proclaimer-core";
@@ -28,6 +30,7 @@ const hasSavedView = () =>
 
 const Map = () => {
   const [mapsOpen, setMapsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { settings, setSetting } = useSettings();
   const congregationId = settings.congregationId.trim();
   const selectedMap = settings.selectedMaps[congregationId] || null;
@@ -43,6 +46,9 @@ const Map = () => {
             <IonButton onClick={() => setMapsOpen(true)} aria-label="Select map">
               <IonIcon slot="icon-only" icon={mapOutline} />
             </IonButton>
+            <IonButton onClick={() => setSettingsOpen(true)} aria-label="Map settings">
+              <IonIcon slot="icon-only" icon={settingsOutline} />
+            </IonButton>
           </IonButtons>
         </IonToolbar>
       </IonHeader>
@@ -53,7 +59,9 @@ const Map = () => {
           viewStateStorageKey={MAP_VIEW_STATE_STORAGE_KEY}
         >
           <MapsLayer autoFitBounds={!hasSavedView()} selectedMap={selectedMap} />
+          <NotAtHomesLayer />
         </MapView>
+        <MapSettingsModal isOpen={settingsOpen} onDidDismiss={() => setSettingsOpen(false)} />
         <MapsListModal
           isOpen={mapsOpen}
           onDidDismiss={() => setMapsOpen(false)}

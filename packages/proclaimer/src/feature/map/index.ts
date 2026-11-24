@@ -1,5 +1,7 @@
 export * from "./maps/index.ts";
+export * from "./not-at-homes/index.ts";
 export { useMapView, type UseMapViewOptions, type UseMapViewResult } from "./hooks.ts";
+export { MapSettingsModal, type MapSettingsModalProps } from "./MapSettingsModal.tsx";
 export { MapView, type MapViewProps } from "./MapView.tsx";
 export {
   areCoordinatesEqual,

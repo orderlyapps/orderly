@@ -22,6 +22,8 @@ import {
   importSettingsBinary,
   importSettingsBinaryFile,
   isCongregationId,
+  isNotAtHomeStaleDays,
+  isNotAtHomeVisibility,
   isPublisherId,
   isSelectedMap,
   isSelectedMaps,
@@ -61,7 +63,14 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     "settings-2026-10-23_14-05-09.pro",
   );
   expect(THEME_MODES).toEqual(["light", "dark", "system"]);
-  expect(SETTINGS_KEYS).toEqual(["theme", "congregationId", "publisherId", "selectedMaps"]);
+  expect(SETTINGS_KEYS).toEqual([
+    "theme",
+    "congregationId",
+    "publisherId",
+    "selectedMaps",
+    "notAtHomeStaleDays",
+    "notAtHomeVisibility",
+  ]);
   expect(THEME_LABELS).toEqual({ light: "Light", dark: "Dark", system: "System" });
   expect(THEME_OPTIONS).toEqual([
     { value: "light", label: "Light" },
@@ -80,6 +89,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     congregationId: "",
     publisherId: "",
     selectedMaps: {},
+    notAtHomeStaleDays: 90,
+    notAtHomeVisibility: "all",
   });
   expect(normalizeSettingsDocument({ id: "", theme: "dark" })).toEqual({
     id: DEFAULT_SETTINGS_ID,
@@ -87,6 +98,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     congregationId: "",
     publisherId: "",
     selectedMaps: {},
+    notAtHomeStaleDays: 90,
+    notAtHomeVisibility: "all",
   });
   const overlongId = "a".repeat(SETTINGS_ID_MAX_LENGTH + 1);
   expect(isValidSettingsId(DEFAULT_SETTINGS_ID)).toBe(true);
@@ -109,6 +122,17 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
   expect(isSelectedMaps({ "congregation-1": "" })).toBe(false);
   expect(isSelectedMaps({ "": "map-1" })).toBe(false);
   expect(isSelectedMaps("map-1")).toBe(false);
+  expect(isNotAtHomeStaleDays(90)).toBe(true);
+  expect(isNotAtHomeStaleDays(0)).toBe(true);
+  expect(isNotAtHomeStaleDays(-1)).toBe(false);
+  expect(isNotAtHomeStaleDays(366)).toBe(false);
+  expect(isNotAtHomeStaleDays(1.5)).toBe(false);
+  expect(isNotAtHomeStaleDays("90")).toBe(false);
+  expect(isNotAtHomeVisibility("all")).toBe(true);
+  expect(isNotAtHomeVisibility("hide_old")).toBe(true);
+  expect(isNotAtHomeVisibility("hide_new")).toBe(true);
+  expect(isNotAtHomeVisibility("none")).toBe(false);
+  expect(isNotAtHomeVisibility(null)).toBe(false);
   expect(
     isSettingsDocument({
       id: DEFAULT_SETTINGS_ID,
@@ -116,6 +140,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
       congregationId: "",
       publisherId: "",
       selectedMaps: {},
+      notAtHomeStaleDays: 90,
+      notAtHomeVisibility: "all",
     }),
   ).toBe(true);
   expect(isSettingsDocument({ id: DEFAULT_SETTINGS_ID, theme: "dark", congregationId: "  " })).toBe(
@@ -128,6 +154,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     congregationId: "",
     publisherId: "",
     selectedMaps: {},
+    notAtHomeStaleDays: 90,
+    notAtHomeVisibility: "all",
   });
   expect(toSettingsPatch({ id: "custom", theme: "light" })).toEqual({ theme: "light" });
   expect(
@@ -138,6 +166,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         congregationId: "",
         publisherId: "",
         selectedMaps: {},
+        notAtHomeStaleDays: 90,
+        notAtHomeVisibility: "all",
       },
       {
         id: DEFAULT_SETTINGS_ID,
@@ -145,6 +175,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         congregationId: "",
         publisherId: "",
         selectedMaps: {},
+        notAtHomeStaleDays: 90,
+        notAtHomeVisibility: "all",
       },
     ),
   ).toBe(true);
@@ -156,6 +188,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         congregationId: "",
         publisherId: "",
         selectedMaps: {},
+        notAtHomeStaleDays: 90,
+        notAtHomeVisibility: "all",
       },
       {
         id: DEFAULT_SETTINGS_ID,
@@ -163,6 +197,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         congregationId: "",
         publisherId: "",
         selectedMaps: {},
+        notAtHomeStaleDays: 90,
+        notAtHomeVisibility: "all",
       },
     ),
   ).toBe(false);
@@ -174,6 +210,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         congregationId: "",
         publisherId: "",
         selectedMaps: { "congregation-1": "map-1" },
+        notAtHomeStaleDays: 90,
+        notAtHomeVisibility: "all",
       },
       {
         id: DEFAULT_SETTINGS_ID,
@@ -181,6 +219,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         congregationId: "",
         publisherId: "",
         selectedMaps: { "congregation-1": "map-1" },
+        notAtHomeStaleDays: 90,
+        notAtHomeVisibility: "all",
       },
     ),
   ).toBe(true);
@@ -192,6 +232,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         congregationId: "",
         publisherId: "",
         selectedMaps: { "congregation-1": "map-1" },
+        notAtHomeStaleDays: 90,
+        notAtHomeVisibility: "all",
       },
       {
         id: DEFAULT_SETTINGS_ID,
@@ -199,6 +241,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         congregationId: "",
         publisherId: "",
         selectedMaps: { "congregation-1": "map-2" },
+        notAtHomeStaleDays: 90,
+        notAtHomeVisibility: "all",
       },
     ),
   ).toBe(false);
@@ -277,6 +321,8 @@ test("initializes LocalStorage Collection store with default system theme and up
       congregationId: "",
       publisherId: "",
       selectedMaps: {},
+      notAtHomeStaleDays: 90,
+      notAtHomeVisibility: "all",
     });
     expect(store.collection.get(DEFAULT_SETTINGS_ID)?.theme).toBe("system");
 
@@ -333,6 +379,8 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       congregationId: "",
       publisherId: "",
       selectedMaps: {},
+      notAtHomeStaleDays: 90,
+      notAtHomeVisibility: "all",
     });
 
     const imported = await importSettingsBinary(binary, targetStore);
@@ -342,6 +390,8 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       congregationId: "",
       publisherId: "",
       selectedMaps: {},
+      notAtHomeStaleDays: 90,
+      notAtHomeVisibility: "all",
     });
     expect((await targetStore.getSettings()).theme).toBe("dark");
 
@@ -362,6 +412,8 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       congregationId: "",
       publisherId: "",
       selectedMaps: {},
+      notAtHomeStaleDays: 90,
+      notAtHomeVisibility: "all",
     });
   } finally {
     await sourceStore.close();
@@ -383,6 +435,8 @@ test("rejects invalid binary payloads", () => {
     congregationId: "",
     publisherId: "",
     selectedMaps: {},
+    notAtHomeStaleDays: 90,
+    notAtHomeVisibility: "all",
   });
   const corrupted = new Uint8Array(valid);
   corrupted[corrupted.length - 1] = 0x00;
@@ -415,6 +469,8 @@ test("rejects invalid binary payloads", () => {
     congregationId: "",
     publisherId: "",
     selectedMaps: {},
+    notAtHomeStaleDays: 90,
+    notAtHomeVisibility: "all",
   });
 });
 
@@ -592,6 +648,8 @@ test("recovers from malformed or corrupt data in storage and falls back to defau
         congregationId: "",
         publisherId: "",
         selectedMaps: {},
+        notAtHomeStaleDays: 90,
+        notAtHomeVisibility: "all",
       });
     } finally {
       await store.close();
