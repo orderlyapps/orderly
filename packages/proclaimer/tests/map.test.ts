@@ -34,6 +34,7 @@ import {
   mapRowSchema,
   mapRowsToBounds,
   mapRowsToGeoJSON,
+  MapEditModal,
   MapsLayer,
   MapSettingsModal,
   MapView,
@@ -42,7 +43,10 @@ import {
   notAtHomeRowToMarker,
   NotAtHomesLayer,
   readMapViewState,
+  removeMapBlock,
+  renameMapBlock,
   resolveMapStyle,
+  sortMapBlocks,
   toMapboxCenter,
   useMapPolygons,
   useMapView,
@@ -477,6 +481,31 @@ test("converts not-at-home view rows to markers grouped by address", () => {
   expect(typeof NotAtHomesLayer).toBe("function");
   expect(typeof useNotAtHomes).toBe("function");
   expect(typeof MapSettingsModal).toBe("function");
+  expect(typeof MapEditModal).toBe("function");
+});
+
+test("sorts, renames, and removes map blocks and faces", () => {
+  const blocks: MapBlock[] = [
+    { id: "b-10", name: "Block 10", type: "block", coordinates: [] },
+    { id: "f-1", name: "Oak St", type: "face", coordinates: [] },
+    { id: "b-2", name: "Block 2", type: "block", coordinates: [] },
+  ];
+
+  // Alphabetically sorted with numeric ordering: Block 2 before Block 10.
+  expect(sortMapBlocks(blocks).map((block) => block.id)).toEqual(["b-2", "b-10", "f-1"]);
+  expect(sortMapBlocks(null)).toEqual([]);
+  expect(sortMapBlocks(undefined)).toEqual([]);
+
+  const renamed = renameMapBlock(blocks, "b-2", "Renamed");
+  expect(renamed.find((block) => block.id === "b-2")?.name).toBe("Renamed");
+  // The original array is left unchanged so optimistic updates stay pure.
+  expect(blocks.find((block) => block.id === "b-2")?.name).toBe("Block 2");
+  expect(renameMapBlock(blocks, "missing", "X")).toEqual(blocks);
+  expect(renameMapBlock(null, "b-2", "X")).toEqual([]);
+
+  expect(removeMapBlock(blocks, "b-2").map((block) => block.id)).toEqual(["b-10", "f-1"]);
+  expect(removeMapBlock(blocks, "missing")).toEqual(blocks);
+  expect(removeMapBlock(null, "b-2")).toEqual([]);
 });
 
 test("builds not-at-home features with unit grouping, counts, and stale flags", () => {

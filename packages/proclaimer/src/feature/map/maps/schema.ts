@@ -224,6 +224,30 @@ export function filterMapRows(rows: MapRow[], query: string): MapRow[] {
   return sorted.filter((row) => mapSearchable(`${row.name} ${row.details ?? ""}`).includes(needle));
 }
 
+// Sorts blocks/faces alphabetically for editing lists, matching the numeric
+// ordering used for map names.
+export function sortMapBlocks(blocks: MapBlock[] | null | undefined): MapBlock[] {
+  return [...(blocks ?? [])].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }),
+  );
+}
+
+// Returns a copy of `blocks` with the matching block/face renamed. Block ids
+// are assumed unique within a map; duplicates would all be renamed.
+export function renameMapBlock(
+  blocks: MapBlock[] | null | undefined,
+  blockId: string,
+  name: string,
+): MapBlock[] {
+  return (blocks ?? []).map((block) => (block.id === blockId ? { ...block, name } : block));
+}
+
+// Returns a copy of `blocks` with the matching block/face removed. Block ids
+// are assumed unique within a map; duplicates would all be removed.
+export function removeMapBlock(blocks: MapBlock[] | null | undefined, blockId: string): MapBlock[] {
+  return (blocks ?? []).filter((block) => block.id !== blockId);
+}
+
 export function mapRowToFeature(row: MapRow): MapPolygonFeature | null {
   const coordinates = boundaryToPolygonCoords(row.boundary);
   if (!coordinates) {
