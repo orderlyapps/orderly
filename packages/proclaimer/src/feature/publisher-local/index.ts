@@ -22,6 +22,11 @@ export {
   type AddContactDetailModalProps,
 } from "./AddContactDetailModal.tsx";
 export { DataImportView, type DataImportViewProps } from "./DataImportView.tsx";
+export { PublisherDetailView, type PublisherDetailViewProps } from "./PublisherDetailView.tsx";
+export {
+  PublisherDirectoryView,
+  type PublisherDirectoryViewProps,
+} from "./PublisherDirectoryView.tsx";
 export {
   addContactDetail,
   buildContactDetailItem,
@@ -51,6 +56,7 @@ export {
 export { formatPhoneNumber } from "./phone.ts";
 export {
   buildImportPreviewItems,
+  formatDate,
   type BuildImportPreviewInput,
   type PreviewField,
   type PublisherImportPreviewItem,

@@ -10,17 +10,21 @@ import {
 import type { ClamOverseerPermission } from "../midweek-meeting/schema.ts";
 import {
   getAuthUserCollection,
+  getElderPermissionCollection,
   getSecretaryPermissionCollection,
   type AuthUserCollection,
+  type ElderPermissionCollection,
   type SecretaryPermissionCollection,
 } from "./collection.ts";
-import type { AuthUser, SecretaryPermission } from "./schema.ts";
+import type { AuthUser, ElderPermission, SecretaryPermission } from "./schema.ts";
 
 export interface PermissionsResult {
   /** User may update the midweek_assignment and midweek_participation tables. */
   hasMidweekMeetingOverseer: boolean;
   /** User may edit secretary data for the congregation. */
   hasSecretary: boolean;
+  /** User has elder access to the congregation's publisher data. */
+  hasElder: boolean;
   isSuperAdmin: boolean;
   isAuthenticated: boolean;
   /** Auth session resolved and permission rows finished (or skipped) loading. */
@@ -63,6 +67,14 @@ export function hasSecretaryPermission(
   return hasCongregationEditPermission(rows, authUserId, congregationId);
 }
 
+export function hasElderPermission(
+  rows: ElderPermission[] | undefined,
+  authUserId: string | null | undefined,
+  congregationId: string | null | undefined,
+): boolean {
+  return hasCongregationEditPermission(rows, authUserId, congregationId);
+}
+
 export function isSuperAdminUser(
   rows: AuthUser[] | undefined,
   authUserId: string | null | undefined,
@@ -76,6 +88,7 @@ export function isSuperAdminUser(
 interface ResolvedCollections {
   clamOverseer: ClamOverseerPermissionCollection | null;
   secretary: SecretaryPermissionCollection | null;
+  elder: ElderPermissionCollection | null;
   authUser: AuthUserCollection | null;
 }
 
@@ -94,6 +107,7 @@ function resolveCollections(
   return {
     clamOverseer: congregationId ? tryResolve(getClamOverseerPermissionCollection) : null,
     secretary: congregationId ? tryResolve(getSecretaryPermissionCollection) : null,
+    elder: congregationId ? tryResolve(getElderPermissionCollection) : null,
     authUser: authUserId ? tryResolve(getAuthUserCollection) : null,
   };
 }
@@ -128,6 +142,17 @@ export function usePermissions(congregationId?: string | null): PermissionsResul
         : undefined,
   });
 
+  const { data: elderRows, isLoading: elderLoading } = useLiveQuery({
+    query: (q) =>
+      resolved.elder && authUserId && congregationId
+        ? q
+            .from({ p: resolved.elder })
+            .where(({ p }) =>
+              and(eq(p.auth_user_id, authUserId), eq(p.congregation_id, congregationId)),
+            )
+        : undefined,
+  });
+
   const { data: authUserRows, isLoading: authUserLoading } = useLiveQuery({
     query: (q) =>
       resolved.authUser && authUserId
@@ -138,12 +163,14 @@ export function usePermissions(congregationId?: string | null): PermissionsResul
   return {
     hasMidweekMeetingOverseer: hasClamOverseerPermission(clamRows, authUserId, congregationId),
     hasSecretary: hasSecretaryPermission(secretaryRows, authUserId, congregationId),
+    hasElder: hasElderPermission(elderRows, authUserId, congregationId),
     isSuperAdmin: isSuperAdminUser(authUserRows, authUserId),
     isAuthenticated: Boolean(authUserId),
     isLoaded:
       session !== undefined &&
       !(resolved.clamOverseer !== null && clamLoading) &&
       !(resolved.secretary !== null && secretaryLoading) &&
+      !(resolved.elder !== null && elderLoading) &&
       !(resolved.authUser !== null && authUserLoading),
   };
 }

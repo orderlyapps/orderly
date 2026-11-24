@@ -5,6 +5,8 @@ import {
   isActiveElderOrMinisterialServant,
   isPioneer,
   pioneerBadgeLabel,
+  publisherStandingLabel,
+  publisherTypeLabel,
   type Publisher,
   type PublisherStanding,
   type PublisherType,
@@ -62,6 +64,17 @@ test("pioneerBadgeLabel labels auxiliary and special pioneers only", () => {
   expect(pioneerBadgeLabel(publisher("publisher", "special_pioneer"))).toBe("Special");
   expect(pioneerBadgeLabel(publisher("publisher", "regular_pioneer"))).toBeNull();
   expect(pioneerBadgeLabel(publisher("publisher", "publisher"))).toBeNull();
+});
+
+test("publisherStandingLabel and publisherTypeLabel label known values", () => {
+  expect(publisherStandingLabel(publisher("elder", "publisher"))).toBe("Elder");
+  expect(publisherStandingLabel(publisher("ministerial_servant", "publisher"))).toBe(
+    "Ministerial Servant",
+  );
+  expect(publisherStandingLabel({ first_name: "A", last_name: "B" })).toBeNull();
+  expect(publisherTypeLabel(publisher("publisher", "regular_pioneer"))).toBe("Regular Pioneer");
+  expect(publisherTypeLabel(publisher("publisher", "removed"))).toBe("Removed");
+  expect(publisherTypeLabel({ first_name: "A", last_name: "B" })).toBeNull();
 });
 
 test("isActiveElderOrMinisterialServant only matches active elders and ministerial servants", () => {

@@ -656,6 +656,7 @@ function permissions(overrides: Partial<PermissionsResult>): PermissionsResult {
   return {
     hasMidweekMeetingOverseer: false,
     hasSecretary: false,
+    hasElder: false,
     isSuperAdmin: false,
     isAuthenticated: true,
     isLoaded: true,

@@ -3,13 +3,16 @@ import { expect, test } from "vite-plus/test";
 import {
   authUserSchema,
   clamOverseerPermissionSchema,
+  elderPermissionSchema,
   hasClamOverseerPermission,
+  hasElderPermission,
   hasSecretaryPermission,
   isSuperAdminUser,
   midweekParticipationSchema,
   secretaryPermissionSchema,
   type AuthUser,
   type ClamOverseerPermission,
+  type ElderPermission,
   type SecretaryPermission,
 } from "../src/feature/index.ts";
 
@@ -109,6 +112,41 @@ test("hasSecretaryPermission requires can_edit", () => {
   ];
   expect(hasSecretaryPermission(rows, authUserId, congregationId)).toBe(false);
   expect(hasSecretaryPermission(rows, authUserId, otherCongregationId)).toBe(true);
+});
+
+function elderPermission(overrides: Partial<ElderPermission>): ElderPermission {
+  return {
+    auth_user_id: authUserId,
+    congregation_id: congregationId,
+    can_edit: true,
+    ...overrides,
+  };
+}
+
+test("elderPermissionSchema mirrors the table shape", () => {
+  const row = elderPermission({});
+  expect(elderPermissionSchema.safeParse(row).success).toBe(true);
+  expect(elderPermissionSchema.safeParse({ ...row, can_edit: "yes" }).success).toBe(false);
+  expect(elderPermissionSchema.safeParse({ ...row, auth_user_id: "x" }).success).toBe(false);
+});
+
+test("hasElderPermission requires a matching editable row", () => {
+  const rows = [elderPermission({})];
+  expect(hasElderPermission(rows, authUserId, congregationId)).toBe(true);
+  expect(hasElderPermission(rows, otherUserId, congregationId)).toBe(false);
+  expect(hasElderPermission(rows, authUserId, otherCongregationId)).toBe(false);
+  expect(hasElderPermission(rows, undefined, congregationId)).toBe(false);
+  expect(hasElderPermission(rows, authUserId, undefined)).toBe(false);
+  expect(hasElderPermission(undefined, authUserId, congregationId)).toBe(false);
+});
+
+test("hasElderPermission requires can_edit", () => {
+  const rows = [
+    elderPermission({ can_edit: false }),
+    elderPermission({ congregation_id: otherCongregationId, can_edit: true }),
+  ];
+  expect(hasElderPermission(rows, authUserId, congregationId)).toBe(false);
+  expect(hasElderPermission(rows, authUserId, otherCongregationId)).toBe(true);
 });
 
 function authUser(overrides: Partial<AuthUser>): AuthUser {

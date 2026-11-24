@@ -1,4 +1,4 @@
-import type { Publisher } from "./schema.ts";
+import type { Publisher, PublisherStanding, PublisherType } from "./schema.ts";
 
 export const ELDER_STANDING = "elder";
 export const MINISTERIAL_SERVANT_STANDING = "ministerial_servant";
@@ -50,6 +50,40 @@ const PIONEER_BADGE_LABELS: Record<string, string> = {
 
 export function pioneerBadgeLabel(publisher: Publisher): string | null {
   return publisher.type ? (PIONEER_BADGE_LABELS[publisher.type] ?? null) : null;
+}
+
+const STANDING_LABELS: Record<PublisherStanding, string> = {
+  elder: "Elder",
+  ministerial_servant: "Ministerial Servant",
+  publisher: "Publisher",
+  unbaptised_publisher: "Unbaptised Publisher",
+  associate: "Associate",
+  congregation: "Congregation",
+  other: "Other",
+};
+
+export function publisherStandingLabel(publisher: Publisher): string | null {
+  return publisher.standing ? STANDING_LABELS[publisher.standing] : null;
+}
+
+const TYPE_LABELS: Record<PublisherType, string> = {
+  publisher: "Publisher",
+  unbaptised_publisher: "Unbaptised Publisher",
+  regular_pioneer: "Regular Pioneer",
+  special_pioneer: "Special Pioneer",
+  continuous_auxiliary: "Continuous Auxiliary",
+  inactive: "Inactive",
+  speaker: "Speaker",
+  associate: "Associate",
+  removed: "Removed",
+  circuit_overseer: "Circuit Overseer",
+  congregation: "Congregation",
+  child: "Child",
+  spouse: "Spouse",
+};
+
+export function publisherTypeLabel(publisher: Publisher): string | null {
+  return publisher.type ? TYPE_LABELS[publisher.type] : null;
 }
 
 export function groupPublishers(publishers: Publisher[]): PublisherGroups {

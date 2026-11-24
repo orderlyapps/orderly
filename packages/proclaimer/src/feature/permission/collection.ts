@@ -1,10 +1,13 @@
 import { createSupabaseTableCollection } from "../backend/collections.ts";
 import {
   AUTH_USER_TABLE,
+  ELDER_PERMISSION_TABLE,
   SECRETARY_PERMISSION_TABLE,
   authUserSchema,
+  elderPermissionSchema,
   secretaryPermissionSchema,
   type AuthUser,
+  type ElderPermission,
   type SecretaryPermission,
 } from "./schema.ts";
 
@@ -28,6 +31,26 @@ export function getSecretaryPermissionCollection(): SecretaryPermissionCollectio
   return defaultSecretaryPermissionCollection;
 }
 
+export function createElderPermissionCollection() {
+  return createSupabaseTableCollection<ElderPermission>({
+    table: ELDER_PERMISSION_TABLE,
+    id: ELDER_PERMISSION_TABLE,
+    keyColumns: ["auth_user_id", "congregation_id"],
+    schema: elderPermissionSchema,
+  });
+}
+
+export type ElderPermissionCollection = ReturnType<typeof createElderPermissionCollection>;
+
+let defaultElderPermissionCollection: ElderPermissionCollection | null = null;
+
+export function getElderPermissionCollection(): ElderPermissionCollection {
+  if (!defaultElderPermissionCollection) {
+    defaultElderPermissionCollection = createElderPermissionCollection();
+  }
+  return defaultElderPermissionCollection;
+}
+
 export function createAuthUserCollection() {
   return createSupabaseTableCollection<AuthUser>({
     table: AUTH_USER_TABLE,
@@ -49,8 +72,13 @@ export function getAuthUserCollection(): AuthUserCollection {
 }
 
 export async function resetPermissionCollectionsForTesting(): Promise<void> {
-  const collections = [defaultSecretaryPermissionCollection, defaultAuthUserCollection];
+  const collections = [
+    defaultSecretaryPermissionCollection,
+    defaultElderPermissionCollection,
+    defaultAuthUserCollection,
+  ];
   defaultSecretaryPermissionCollection = null;
+  defaultElderPermissionCollection = null;
   defaultAuthUserCollection = null;
   await Promise.all(
     collections

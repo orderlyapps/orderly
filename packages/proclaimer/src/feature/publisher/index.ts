@@ -25,6 +25,8 @@ export {
   MINISTERIAL_SERVANT_STANDING,
   PIONEER_TYPES,
   pioneerBadgeLabel,
+  publisherStandingLabel,
+  publisherTypeLabel,
   type PublisherGroups,
 } from "./presentation.ts";
 export { PublishersView, type PublishersViewProps } from "./PublishersView.tsx";

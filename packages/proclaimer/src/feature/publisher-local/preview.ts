@@ -26,7 +26,7 @@ export interface PublisherImportPreviewItem {
   fields: PreviewField[];
 }
 
-function formatDate(dateStr: string): string {
+export function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
   if (Number.isNaN(date.getTime())) return dateStr;
   // "YYYY-MM-DD" parses as UTC midnight — format in UTC so the calendar day
