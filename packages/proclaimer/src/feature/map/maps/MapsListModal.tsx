@@ -50,13 +50,7 @@ export function MapsListModal({
 
   return (
     <>
-      <IonModal
-        isOpen={isOpen}
-        onDidDismiss={handleDidDismiss}
-        breakpoints={[0, 0.95, 1]}
-        initialBreakpoint={0.95}
-        handleBehavior="cycle"
-      >
+      <IonModal isOpen={isOpen} onDidDismiss={handleDidDismiss}>
         <IonHeader>
           <IonToolbar>
             <IonTitle>Select Map</IonTitle>
