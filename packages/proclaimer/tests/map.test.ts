@@ -347,10 +347,10 @@ test("converts map blocks to polygon and line features", () => {
     face({ id: "face-2", coordinates: [] }),
   ]);
   expect(geojson.type).toBe("FeatureCollection");
-  // Each block and face also emits a label anchor point so the labels layer
-  // renders one name per feature: blocks anchor inside their ring, faces at
-  // their last coordinate.
-  expect(geojson.features).toHaveLength(4);
+  // Each block and face also emits label anchor points so the labels layer
+  // renders its name: blocks anchor inside their ring, faces at both ends
+  // of their line.
+  expect(geojson.features).toHaveLength(5);
   const blockLabel = geojson.features[1];
   expect(blockLabel.geometry.type).toBe("Point");
   const [blockLng, blockLat] = (blockLabel.geometry as { coordinates: number[] }).coordinates;
@@ -363,13 +363,31 @@ test("converts map blocks to polygon and line features", () => {
   });
   expect(geojson.features[3].geometry).toEqual({
     type: "Point",
+    coordinates: [151.0, -33.9],
+  });
+  expect(geojson.features[4].geometry).toEqual({
+    type: "Point",
     coordinates: [151.1, -33.9],
   });
-  expect(geojson.features[3].properties).toEqual({
-    id: "face-1",
-    name: "Main St",
-    type: "face",
-  });
+  for (const faceLabel of geojson.features.slice(3)) {
+    expect(faceLabel.properties).toEqual({
+      id: "face-1",
+      name: "Main St",
+      type: "face",
+    });
+  }
+  // A face whose ends share a coordinate emits a single anchor.
+  expect(
+    mapBlocksToGeoJSON([
+      face({
+        coordinates: [
+          [151.0, -33.9],
+          [151.05, -33.9],
+          [151.0, -33.9],
+        ],
+      }),
+    ]).features,
+  ).toHaveLength(2);
   expect(mapBlocksToGeoJSON(null).features).toHaveLength(0);
   expect(mapBlocksToGeoJSON(undefined).features).toHaveLength(0);
 });

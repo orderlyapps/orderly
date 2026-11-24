@@ -285,25 +285,34 @@ export function mapBlockToFeature(block: MapBlock): MapBlockFeature | null {
   };
 }
 
+// A face's name displays at both ends of its line.
+function faceLabelAnchors(coordinates: number[][]): number[][] {
+  const first = coordinates[0];
+  const last = coordinates[coordinates.length - 1];
+  return first[0] === last[0] && first[1] === last[1] ? [first] : [first, last];
+}
+
 export function mapBlocksToGeoJSON(blocks: MapBlock[] | null | undefined): MapBlocksGeoJSON {
   const features: MapBlockFeature[] = [];
   for (const block of blocks ?? []) {
     const feature = mapBlockToFeature(block);
     if (feature) {
       features.push(feature);
-      // Labels anchor to a single point per feature so a block or face split
-      // across tiles cannot render its name more than once. Mapbox cannot
-      // place a label at a line's end, so faces anchor at their last
-      // coordinate; blocks anchor inside their ring.
-      const anchor =
+      // Labels anchor to points so a block or face split across tiles cannot
+      // render its name more than once per anchor. Mapbox cannot place a
+      // label at a line's end, so faces anchor at both endpoints; blocks
+      // anchor inside their ring.
+      const anchors =
         block.type === "face"
-          ? block.coordinates[block.coordinates.length - 1]
-          : (boundaryToLabelPoint(ensureClosedRing(block.coordinates)) ?? block.coordinates[0]);
-      features.push({
-        type: "Feature",
-        geometry: { type: "Point", coordinates: anchor },
-        properties: { id: block.id, name: block.name, type: block.type },
-      });
+          ? faceLabelAnchors(block.coordinates)
+          : [boundaryToLabelPoint(ensureClosedRing(block.coordinates)) ?? block.coordinates[0]];
+      for (const anchor of anchors) {
+        features.push({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: anchor },
+          properties: { id: block.id, name: block.name, type: block.type },
+        });
+      }
     }
   }
   return { type: "FeatureCollection", features };
