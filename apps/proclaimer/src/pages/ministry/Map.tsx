@@ -17,8 +17,10 @@ import {
   MapsLayer,
   MapsListModal,
   MapView,
+  MasterMapLayer,
   NotAtHomesLayer,
   readMapViewState,
+  useMasterMap,
   useSettings,
 } from "proclaimer-core";
 
@@ -34,6 +36,7 @@ const Map = () => {
   const { settings, setSetting } = useSettings();
   const congregationId = settings.congregationId.trim();
   const selectedMap = settings.selectedMaps[congregationId] || null;
+  const { bounds: masterBounds } = useMasterMap(congregationId);
 
   return (
     <IonPage>
@@ -58,7 +61,12 @@ const Map = () => {
           showNavigationControl={false}
           viewStateStorageKey={MAP_VIEW_STATE_STORAGE_KEY}
         >
-          <MapsLayer autoFitBounds={!hasSavedView()} selectedMap={selectedMap} />
+          <MasterMapLayer />
+          <MapsLayer
+            autoFitBounds={!hasSavedView()}
+            fallbackBounds={masterBounds}
+            selectedMap={selectedMap}
+          />
           <NotAtHomesLayer />
         </MapView>
         <MapSettingsModal isOpen={settingsOpen} onDidDismiss={() => setSettingsOpen(false)} />

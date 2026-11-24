@@ -6,7 +6,8 @@ export const MAP_POLYGON_COLOR = "#9ca3af";
 export const MAP_SELECTED_COLOR = "#ef4444";
 // Matches --ion-color-primary in the app theme; Mapbox styles cannot resolve
 // CSS variables, so the value is duplicated here.
-export const MAP_BLOCK_COLOR = "#4a6da7";
+export const MAP_PRIMARY_COLOR = "#4a6da7";
+export const MAP_BLOCK_COLOR = MAP_PRIMARY_COLOR;
 export const MAP_VERTEX_MIN_ZOOM = 14;
 export const MAP_LABEL_MIN_ZOOM = MAP_VERTEX_MIN_ZOOM - 2;
 export const MAP_LINE_MIN_ZOOM = MAP_VERTEX_MIN_ZOOM - 2;

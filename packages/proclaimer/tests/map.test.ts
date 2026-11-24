@@ -21,6 +21,10 @@ import {
   isValidMapViewState,
   mapBlocksToGeoJSON,
   mapBlockToFeature,
+  mapMasterRowSchema,
+  mapMasterToBounds,
+  mapMasterToGeoJSON,
+  MasterMapLayer,
   MAPBOX_DARK_STYLE,
   MAPBOX_LIGHT_STYLE,
   MAP_DEFAULT_ZOOM,
@@ -42,9 +46,11 @@ import {
   toMapboxCenter,
   useMapPolygons,
   useMapView,
+  useMasterMap,
   useNotAtHomes,
   writeMapViewState,
   type MapBlock,
+  type MapMasterRow,
   type MapRow,
   type NotAtHomeMarker,
   type NotAtHomeRow,
@@ -248,6 +254,38 @@ test("converts map rows to a polygon feature collection", () => {
 
   expect(typeof MapsLayer).toBe("function");
   expect(typeof useMapPolygons).toBe("function");
+});
+
+test("converts the master map row to a polygon feature collection", () => {
+  const ring = [
+    [151.0, -33.9],
+    [151.1, -33.9],
+    [151.1, -33.8],
+    [151.0, -33.9],
+  ] as [number, number][];
+  const master: MapMasterRow = {
+    congregation_id: "cong-1",
+    boundary: ring,
+    details: "Whole territory",
+  };
+
+  expect(mapMasterRowSchema.safeParse(master).success).toBe(true);
+  expect(mapMasterRowSchema.safeParse({ ...master, boundary: "oops" }).success).toBe(false);
+
+  const geojson = mapMasterToGeoJSON(master);
+  expect(geojson.type).toBe("FeatureCollection");
+  expect(geojson.features).toHaveLength(1);
+  expect(geojson.features[0].geometry).toEqual({ type: "Polygon", coordinates: [ring] });
+  expect(geojson.features[0].properties).toEqual({ details: "Whole territory" });
+
+  expect(mapMasterToGeoJSON(null).features).toHaveLength(0);
+  expect(mapMasterToGeoJSON({ ...master, boundary: ring.slice(0, 2) }).features).toHaveLength(0);
+
+  expect(mapMasterToBounds(master)).toEqual([151.0, -33.9, 151.1, -33.8]);
+  expect(mapMasterToBounds(null)).toBe(null);
+
+  expect(typeof MasterMapLayer).toBe("function");
+  expect(typeof useMasterMap).toBe("function");
 });
 
 test("converts map blocks to polygon and line features", () => {

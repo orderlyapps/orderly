@@ -14,12 +14,15 @@ import {
   MAP_VERTEX_MIN_ZOOM,
   mapBlocksToGeoJSON,
   mapRowKey,
+  type MapBounds,
 } from "./schema.ts";
 
 export interface MapsLayerProps {
   congregationId?: string;
   autoFitBounds?: boolean;
   fitBoundsPadding?: number;
+  /** Bounds to fit when the map rows yield none, e.g. a master-map outline. */
+  fallbackBounds?: MapBounds | null;
   /** Key (id or name) of the map to highlight and zoom to. */
   selectedMap?: string | null;
 }
@@ -28,6 +31,7 @@ export function MapsLayer({
   congregationId,
   autoFitBounds = false,
   fitBoundsPadding = 60,
+  fallbackBounds = null,
   selectedMap = null,
 }: MapsLayerProps) {
   const { geojson, bounds, maps } = useMapPolygons(congregationId);
@@ -38,13 +42,15 @@ export function MapsLayer({
     hasFittedRef.current = false;
   }, [congregationId]);
 
+  const fitBounds = bounds ?? fallbackBounds;
+
   useEffect(() => {
-    if (!autoFitBounds || hasFittedRef.current || !map || !bounds) {
+    if (!autoFitBounds || hasFittedRef.current || !map || !fitBounds) {
       return;
     }
     hasFittedRef.current = true;
-    map.fitBounds(bounds, { padding: fitBoundsPadding, animate: true });
-  }, [autoFitBounds, bounds, map, fitBoundsPadding]);
+    map.fitBounds(fitBounds, { padding: fitBoundsPadding, animate: true });
+  }, [autoFitBounds, fitBounds, map, fitBoundsPadding]);
 
   useEffect(() => {
     if (!map || !selectedMap) {
