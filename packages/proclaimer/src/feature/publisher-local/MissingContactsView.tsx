@@ -167,16 +167,6 @@ export function MissingContactsView({
                       >
                         {field.label}
                       </p>
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: "0.875rem",
-                          color:
-                            "var(--ion-color-step-600, var(--ion-text-color-step-400, #666666))",
-                        }}
-                      >
-                        Not on file
-                      </p>
                     </IonLabel>
                     <IonIcon slot="end" icon={addCircleOutline} color="primary" />
                   </IonItem>

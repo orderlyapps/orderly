@@ -12,6 +12,8 @@ import {
   IonListHeader,
   IonModal,
   IonNote,
+  IonSelect,
+  IonSelectOption,
   IonTitle,
   IonToolbar,
 } from "@ionic/react";
@@ -62,6 +64,14 @@ function emptyDraft(): ContactDetailDraft {
   };
 }
 
+const PERSONAL_EMAIL_LABEL = "Personal";
+const JW_PUB_EMAIL_LABEL = "JW Pub";
+const EMAIL_LABELS = [PERSONAL_EMAIL_LABEL, JW_PUB_EMAIL_LABEL];
+
+function isJwPubAddress(value: string): boolean {
+  return /^.+@jwpub\.org$/i.test(value.trim());
+}
+
 function isDraftValid(field: MissingContactField, draft: ContactDetailDraft): boolean {
   const filled = (value: string) => value.trim().length > 0;
   const emailish = (value: string) => filled(value) && value.trim().includes("@");
@@ -69,7 +79,10 @@ function isDraftValid(field: MissingContactField, draft: ContactDetailDraft): bo
     case "phone":
       return filled(draft.number);
     case "email":
-      return emailish(draft.address);
+      return (
+        emailish(draft.address) &&
+        (draft.label !== JW_PUB_EMAIL_LABEL || isJwPubAddress(draft.address))
+      );
     case "address":
       return filled(draft.street) && filled(draft.suburb);
     case "emergency_contact":
@@ -87,7 +100,7 @@ function toInput(field: MissingContactField, draft: ContactDetailDraft): Contact
     case "phone":
       return { number: draft.number, label: draft.label };
     case "email":
-      return { address: draft.address, label: draft.label };
+      return { address: draft.address, label: draft.label || PERSONAL_EMAIL_LABEL };
     case "address":
       return {
         label: draft.label,
@@ -185,7 +198,9 @@ export function AddContactDetailModal({
           {displayPublisherName != null && (
             <IonListHeader>
               <IonLabel>
-                <IonNote>{displayPublisherName}</IonNote>
+                <IonNote color={displayField?.key === "email" ? "secondary" : undefined}>
+                  {displayPublisherName}
+                </IonNote>
               </IonLabel>
             </IonListHeader>
           )}
@@ -222,13 +237,24 @@ export function AddContactDetailModal({
                 />
               </IonItem>
               <IonItem>
-                <IonInput
-                  label="Label (optional)"
-                  placeholder="e.g. Personal"
-                  value={draft.label}
-                  onIonInput={onIonInput("label")}
-                />
+                <IonSelect
+                  label="Label"
+                  interface="popover"
+                  value={draft.label || PERSONAL_EMAIL_LABEL}
+                  onIonChange={(event) => update({ label: event.detail.value ?? "" })}
+                >
+                  {EMAIL_LABELS.map((label) => (
+                    <IonSelectOption key={label} value={label}>
+                      {label}
+                    </IonSelectOption>
+                  ))}
+                </IonSelect>
               </IonItem>
+              {draft.label === JW_PUB_EMAIL_LABEL && !isJwPubAddress(draft.address) && (
+                <IonItem lines="none">
+                  <IonNote color="danger">JW Pub email addresses must end with @jwpub.org.</IonNote>
+                </IonItem>
+              )}
             </>
           )}
           {displayField?.key === "address" && (
