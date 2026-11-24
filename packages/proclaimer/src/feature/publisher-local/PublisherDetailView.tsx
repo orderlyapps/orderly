@@ -27,6 +27,7 @@ import {
   navigateOutline,
 } from "ionicons/icons";
 
+import { SectionHeader } from "../meeting/index.ts";
 import { usePermissions } from "../permission/index.ts";
 import {
   familyHeadLabel,
@@ -59,16 +60,6 @@ export interface PublisherDetailViewProps {
   localCollection?: PublisherLocalCollection;
   suburbCollection?: SuburbCollection;
   streetCollection?: StreetCollection;
-}
-
-function SectionHeader({ label }: { label: string }) {
-  return (
-    <IonItem lines="inset">
-      <IonLabel>
-        <span style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}>{label}</span>
-      </IonLabel>
-    </IonItem>
-  );
 }
 
 function DetailItem({ label, value }: { label: string; value: string }) {
@@ -323,123 +314,130 @@ export function PublisherDetailView({
         </div>
       )}
       {phones.length + emails.length + addresses.length > 0 && (
-        <IonList>
-          <SectionHeader label="Contact" />
-          {phones.map((phone) => (
-            <ActionItem
-              key={`phone-${phone.id}`}
-              label={phone.label ? `${phone.label} Phone` : "Phone"}
-              value={phone.number}
-              onSelect={() => showActions(phone.number, phoneActions(phone.number))}
-            />
-          ))}
-          {emails.map((email) => (
-            <ActionItem
-              key={`email-${email.id}`}
-              label={email.label ? `${email.label} Email` : "Email"}
-              value={email.address}
-              onSelect={() => showActions(email.address, emailActions(email.address))}
-            />
-          ))}
-          {addresses.map((address) => {
-            const formatted = formatAddress(address, suburbs, streets);
-            const label = address.label ? `${address.label} Address` : "Address";
-            const actions = addressActions(address, formatted);
-            if (actions.length === 0) {
-              return <DetailItem key={`address-${address.id}`} label={label} value={formatted} />;
-            }
-            return (
+        <div>
+          <SectionHeader title="Contact" color="medium" />
+          <IonList>
+            {phones.map((phone) => (
               <ActionItem
-                key={`address-${address.id}`}
-                label={label}
-                value={formatted}
-                onSelect={() => showActions(formatted === "-" ? "Address" : formatted, actions)}
+                key={`phone-${phone.id}`}
+                label={phone.label ? `${phone.label} Phone` : "Phone"}
+                value={phone.number}
+                onSelect={() => showActions(phone.number, phoneActions(phone.number))}
               />
-            );
-          })}
-        </IonList>
+            ))}
+            {emails.map((email) => (
+              <ActionItem
+                key={`email-${email.id}`}
+                label={email.label ? `${email.label} Email` : "Email"}
+                value={email.address}
+                onSelect={() => showActions(email.address, emailActions(email.address))}
+              />
+            ))}
+            {addresses.map((address) => {
+              const formatted = formatAddress(address, suburbs, streets);
+              const label = address.label ? `${address.label} Address` : "Address";
+              const actions = addressActions(address, formatted);
+              if (actions.length === 0) {
+                return <DetailItem key={`address-${address.id}`} label={label} value={formatted} />;
+              }
+              return (
+                <ActionItem
+                  key={`address-${address.id}`}
+                  label={label}
+                  value={formatted}
+                  onSelect={() => showActions(formatted === "-" ? "Address" : formatted, actions)}
+                />
+              );
+            })}
+          </IonList>
+        </div>
       )}
       {emergencyContacts.length > 0 && (
-        <IonList>
-          <SectionHeader label="Emergency Contacts" />
-          {emergencyContacts.map((contact) => {
-            const name = `${contact.first_name} ${contact.last_name}`.trim() || "Emergency Contact";
-            return (
-              <Fragment key={contact.id}>
-                <IonItem lines="inset">
-                  <IonLabel className="ion-text-wrap">
-                    <p>
-                      Emergency Contact
-                      {contact.relationship ? ` — ${contact.relationship}` : ""}
-                    </p>
-                    <h3>{name}</h3>
-                  </IonLabel>
-                </IonItem>
-                {(contact.phone ?? []).map((phone) => (
-                  <ActionItem
-                    key={`phone-${phone.id}`}
-                    label={phone.label ? `${phone.label} Phone` : "Phone"}
-                    value={phone.number}
-                    onSelect={() => showActions(phone.number, phoneActions(phone.number))}
-                  />
-                ))}
-                {(contact.email ?? []).map((email) => (
-                  <ActionItem
-                    key={`email-${email.id}`}
-                    label={email.label ? `${email.label} Email` : "Email"}
-                    value={email.address}
-                    onSelect={() => showActions(email.address, emailActions(email.address))}
-                  />
-                ))}
-                {(contact.address ?? []).map((address) => {
-                  const formatted = formatAddress(address, suburbs, streets);
-                  const label = address.label ? `${address.label} Address` : "Address";
-                  const actions = addressActions(address, formatted);
-                  if (actions.length === 0) {
-                    return (
-                      <DetailItem key={`address-${address.id}`} label={label} value={formatted} />
-                    );
-                  }
-                  return (
+        <div>
+          <SectionHeader title="Emergency Contacts" color="medium" />
+          <IonList>
+            {emergencyContacts.map((contact) => {
+              const name =
+                `${contact.first_name} ${contact.last_name}`.trim() || "Emergency Contact";
+              return (
+                <Fragment key={contact.id}>
+                  <IonItem lines="inset">
+                    <IonLabel className="ion-text-wrap">
+                      <p>
+                        Emergency Contact
+                        {contact.relationship ? ` — ${contact.relationship}` : ""}
+                      </p>
+                      <h3>{name}</h3>
+                    </IonLabel>
+                  </IonItem>
+                  {(contact.phone ?? []).map((phone) => (
                     <ActionItem
-                      key={`address-${address.id}`}
-                      label={label}
-                      value={formatted}
-                      onSelect={() =>
-                        showActions(formatted === "-" ? "Address" : formatted, actions)
-                      }
+                      key={`phone-${phone.id}`}
+                      label={phone.label ? `${phone.label} Phone` : "Phone"}
+                      value={phone.number}
+                      onSelect={() => showActions(phone.number, phoneActions(phone.number))}
                     />
-                  );
-                })}
-              </Fragment>
-            );
-          })}
-        </IonList>
+                  ))}
+                  {(contact.email ?? []).map((email) => (
+                    <ActionItem
+                      key={`email-${email.id}`}
+                      label={email.label ? `${email.label} Email` : "Email"}
+                      value={email.address}
+                      onSelect={() => showActions(email.address, emailActions(email.address))}
+                    />
+                  ))}
+                  {(contact.address ?? []).map((address) => {
+                    const formatted = formatAddress(address, suburbs, streets);
+                    const label = address.label ? `${address.label} Address` : "Address";
+                    const actions = addressActions(address, formatted);
+                    if (actions.length === 0) {
+                      return (
+                        <DetailItem key={`address-${address.id}`} label={label} value={formatted} />
+                      );
+                    }
+                    return (
+                      <ActionItem
+                        key={`address-${address.id}`}
+                        label={label}
+                        value={formatted}
+                        onSelect={() =>
+                          showActions(formatted === "-" ? "Address" : formatted, actions)
+                        }
+                      />
+                    );
+                  })}
+                </Fragment>
+              );
+            })}
+          </IonList>
+        </div>
       )}
-      <IonList>
-        <SectionHeader label="Details" />
-        {standing && <DetailItem label="Standing" value={standing} />}
-        {type && <DetailItem label="Type" value={type} />}
-        {gender && <DetailItem label="Gender" value={gender} />}
-        {status && <DetailItem label="Status" value={status} />}
-        {canEditFamilyHead ? (
-          <ActionItem
-            label="Family Head"
-            value={familyHeadLabel(publisher, publishers)}
-            onSelect={() => {
-              setIsFamilyHeadModalOpen(true);
-            }}
-          />
-        ) : (
-          <DetailItem label="Family Head" value={familyHeadLabel(publisher, publishers)} />
-        )}
-        {record?.birth_date?.value && (
-          <DetailItem label="Date of Birth" value={formatDate(record.birth_date.value)} />
-        )}
-        {record?.baptism_date?.value && (
-          <DetailItem label="Baptism Date" value={formatDate(record.baptism_date.value)} />
-        )}
-      </IonList>
+      <div>
+        <SectionHeader title="Details" color="medium" />
+        <IonList>
+          {standing && <DetailItem label="Standing" value={standing} />}
+          {type && <DetailItem label="Type" value={type} />}
+          {gender && <DetailItem label="Gender" value={gender} />}
+          {status && <DetailItem label="Status" value={status} />}
+          {canEditFamilyHead ? (
+            <ActionItem
+              label="Family Head"
+              value={familyHeadLabel(publisher, publishers)}
+              onSelect={() => {
+                setIsFamilyHeadModalOpen(true);
+              }}
+            />
+          ) : (
+            <DetailItem label="Family Head" value={familyHeadLabel(publisher, publishers)} />
+          )}
+          {record?.birth_date?.value && (
+            <DetailItem label="Date of Birth" value={formatDate(record.birth_date.value)} />
+          )}
+          {record?.baptism_date?.value && (
+            <DetailItem label="Baptism Date" value={formatDate(record.baptism_date.value)} />
+          )}
+        </IonList>
+      </div>
       <IonModal
         isOpen={isFamilyHeadModalOpen}
         onDidDismiss={() => {
