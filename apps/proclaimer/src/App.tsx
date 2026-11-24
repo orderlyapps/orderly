@@ -30,8 +30,8 @@ import Map from "./pages/ministry/Map";
 import Schedule from "./pages/ministry/Schedule";
 import Onboarding from "./pages/Onboarding";
 import Publishers from "./pages/Publishers";
-import PublisherDirectory from "./pages/publishers/Directory";
-import PublisherDetail from "./pages/publishers/directory/Publisher";
+import AllPublishers from "./pages/publishers/All";
+import PublisherDetail from "./pages/publishers/all/Publisher";
 import Schedules from "./pages/Schedules";
 import Secretary from "./pages/Secretary";
 import BranchReport from "./pages/secretary/BranchReport";
@@ -117,7 +117,12 @@ const App = () => {
               />
               <Route path="/secretary/emergency-contacts" element={<EmergencyContacts />} />
               <Route path="/publishers" element={<Publishers />} />
-              <Route path="/publishers/directory" element={<PublisherDirectory />} />
+              <Route path="/publishers/all" element={<AllPublishers />} />
+              <Route path="/publishers/all/:publisherId" element={<PublisherDetail />} />
+              <Route
+                path="/publishers/directory"
+                element={<Navigate to="/publishers/all" replace />}
+              />
               <Route path="/publishers/directory/:publisherId" element={<PublisherDetail />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/about" element={<SettingsAbout />} />

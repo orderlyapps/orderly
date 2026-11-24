@@ -29,7 +29,7 @@ export interface PublisherDirectoryViewProps {
 export function PublisherDirectoryView({
   congregationId,
   collection,
-  detailBasePath = "/publishers/directory",
+  detailBasePath = "/publishers/all",
   includeRestricted = false,
 }: PublisherDirectoryViewProps) {
   const { publishers, isLoading, error, canRetry, retry } = usePublishers(

@@ -11,14 +11,14 @@ import {
 import { Navigate } from "react-router-dom";
 import { PublisherDirectoryView, usePermissions, useSettings } from "proclaimer-core";
 
-const PublisherDirectory = () => {
+const AllPublishers = () => {
   const { settings, isLoading: settingsLoading } = useSettings();
   const congregationId = settings.congregationId || undefined;
   const permissions = usePermissions(congregationId);
-  const canViewDirectory = permissions.hasElder || permissions.isSuperAdmin;
+  const canViewAllPublishers = permissions.hasElder || permissions.isSuperAdmin;
   const isLoading = settingsLoading || !permissions.isLoaded;
 
-  if (!isLoading && !canViewDirectory) {
+  if (!isLoading && !canViewAllPublishers) {
     return <Navigate to="/publishers" replace />;
   }
 
@@ -29,13 +29,13 @@ const PublisherDirectory = () => {
           <IonButtons slot="start">
             <IonBackButton defaultHref="/publishers" />
           </IonButtons>
-          <IonTitle>Directory</IonTitle>
+          <IonTitle>All Publishers</IonTitle>
         </IonToolbar>
       </IonHeader>
       <IonContent fullscreen>
         <IonHeader collapse="condense">
           <IonToolbar>
-            <IonTitle size="large">Directory</IonTitle>
+            <IonTitle size="large">All Publishers</IonTitle>
           </IonToolbar>
         </IonHeader>
         {isLoading ? (
@@ -54,4 +54,4 @@ const PublisherDirectory = () => {
   );
 };
 
-export default PublisherDirectory;
+export default AllPublishers;

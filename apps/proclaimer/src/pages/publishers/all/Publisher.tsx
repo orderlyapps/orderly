@@ -25,11 +25,11 @@ const PublisherDetail = () => {
   const { publisherId } = useParams<{ publisherId?: string }>();
   const { publishers, isLoading: publishersLoading } = usePublishers(congregationId);
   const publisher = publishers.find((p) => p.id === publisherId);
-  const canViewDirectory = permissions.hasElder || permissions.isSuperAdmin;
+  const canViewAllPublishers = permissions.hasElder || permissions.isSuperAdmin;
   const canViewRestricted = permissions.hasSecretary || permissions.isSuperAdmin;
   const isLoading = settingsLoading || !permissions.isLoaded;
 
-  if (!isLoading && !canViewDirectory) {
+  if (!isLoading && !canViewAllPublishers) {
     return <Navigate to="/publishers" replace />;
   }
   if (
@@ -39,7 +39,7 @@ const PublisherDetail = () => {
     isRestrictedDirectoryEntry(publisher) &&
     !canViewRestricted
   ) {
-    return <Navigate to="/publishers/directory" replace />;
+    return <Navigate to="/publishers/all" replace />;
   }
 
   return (
@@ -47,7 +47,7 @@ const PublisherDetail = () => {
       <IonHeader>
         <IonToolbar>
           <IonButtons slot="start">
-            <IonBackButton defaultHref="/publishers/directory" />
+            <IonBackButton defaultHref="/publishers/all" />
           </IonButtons>
           <IonTitle>{publisher ? getPublisherDisplayName(publisher) : "Publisher"}</IonTitle>
         </IonToolbar>

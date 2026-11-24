@@ -13,7 +13,7 @@ import { PublishersView, usePermissions, useSettings } from "proclaimer-core";
 const Publishers = () => {
   const { settings } = useSettings();
   const permissions = usePermissions(settings.congregationId || undefined);
-  const canViewDirectory = permissions.hasElder || permissions.isSuperAdmin;
+  const canViewAllPublishers = permissions.hasElder || permissions.isSuperAdmin;
 
   return (
     <IonPage>
@@ -29,14 +29,14 @@ const Publishers = () => {
           </IonToolbar>
         </IonHeader>
         <div className="ion-padding-top" />
-        {permissions.isLoaded && canViewDirectory && (
+        {permissions.isLoaded && canViewAllPublishers && (
           <IonList>
-            <IonItem routerLink="/publishers/directory" detail lines="inset">
+            <IonItem routerLink="/publishers/all" detail lines="inset">
               <IonLabel
                 style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}
                 className="ion-padding-vertical"
               >
-                Directory
+                All Publishers
               </IonLabel>
             </IonItem>
           </IonList>
