@@ -1,6 +1,7 @@
 export * from "./maps/index.ts";
 export * from "./master/index.ts";
 export * from "./not-at-homes/index.ts";
+export * from "./tags/index.ts";
 export { useMapView, type UseMapViewOptions, type UseMapViewResult } from "./hooks.ts";
 export { MapEditModal, type MapEditModalProps } from "./MapEditModal.tsx";
 export { MapSettingsModal, type MapSettingsModalProps } from "./MapSettingsModal.tsx";

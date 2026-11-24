@@ -17,6 +17,7 @@ import {
   IonSpinner,
   IonTitle,
   IonToolbar,
+  useIonActionSheet,
   useIonAlert,
 } from "@ionic/react";
 import { chevronBackOutline, createOutline, mapOutline, trashOutline } from "ionicons/icons";
@@ -31,6 +32,9 @@ import {
   type MapBlock,
   type MapRow,
 } from "./maps/schema.ts";
+import { mapTagAssignmentKey } from "./tags/collection.ts";
+import { useMapTagAssignments, useMapTags } from "./tags/hooks.ts";
+import { findMapTagByName, sortMapTags, type MapTagRow } from "./tags/schema.ts";
 
 export interface MapEditModalProps {
   isOpen: boolean;
@@ -43,11 +47,16 @@ const blockTypeLabel = (block: MapBlock) => (block.type === "face" ? "Face" : "B
 export function MapEditModal({ isOpen, onDidDismiss, congregationId }: MapEditModalProps) {
   const { maps, isLoading, error, collection } = useMapPolygons(congregationId);
   const [presentAlert] = useIonAlert();
+  const [presentActionSheet] = useIonActionSheet();
   const [query, setQuery] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const visibleMaps = useMemo(() => filterMapRows(maps, query), [maps, query]);
   const selectedMap = maps.find((map) => mapRowKey(map) === selectedKey) ?? null;
+  const { tags, collection: tagCollection } = useMapTags(congregationId);
+  const { assignments, collection: assignmentCollection } = useMapTagAssignments(
+    selectedMap?.id ?? null,
+  );
   const blocks = useMemo(
     () => sortMapBlocks(selectedMap?.blocks?.filter((block) => block.type === "block")),
     [selectedMap],
@@ -56,6 +65,14 @@ export function MapEditModal({ isOpen, onDidDismiss, congregationId }: MapEditMo
     () => sortMapBlocks(selectedMap?.blocks?.filter((block) => block.type === "face")),
     [selectedMap],
   );
+  const assignedTagIds = useMemo(
+    () => new Set(assignments.map((assignment) => assignment.tag_id)),
+    [assignments],
+  );
+  const assignedTags = useMemo(
+    () => sortMapTags(tags.filter((tag) => tag.id != null && assignedTagIds.has(tag.id))),
+    [tags, assignedTagIds],
+  );
 
   const handleDidDismiss = () => {
     setQuery("");
@@ -63,23 +80,24 @@ export function MapEditModal({ isOpen, onDidDismiss, congregationId }: MapEditMo
     onDidDismiss();
   };
 
+  const showSaveFailed = (failureMessage: string) => {
+    void presentAlert({
+      header: "Save Failed",
+      message: failureMessage,
+      buttons: ["OK"],
+    });
+  };
+
   const updateMap = (map: MapRow, mutate: (draft: MapRow) => void, failureMessage: string) => {
-    const fail = () => {
-      void presentAlert({
-        header: "Save Failed",
-        message: failureMessage,
-        buttons: ["OK"],
-      });
-    };
     if (!collection || !map.id) {
-      fail();
+      showSaveFailed(failureMessage);
       return;
     }
     try {
       const tx = collection.update(map.id, mutate);
-      void tx.isPersisted.promise.catch(fail);
+      void tx.isPersisted.promise.catch(() => showSaveFailed(failureMessage));
     } catch {
-      fail();
+      showSaveFailed(failureMessage);
     }
   };
 
@@ -107,6 +125,164 @@ export function MapEditModal({ isOpen, onDidDismiss, congregationId }: MapEditMo
             }
           },
         },
+      ],
+    });
+  };
+
+  const promptEditDetails = (map: MapRow) => {
+    void presentAlert({
+      header: "Edit Details",
+      inputs: [
+        {
+          name: "details",
+          type: "textarea",
+          value: map.details ?? "",
+          placeholder: "Map details",
+        },
+      ],
+      buttons: [
+        { text: "Cancel", role: "cancel" },
+        {
+          text: "Save",
+          handler: (data: Record<string, string>) => {
+            const details = (data.details ?? "").trim();
+            if (details !== (map.details ?? "").trim()) {
+              updateMap(
+                map,
+                (draft) => {
+                  draft.details = details || null;
+                },
+                "The map details could not be updated.",
+              );
+            }
+          },
+        },
+      ],
+    });
+  };
+
+  const assignTag = (
+    map: MapRow,
+    tag: MapTagRow,
+    failureMessage = "The tag could not be added.",
+  ) => {
+    if (!assignmentCollection || !map.id || !tag.id) {
+      showSaveFailed(failureMessage);
+      return;
+    }
+    try {
+      const tx = assignmentCollection.insert({ map_id: map.id, tag_id: tag.id });
+      void tx.isPersisted.promise.catch(() => showSaveFailed(failureMessage));
+    } catch {
+      showSaveFailed(failureMessage);
+    }
+  };
+
+  const createAndAssignTag = async (map: MapRow, name: string) => {
+    if (!tagCollection || !map.id) {
+      showSaveFailed("The tag could not be created.");
+      return;
+    }
+    // Client-generated id so the assignment can be inserted without waiting
+    // for a refetch of the tag row.
+    const tag: MapTagRow = {
+      id: crypto.randomUUID(),
+      congregation_id: map.congregation_id,
+      name,
+    };
+    try {
+      const tx = tagCollection.insert(tag);
+      await tx.isPersisted.promise;
+    } catch {
+      showSaveFailed("The tag could not be created.");
+      return;
+    }
+    assignTag(
+      map,
+      tag,
+      `${name} was created but could not be added. It can be added from Add Tag.`,
+    );
+  };
+
+  const confirmRemoveTag = (map: MapRow, tag: MapTagRow) => {
+    void presentAlert({
+      header: "Remove Tag",
+      message: `Remove ${tag.name} from ${map.name}?`,
+      buttons: [
+        { text: "Cancel", role: "cancel" },
+        {
+          text: "Remove",
+          role: "destructive",
+          handler: () => {
+            if (!assignmentCollection || !map.id || !tag.id) {
+              showSaveFailed("The tag could not be removed.");
+              return;
+            }
+            try {
+              const tx = assignmentCollection.delete(mapTagAssignmentKey(map.id, tag.id));
+              void tx.isPersisted.promise.catch(() =>
+                showSaveFailed("The tag could not be removed."),
+              );
+            } catch {
+              showSaveFailed("The tag could not be removed.");
+            }
+          },
+        },
+      ],
+    });
+  };
+
+  const promptNewTag = (map: MapRow) => {
+    void presentAlert({
+      header: "New Tag",
+      inputs: [{ name: "name", type: "text", placeholder: "Tag name" }],
+      buttons: [
+        { text: "Cancel", role: "cancel" },
+        {
+          text: "Save",
+          handler: (data: Record<string, string>) => {
+            const name = (data.name ?? "").trim();
+            if (!name) {
+              return false;
+            }
+            const existing = findMapTagByName(tags, name);
+            if (existing) {
+              if (existing.id && assignedTagIds.has(existing.id)) {
+                void presentAlert({
+                  header: "Tag Already Added",
+                  message: `${existing.name} is already on ${map.name}.`,
+                  buttons: ["OK"],
+                });
+              } else {
+                assignTag(map, existing);
+              }
+              return;
+            }
+            void createAndAssignTag(map, name);
+          },
+        },
+      ],
+    });
+  };
+
+  const promptAddTag = (map: MapRow) => {
+    const available = sortMapTags(tags.filter((tag) => tag.id && !assignedTagIds.has(tag.id)));
+    void presentActionSheet({
+      header: "Add Tag",
+      buttons: [
+        ...available.map((tag) => ({
+          text: tag.name,
+          handler: () => {
+            assignTag(map, tag);
+          },
+        })),
+        {
+          text: "New Tag",
+          handler: () => {
+            promptNewTag(map);
+          },
+        },
+        { text: "Cancel", role: "cancel" },
       ],
     });
   };
@@ -236,8 +412,8 @@ export function MapEditModal({ isOpen, onDidDismiss, congregationId }: MapEditMo
               </IonListHeader>
               <IonItem>
                 <IonLabel>
-                  <h2>{selectedMap.name}</h2>
-                  {selectedMap.details ? <p>{selectedMap.details}</p> : null}
+                  <h2>Name</h2>
+                  <p>{selectedMap.name}</p>
                 </IonLabel>
                 <IonButton
                   slot="end"
@@ -247,6 +423,41 @@ export function MapEditModal({ isOpen, onDidDismiss, congregationId }: MapEditMo
                 >
                   <IonIcon slot="icon-only" icon={createOutline} />
                 </IonButton>
+              </IonItem>
+              <IonItem>
+                <IonLabel>
+                  <h2>Details</h2>
+                  <p>{selectedMap.details?.trim() ? selectedMap.details : "None"}</p>
+                </IonLabel>
+                <IonButton
+                  slot="end"
+                  fill="clear"
+                  aria-label={`Edit ${selectedMap.name} details`}
+                  onClick={() => promptEditDetails(selectedMap)}
+                >
+                  <IonIcon slot="icon-only" icon={createOutline} />
+                </IonButton>
+              </IonItem>
+            </IonItemGroup>
+            <IonItemGroup>
+              <IonListHeader>
+                <IonLabel>Tags</IonLabel>
+              </IonListHeader>
+              {assignedTags.map((tag) => (
+                <IonItem key={tag.id}>
+                  <IonLabel>{tag.name}</IonLabel>
+                  <IonButton
+                    slot="end"
+                    fill="clear"
+                    aria-label={`Remove ${tag.name}`}
+                    onClick={() => confirmRemoveTag(selectedMap, tag)}
+                  >
+                    <IonIcon slot="icon-only" icon={trashOutline} color="danger" />
+                  </IonButton>
+                </IonItem>
+              ))}
+              <IonItem button detail={false} onClick={() => promptAddTag(selectedMap)}>
+                <IonLabel color="primary">Add Tag</IonLabel>
               </IonItem>
             </IonItemGroup>
             {blockGroup(selectedMap, "Blocks", blocks)}

@@ -204,8 +204,8 @@ export function mapRowKey(row: MapRow): string {
 }
 
 // Letters/digits only, so queries match names like "Map #4" or "Café" without
-// typing punctuation or diacritics.
-const mapSearchable = (value: string) =>
+// typing punctuation or diacritics. Shared by tag-name dedup.
+export const mapSearchable = (value: string) =>
   value
     .normalize("NFD")
     .replace(/[^\p{L}\p{N}]/gu, "")

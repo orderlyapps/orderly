@@ -13,6 +13,7 @@ import {
   DEFAULT_MAP_CENTER,
   ensureClosedRing,
   filterMapRows,
+  findMapTagByName,
   groupNotAtHomeMarkers,
   isClosedRing,
   isMapboxAccessToken,
@@ -37,6 +38,9 @@ import {
   MapEditModal,
   MapsLayer,
   MapSettingsModal,
+  mapTagAssignmentKey,
+  mapTagAssignmentRowSchema,
+  mapTagRowSchema,
   MapView,
   NOT_AT_HOME_STALE_DAY_CHOICES,
   notAtHomeRowSchema,
@@ -47,8 +51,11 @@ import {
   renameMapBlock,
   resolveMapStyle,
   sortMapBlocks,
+  sortMapTags,
   toMapboxCenter,
   useMapPolygons,
+  useMapTagAssignments,
+  useMapTags,
   useMapView,
   useMasterMap,
   useNotAtHomes,
@@ -56,6 +63,7 @@ import {
   type MapBlock,
   type MapMasterRow,
   type MapRow,
+  type MapTagRow,
   type NotAtHomeMarker,
   type NotAtHomeRow,
 } from "../src/feature/map/index.ts";
@@ -506,6 +514,45 @@ test("sorts, renames, and removes map blocks and faces", () => {
   expect(removeMapBlock(blocks, "b-2").map((block) => block.id)).toEqual(["b-10", "f-1"]);
   expect(removeMapBlock(blocks, "missing")).toEqual(blocks);
   expect(removeMapBlock(null, "b-2")).toEqual([]);
+});
+
+test("sorts and finds map tags, and builds assignment keys", () => {
+  const tag = (overrides: Partial<MapTagRow>): MapTagRow => ({
+    id: "tag-1",
+    congregation_id: "cong-1",
+    name: "Business",
+    ...overrides,
+  });
+  const tags = [
+    tag({ id: "t-10", name: "Tag 10" }),
+    tag({}),
+    tag({ id: "t-2", name: "Tag 2" }),
+    tag({ id: "t-3", name: "Café Row" }),
+  ];
+
+  expect(mapTagRowSchema.safeParse(tag({})).success).toBe(true);
+  expect(mapTagRowSchema.safeParse({ ...tag({}), congregation_id: "" }).success).toBe(false);
+  expect(mapTagAssignmentRowSchema.safeParse({ map_id: "m-1", tag_id: "t-1" }).success).toBe(true);
+  expect(mapTagAssignmentRowSchema.safeParse({ map_id: "", tag_id: "t-1" }).success).toBe(false);
+
+  // Matches the composite getKey for keyColumns ["map_id", "tag_id"].
+  expect(mapTagAssignmentKey("m-1", "t-1")).toBe(JSON.stringify(["m-1", "t-1"]));
+
+  expect(sortMapTags(tags).map((t) => t.id)).toEqual(["tag-1", "t-3", "t-2", "t-10"]);
+  expect(sortMapTags(null)).toEqual([]);
+
+  // Lookup ignores case, punctuation, and diacritics so "New Tag" can reuse an
+  // existing tag instead of creating a near-duplicate.
+  expect(findMapTagByName(tags, "business")?.id).toBe("tag-1");
+  expect(findMapTagByName(tags, "  TAG 2 ")?.id).toBe("t-2");
+  expect(findMapTagByName(tags, "tag-2")?.id).toBe("t-2");
+  expect(findMapTagByName(tags, "cafe row")?.id).toBe("t-3");
+  expect(findMapTagByName(tags, "missing")).toBe(null);
+  expect(findMapTagByName(tags, "   ")).toBe(null);
+  expect(findMapTagByName(null, "business")).toBe(null);
+
+  expect(typeof useMapTags).toBe("function");
+  expect(typeof useMapTagAssignments).toBe("function");
 });
 
 test("builds not-at-home features with unit grouping, counts, and stale flags", () => {
