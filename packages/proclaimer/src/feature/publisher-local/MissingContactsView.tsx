@@ -158,15 +158,7 @@ export function MissingContactsView({
                     onClick={() => setEditing({ item, field })}
                   >
                     <IonLabel className="ion-text-wrap" style={{ margin: "0.375rem 0" }}>
-                      <p
-                        style={{
-                          margin: 0,
-                          color: "var(--ion-color-secondary)",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        {field.label}
-                      </p>
+                      {field.label}
                     </IonLabel>
                     <IonIcon slot="end" icon={addCircleOutline} color="primary" />
                   </IonItem>

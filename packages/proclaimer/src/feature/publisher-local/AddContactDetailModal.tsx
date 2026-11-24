@@ -252,7 +252,11 @@ export function AddContactDetailModal({
               </IonItem>
               {draft.label === JW_PUB_EMAIL_LABEL && !isJwPubAddress(draft.address) && (
                 <IonItem lines="none">
-                  <IonNote color="danger">JW Pub email addresses must end with @jwpub.org.</IonNote>
+                  <IonLabel className="ion-text-center">
+                    <IonNote color="danger">
+                      JW Pub email addresses must end with @jwpub.org.
+                    </IonNote>
+                  </IonLabel>
                 </IonItem>
               )}
             </>
