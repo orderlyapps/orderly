@@ -12,14 +12,7 @@ import {
 
 import {
   getPublisherDisplayName,
-  isArchived,
-  isElder,
-  isMinisterialServant,
-  isRemoved,
-  pioneerBadgeLabel,
-  publisherStandingLabel,
   usePublishers,
-  type Publisher,
   type PublisherCollection,
 } from "../publisher/index.ts";
 import { filterDirectoryPublishers } from "./directory.ts";
@@ -31,19 +24,6 @@ export interface PublisherDirectoryViewProps {
   detailBasePath?: string;
   /** Include archived publishers, speakers, and congregation entries. */
   includeRestricted?: boolean;
-}
-
-function directoryNote(publisher: Publisher): string | null {
-  if (isArchived(publisher)) {
-    return "Archived";
-  }
-  if (isRemoved(publisher)) {
-    return "Removed";
-  }
-  if (isElder(publisher) || isMinisterialServant(publisher)) {
-    return publisherStandingLabel(publisher);
-  }
-  return pioneerBadgeLabel(publisher);
 }
 
 export function PublisherDirectoryView({
@@ -101,25 +81,21 @@ export function PublisherDirectoryView({
             <IonNote>{query.trim() ? "No matching publishers" : "No publishers"}</IonNote>
           </IonItem>
         ) : (
-          visible.map((publisher, index) => {
-            const note = directoryNote(publisher);
-            return (
-              <IonItem
-                key={publisher.id ?? index}
-                lines={index === visible.length - 1 ? "none" : "inset"}
-                button={publisher.id != null}
-                detail={publisher.id != null}
-                routerLink={
-                  publisher.id != null
-                    ? `${detailBasePath}/${encodeURIComponent(publisher.id)}`
-                    : undefined
-                }
-              >
-                <IonLabel>{getPublisherDisplayName(publisher)}</IonLabel>
-                {note && <IonNote slot="end">{note}</IonNote>}
-              </IonItem>
-            );
-          })
+          visible.map((publisher, index) => (
+            <IonItem
+              key={publisher.id ?? index}
+              lines={index === visible.length - 1 ? "none" : "inset"}
+              button={publisher.id != null}
+              detail={publisher.id != null}
+              routerLink={
+                publisher.id != null
+                  ? `${detailBasePath}/${encodeURIComponent(publisher.id)}`
+                  : undefined
+              }
+            >
+              <IonLabel>{getPublisherDisplayName(publisher)}</IonLabel>
+            </IonItem>
+          ))
         )}
       </IonList>
     </>
