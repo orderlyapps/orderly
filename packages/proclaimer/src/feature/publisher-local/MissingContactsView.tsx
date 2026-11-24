@@ -4,17 +4,25 @@ import {
   IonAccordion,
   IonAccordionGroup,
   IonButton,
+  IonIcon,
   IonItem,
   IonLabel,
   IonList,
   IonNote,
   IonSpinner,
 } from "@ionic/react";
+import { addCircleOutline } from "ionicons/icons";
 
 import { usePublishers, type PublisherCollection } from "../publisher/index.ts";
+import { AddContactDetailModal } from "./AddContactDetailModal.tsx";
 import { getPublisherLocalCollection, type PublisherLocalCollection } from "./collection.ts";
+import { addContactDetail, type ContactDetailInput } from "./edit.ts";
 import { usePublisherLocalRecords } from "./hooks.ts";
-import { buildMissingContactItems } from "./missing.ts";
+import {
+  buildMissingContactItems,
+  type MissingContactField,
+  type MissingContactItem,
+} from "./missing.ts";
 
 export interface MissingContactsViewProps {
   congregationId?: string | null;
@@ -28,6 +36,10 @@ export function MissingContactsView({
   publisherCollection,
 }: MissingContactsViewProps) {
   const [openId, setOpenId] = useState<string | undefined>(undefined);
+  const [editing, setEditing] = useState<{
+    item: MissingContactItem;
+    field: MissingContactField;
+  } | null>(null);
   const localCollection = collection ?? getPublisherLocalCollection();
   const {
     records,
@@ -46,6 +58,11 @@ export function MissingContactsView({
     () => buildMissingContactItems({ publishers, records }),
     [publishers, records],
   );
+
+  async function handleSave(input: ContactDetailInput) {
+    if (!editing) return;
+    await addContactDetail(localCollection, editing.item.publisher_id, editing.field.key, input);
+  }
 
   if (publishersError) {
     return (
@@ -133,7 +150,13 @@ export function MissingContactsView({
             <div slot="content" style={{ paddingBottom: "2.5rem" }}>
               <IonList>
                 {item.missing.map((field) => (
-                  <IonItem key={field.key} lines="none">
+                  <IonItem
+                    key={field.key}
+                    lines="none"
+                    button
+                    detail={false}
+                    onClick={() => setEditing({ item, field })}
+                  >
                     <IonLabel className="ion-text-wrap" style={{ margin: "0.375rem 0" }}>
                       <p
                         style={{
@@ -155,6 +178,7 @@ export function MissingContactsView({
                         Not on file
                       </p>
                     </IonLabel>
+                    <IonIcon slot="end" icon={addCircleOutline} color="primary" />
                   </IonItem>
                 ))}
               </IonList>
@@ -162,6 +186,13 @@ export function MissingContactsView({
           </IonAccordion>
         ))}
       </IonAccordionGroup>
+      <AddContactDetailModal
+        isOpen={editing !== null}
+        field={editing?.field ?? null}
+        publisherName={editing?.item.publisher_name}
+        onSave={handleSave}
+        onDismiss={() => setEditing(null)}
+      />
     </div>
   );
 }

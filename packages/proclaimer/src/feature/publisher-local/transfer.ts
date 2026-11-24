@@ -472,7 +472,7 @@ export function parsePublisherLocalRecords(text: string): PublisherLocal[] {
   return list;
 }
 
-function isQuotaExceededError(error: unknown): boolean {
+export function isQuotaExceededError(error: unknown): boolean {
   return (
     typeof DOMException !== "undefined" &&
     error instanceof DOMException &&

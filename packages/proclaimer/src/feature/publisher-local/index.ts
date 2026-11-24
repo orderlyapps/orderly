@@ -17,7 +17,21 @@ export {
   type SuburbCollection,
   type SuburbRow,
 } from "./collection.ts";
+export {
+  AddContactDetailModal,
+  type AddContactDetailModalProps,
+} from "./AddContactDetailModal.tsx";
 export { DataImportView, type DataImportViewProps } from "./DataImportView.tsx";
+export {
+  addContactDetail,
+  buildContactDetailItem,
+  type AddressDetailInput,
+  type ContactDetailInput,
+  type ContactDetailItem,
+  type EmailDetailInput,
+  type EmergencyContactDetailInput,
+  type PhoneDetailInput,
+} from "./edit.ts";
 export {
   useImportPreviewItems,
   usePublisherLocalRecords,

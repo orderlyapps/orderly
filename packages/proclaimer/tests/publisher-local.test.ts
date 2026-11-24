@@ -2,6 +2,8 @@ import { expect, test } from "vite-plus/test";
 
 import type { StorageApi } from "../src/feature/settings/index.ts";
 import {
+  addContactDetail,
+  buildContactDetailItem,
   buildImportPreviewItems,
   buildMissingContactItems,
   buildPublisherLocalExport,
@@ -636,4 +638,151 @@ test("buildMissingContactItems sorts publishers by last then first name", () => 
     "Adams, Bea",
     "Zimmerman, Zoe",
   ]);
+});
+
+test("buildContactDetailItem normalizes the phone number and trims fields", () => {
+  const item = buildContactDetailItem("phone", { number: "0412 345 678", label: " Mobile " });
+  expect(item).toMatchObject({ number: "+61 412 345 678", label: "Mobile" });
+});
+
+test("buildContactDetailItem drops empty optional address fields", () => {
+  const item = buildContactDetailItem("address", {
+    label: "",
+    unit_number: " ",
+    house_number: "12",
+    street: "Main St",
+    suburb: "",
+  }) as NonNullable<PublisherLocal["address"]>[number];
+  expect(item).toMatchObject({ house_number: "12", street: "Main St" });
+  expect(item.unit_number).toBeUndefined();
+  expect(item.suburb).toBeUndefined();
+});
+
+test("buildContactDetailItem builds an emergency contact with nested details", () => {
+  const withBoth = buildContactDetailItem("emergency_contact", {
+    first_name: "Jane",
+    last_name: "Doe",
+    relationship: "Wife",
+    phone: "0412345678",
+    email: "jane@example.com",
+  }) as NonNullable<PublisherLocal["emergency_contact"]>[number];
+  expect(withBoth.phone[0]?.number).toBe("+61 412 345 678");
+  expect(withBoth.email?.[0]?.address).toBe("jane@example.com");
+
+  const emailOnly = buildContactDetailItem("emergency_contact", {
+    first_name: "Jane",
+    last_name: "Doe",
+    relationship: "",
+    phone: " ",
+    email: "jane@example.com",
+  }) as NonNullable<PublisherLocal["emergency_contact"]>[number];
+  expect(emailOnly.phone).toEqual([]);
+  expect(emailOnly.email).toHaveLength(1);
+});
+
+test("addContactDetail inserts a new record when the publisher has none", async () => {
+  const { collection } = createTestCollection();
+  try {
+    await addContactDetail(collection, "pub-1", "phone", {
+      number: "0412345678",
+      label: "Mobile",
+    });
+
+    const saved = collection.get("pub-1");
+    expect(saved?.publisher_id).toBe("pub-1");
+    expect(saved?.phone).toHaveLength(1);
+    expect(saved?.phone?.[0]?.number).toBe("+61 412 345 678");
+
+    const items = buildMissingContactItems({
+      publishers: [{ id: "pub-1", first_name: "Amy", last_name: "Adams", congregation_id: "c1" }],
+      records: [saved as PublisherLocal],
+    });
+    expect(items[0]?.missing.map((f) => f.key)).toEqual(["address", "email", "emergency_contact"]);
+  } finally {
+    await collection.cleanup().catch(() => {});
+  }
+});
+
+test("addContactDetail appends to an existing record without dropping other fields", async () => {
+  const { collection } = createTestCollection();
+  try {
+    const seeded = record({
+      version: version({ updated_at: 5 }),
+      phone: [{ id: "p1", number: "111", label: "Mobile", version: version({ updated_at: 5 }) }],
+    });
+    const seedTx = collection.insert(seeded);
+    await seedTx.isPersisted.promise;
+
+    await addContactDetail(collection, "pub-1", "email", {
+      address: "amy@example.com",
+      label: "Personal",
+    });
+
+    const saved = collection.get("pub-1");
+    expect(saved?.phone).toHaveLength(1);
+    expect(saved?.email).toHaveLength(1);
+    expect(saved?.email?.[0]?.address).toBe("amy@example.com");
+    // Doc version is touched so a later merge can tell this record was edited.
+    expect(saved?.version.updated_at).toBeGreaterThan(5);
+  } finally {
+    await collection.cleanup().catch(() => {});
+  }
+});
+
+test("addContactDetail for an emergency contact clears that field from the missing list", async () => {
+  const { collection } = createTestCollection();
+  try {
+    const seedTx = collection.insert(
+      record({
+        address: [{ id: "a1", label: "Home", street: "Main St", version: version() }],
+        phone: [{ id: "p1", number: "111", label: "Mobile", version: version() }],
+        email: [{ id: "e1", address: "a@b.c", label: "Home", version: version() }],
+      }),
+    );
+    await seedTx.isPersisted.promise;
+
+    await addContactDetail(collection, "pub-1", "emergency_contact", {
+      first_name: "Jane",
+      last_name: "Doe",
+      relationship: "Wife",
+      phone: "0412345678",
+      email: "",
+    });
+
+    const saved = collection.get("pub-1") as PublisherLocal;
+    expect(saved.emergency_contact).toHaveLength(1);
+    expect(saved.emergency_contact?.[0]?.first_name).toBe("Jane");
+    const items = buildMissingContactItems({
+      publishers: [{ id: "pub-1", first_name: "Amy", last_name: "Adams", congregation_id: "c1" }],
+      records: [saved],
+    });
+    expect(items).toEqual([]);
+  } finally {
+    await collection.cleanup().catch(() => {});
+  }
+});
+
+test("addContactDetail appends to an already populated field array", async () => {
+  const { collection } = createTestCollection();
+  try {
+    const seedTx = collection.insert(
+      record({
+        phone: [{ id: "p1", number: "111", label: "Mobile", version: version() }],
+      }),
+    );
+    await seedTx.isPersisted.promise;
+
+    await addContactDetail(collection, "pub-1", "phone", {
+      number: "0422987654",
+      label: "Work",
+    });
+
+    const saved = collection.get("pub-1");
+    expect(saved?.phone).toHaveLength(2);
+    expect(saved?.phone?.[0]?.id).toBe("p1");
+    expect(saved?.phone?.[0]?.number).toBe("111");
+    expect(saved?.phone?.[1]?.number).toBe("+61 422 987 654");
+  } finally {
+    await collection.cleanup().catch(() => {});
+  }
 });
