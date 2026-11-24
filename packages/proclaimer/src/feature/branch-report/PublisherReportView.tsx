@@ -228,7 +228,7 @@ export function PublisherReportView({
           <IonList key={group.year}>
             <IonListHeader>
               <IonLabel>
-                <IonNote>{group.year} Service Year</IonNote>
+                <IonNote color="secondary">{group.year} Service Year</IonNote>
               </IonLabel>
             </IonListHeader>
             {group.monthIds.map((id) => {
