@@ -1,9 +1,10 @@
-import { Fragment, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import {
   IonAvatar,
   IonButton,
   IonButtons,
   IonContent,
+  IonDatetime,
   IonHeader,
   IonIcon,
   IonItem,
@@ -22,6 +23,7 @@ import {
   chatbubbleOutline,
   checkmark,
   copyOutline,
+  createOutline,
   mailOutline,
   navigateOutline,
 } from "ionicons/icons";
@@ -31,12 +33,15 @@ import { usePermissions } from "../permission/index.ts";
 import {
   familyHeadLabel,
   familyHeadOptions,
+  getPublisherDisplayName,
   isArchived,
   isPublisherRowId,
   isRemoved,
   PublisherSelect,
   publisherStandingLabel,
+  publisherStandingOptions,
   publisherTypeLabel,
+  publisherTypeOptions,
   usePublishers,
   type Publisher,
   type PublisherCollection,
@@ -48,6 +53,13 @@ import {
   type StreetCollection,
   type SuburbCollection,
 } from "./collection.ts";
+import { AddContactDetailModal, type ContactDetailField } from "./ContactDetailModal.tsx";
+import {
+  updateContactDetail,
+  updatePublisherLocalDate,
+  type ContactDetailInput,
+  type ContactDetailItem,
+} from "./edit.ts";
 import { usePublisherLocalRecords, useTerritoryNames } from "./hooks.ts";
 import { formatDate } from "./preview.ts";
 import type { PublisherLocalAddress } from "./schema.ts";
@@ -61,32 +73,32 @@ export interface PublisherDetailViewProps {
   streetCollection?: StreetCollection;
 }
 
-function DetailItem({ label, value }: { label: string; value: string }) {
+function DetailItem({
+  label,
+  value,
+  onEdit,
+}: {
+  label: string;
+  value: string;
+  onEdit?: () => void;
+}) {
   return (
     <IonItem lines="inset">
       <IonLabel className="ion-text-wrap">
         <p>{label}</p>
         <h3>{value}</h3>
       </IonLabel>
-    </IonItem>
-  );
-}
-
-function ActionItem({
-  label,
-  value,
-  onSelect,
-}: {
-  label: string;
-  value: string;
-  onSelect: () => void;
-}) {
-  return (
-    <IonItem lines="inset" button detail onClick={onSelect}>
-      <IonLabel className="ion-text-wrap">
-        <p>{label}</p>
-        <h3>{value}</h3>
-      </IonLabel>
+      {onEdit && (
+        <IonButton
+          slot="end"
+          fill="clear"
+          size="small"
+          aria-label={`Edit ${label}`}
+          onClick={onEdit}
+        >
+          <IonIcon slot="icon-only" icon={createOutline} />
+        </IonButton>
+      )}
     </IonItem>
   );
 }
@@ -101,17 +113,25 @@ function ContactItem({
   label,
   value,
   actions,
+  onEdit,
 }: {
   label: string;
   value: string;
   actions: ContactAction[];
+  onEdit?: () => void;
 }) {
+  // With existing action icons the edit pencil sits next to them; a detail
+  // with no actions gets it at the end of the item instead of a row below.
+  const buttons: ContactAction[] =
+    onEdit && actions.length > 0
+      ? [...actions, { text: "Edit", icon: createOutline, handler: onEdit }]
+      : actions;
   return (
     <IonItem lines="inset">
       <IonLabel className="ion-text-wrap">
         <p>{label}</p>
         <h3>{value}</h3>
-        {actions.length > 0 && (
+        {buttons.length > 0 && (
           <div
             style={{
               display: "flex",
@@ -121,7 +141,7 @@ function ContactItem({
               marginRight: -12,
             }}
           >
-            {actions.map((action) => (
+            {buttons.map((action) => (
               <IonButton
                 key={action.text}
                 fill="clear"
@@ -135,6 +155,17 @@ function ContactItem({
           </div>
         )}
       </IonLabel>
+      {onEdit && actions.length === 0 && (
+        <IonButton
+          slot="end"
+          fill="clear"
+          size="small"
+          aria-label={`Edit ${label}`}
+          onClick={onEdit}
+        >
+          <IonIcon slot="icon-only" icon={createOutline} />
+        </IonButton>
+      )}
     </IonItem>
   );
 }
@@ -229,6 +260,140 @@ function genderLabel(publisher: Publisher): string | null {
   return null;
 }
 
+const GENDER_OPTIONS = [
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" },
+];
+
+interface DetailOption {
+  value: string | null;
+  label: string;
+}
+
+type DetailEditTarget =
+  | {
+      kind: "contact";
+      field: ContactDetailField;
+      item: ContactDetailItem;
+      /** Emergency contact id when editing a detail nested inside one. */
+      parentId?: string;
+    }
+  | {
+      kind: "option";
+      field: "standing" | "type" | "gender";
+      title: string;
+      options: DetailOption[];
+      selected: string | null;
+    }
+  | {
+      kind: "date";
+      field: "birth_date" | "baptism_date";
+      title: string;
+      value: string | null;
+    };
+
+function DetailOptionModal({
+  isOpen,
+  title,
+  options,
+  selected,
+  onSelect,
+  onDismiss,
+}: {
+  isOpen: boolean;
+  title: string;
+  options: DetailOption[];
+  selected: string | null;
+  onSelect: (value: string | null) => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <IonModal isOpen={isOpen} onDidDismiss={onDismiss}>
+      <IonHeader>
+        <IonToolbar>
+          <IonTitle>{title}</IonTitle>
+          <IonButtons slot="end">
+            <IonButton onClick={onDismiss}>Close</IonButton>
+          </IonButtons>
+        </IonToolbar>
+      </IonHeader>
+      <IonContent>
+        <IonList>
+          {options.map((option) => (
+            <IonItem
+              key={option.value ?? "none"}
+              button
+              detail={false}
+              onClick={() => onSelect(option.value)}
+            >
+              <IonLabel>{option.label}</IonLabel>
+              {selected === option.value && <IonIcon icon={checkmark} slot="end" color="primary" />}
+            </IonItem>
+          ))}
+        </IonList>
+      </IonContent>
+    </IonModal>
+  );
+}
+
+function DetailDateModal({
+  isOpen,
+  title,
+  value,
+  onSelect,
+  onClear,
+  onDismiss,
+}: {
+  isOpen: boolean;
+  title: string;
+  value: string | null;
+  onSelect: (date: string) => void;
+  onClear: () => void;
+  onDismiss: () => void;
+}) {
+  const datetimeValue = value && /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : null;
+  return (
+    <IonModal isOpen={isOpen} onDidDismiss={onDismiss}>
+      <IonHeader>
+        <IonToolbar>
+          <IonTitle>{title}</IonTitle>
+          <IonButtons slot="end">
+            <IonButton onClick={onDismiss}>Close</IonButton>
+          </IonButtons>
+        </IonToolbar>
+      </IonHeader>
+      <IonContent>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            padding: "8px 16px 24px",
+          }}
+        >
+          <IonDatetime
+            presentation="date"
+            firstDayOfWeek={1}
+            value={datetimeValue}
+            onIonChange={(event) => {
+              const raw = event.detail.value;
+              const date = (Array.isArray(raw) ? raw[0] : raw)?.slice(0, 10);
+              if (date) {
+                onSelect(date);
+              }
+            }}
+          />
+          {value && (
+            <IonButton fill="clear" onClick={onClear}>
+              Clear
+            </IonButton>
+          )}
+        </div>
+      </IonContent>
+    </IonModal>
+  );
+}
+
 export function PublisherDetailView({
   publisherId,
   congregationId,
@@ -259,6 +424,10 @@ export function PublisherDetailView({
   const [presentAlert] = useIonAlert();
   const [isFamilyHeadModalOpen, setIsFamilyHeadModalOpen] = useState(false);
   const [showCopiedToast, setShowCopiedToast] = useState(false);
+  const [editing, setEditing] = useState<DetailEditTarget | null>(null);
+  // Keep rendering the last edit target while its modal animates closed.
+  const lastEditing = useRef<DetailEditTarget | null>(null);
+  if (editing) lastEditing.current = editing;
   const permissions = usePermissions(congregationId);
 
   const copyDetail = (value: string) => {
@@ -323,8 +492,82 @@ export function PublisherDetailView({
   const addresses = record?.address ?? [];
   const emergencyContacts = record?.emergency_contact ?? [];
 
-  const canEditFamilyHead = permissions.hasSecretary || permissions.isSuperAdmin;
+  const canEdit = permissions.hasSecretary || permissions.isSuperAdmin;
   const familyHeadCandidates = familyHeadOptions(publisher, publishers);
+  const displayEditing = editing ?? lastEditing.current;
+
+  const showSaveFailed = (message: string) => {
+    void presentAlert({ header: "Save Failed", message, buttons: ["OK"] });
+  };
+
+  const editContactDetail = (
+    key: ContactDetailField["key"],
+    item: ContactDetailItem,
+    label: string,
+    parentId?: string,
+  ) => {
+    setEditing({ kind: "contact", field: { key, label }, item, parentId });
+  };
+
+  const saveContactDetail = async (input: ContactDetailInput) => {
+    const target = editing;
+    const id = publisher.id;
+    if (!target || target.kind !== "contact" || !isPublisherRowId(id)) {
+      return;
+    }
+    await updateContactDetail(local, id, target.field.key, target.item.id, input, target.parentId);
+  };
+
+  const savePublisherField = async (
+    field: "standing" | "type" | "gender",
+    value: string | null,
+  ) => {
+    const id = publisher.id;
+    if (!publishersCollection || !isPublisherRowId(id)) {
+      return;
+    }
+    try {
+      const tx = publishersCollection.update(id, (draft) => {
+        if (field === "standing") {
+          draft.standing = value as Publisher["standing"];
+        } else if (field === "type") {
+          draft.type = value as Publisher["type"];
+        } else {
+          draft.gender = value as Publisher["gender"];
+        }
+      });
+      await tx.isPersisted.promise;
+    } catch {
+      showSaveFailed("The publisher details could not be updated.");
+    }
+  };
+
+  const saveDate = async (field: "birth_date" | "baptism_date", value: string | null) => {
+    const id = publisher.id;
+    if (!isPublisherRowId(id)) {
+      return;
+    }
+    try {
+      await updatePublisherLocalDate(local, id, field, value);
+    } catch (error) {
+      showSaveFailed(error instanceof Error ? error.message : "The date could not be updated.");
+    }
+  };
+
+  const openOptionEdit = (
+    field: "standing" | "type" | "gender",
+    title: string,
+    selected: string | null,
+    options: DetailOption[],
+  ) => {
+    setEditing({
+      kind: "option",
+      field,
+      title,
+      selected,
+      options: [{ value: null, label: "None" }, ...options],
+    });
+  };
 
   const saveFamilyHead = async (headId: string | null) => {
     const id = publisher.id;
@@ -369,6 +612,7 @@ export function PublisherDetailView({
                 label={phone.label ? `${phone.label} Phone` : "Phone"}
                 value={phone.number}
                 actions={phoneActions(phone.number, copyDetail)}
+                onEdit={canEdit ? () => editContactDetail("phone", phone, "Phone") : undefined}
               />
             ))}
             {emails.map((email) => (
@@ -377,6 +621,7 @@ export function PublisherDetailView({
                 label={email.label ? `${email.label} Email` : "Email"}
                 value={email.address}
                 actions={emailActions(email.address, copyDetail)}
+                onEdit={canEdit ? () => editContactDetail("email", email, "Email") : undefined}
               />
             ))}
             {addresses.map((address) => {
@@ -387,6 +632,9 @@ export function PublisherDetailView({
                   label={address.label ? `${address.label} Address` : "Address"}
                   value={formatted}
                   actions={addressActions(address, formatted, copyDetail)}
+                  onEdit={
+                    canEdit ? () => editContactDetail("address", address, "Address") : undefined
+                  }
                 />
               );
             })}
@@ -402,21 +650,26 @@ export function PublisherDetailView({
                 `${contact.first_name} ${contact.last_name}`.trim() || "Emergency Contact";
               return (
                 <Fragment key={contact.id}>
-                  <IonItem lines="inset">
-                    <IonLabel className="ion-text-wrap">
-                      <p>
-                        Emergency Contact
-                        {contact.relationship ? ` — ${contact.relationship}` : ""}
-                      </p>
-                      <h3>{name}</h3>
-                    </IonLabel>
-                  </IonItem>
+                  <DetailItem
+                    label={`Emergency Contact${contact.relationship ? ` — ${contact.relationship}` : ""}`}
+                    value={name}
+                    onEdit={
+                      canEdit
+                        ? () => editContactDetail("emergency_contact", contact, "Emergency Contact")
+                        : undefined
+                    }
+                  />
                   {(contact.phone ?? []).map((phone) => (
                     <ContactItem
                       key={`phone-${phone.id}`}
                       label={phone.label ? `${phone.label} Phone` : "Phone"}
                       value={phone.number}
                       actions={phoneActions(phone.number, copyDetail)}
+                      onEdit={
+                        canEdit
+                          ? () => editContactDetail("phone", phone, "Phone", contact.id)
+                          : undefined
+                      }
                     />
                   ))}
                   {(contact.email ?? []).map((email) => (
@@ -425,6 +678,11 @@ export function PublisherDetailView({
                       label={email.label ? `${email.label} Email` : "Email"}
                       value={email.address}
                       actions={emailActions(email.address, copyDetail)}
+                      onEdit={
+                        canEdit
+                          ? () => editContactDetail("email", email, "Email", contact.id)
+                          : undefined
+                      }
                     />
                   ))}
                   {(contact.address ?? []).map((address) => {
@@ -435,6 +693,11 @@ export function PublisherDetailView({
                         label={address.label ? `${address.label} Address` : "Address"}
                         value={formatted}
                         actions={addressActions(address, formatted, copyDetail)}
+                        onEdit={
+                          canEdit
+                            ? () => editContactDetail("address", address, "Address", contact.id)
+                            : undefined
+                        }
                       />
                     );
                   })}
@@ -447,26 +710,92 @@ export function PublisherDetailView({
       <div>
         <SectionHeader title="Details" color="medium" />
         <IonList>
-          {standing && <DetailItem label="Standing" value={standing} />}
-          {type && <DetailItem label="Type" value={type} />}
-          {gender && <DetailItem label="Gender" value={gender} />}
-          {status && <DetailItem label="Status" value={status} />}
-          {canEditFamilyHead ? (
-            <ActionItem
-              label="Family Head"
-              value={familyHeadLabel(publisher, publishers)}
-              onSelect={() => {
-                setIsFamilyHeadModalOpen(true);
-              }}
+          {(standing || canEdit) && (
+            <DetailItem
+              label="Standing"
+              value={standing ?? "None"}
+              onEdit={
+                canEdit
+                  ? () =>
+                      openOptionEdit(
+                        "standing",
+                        "Standing",
+                        publisher.standing ?? null,
+                        publisherStandingOptions(),
+                      )
+                  : undefined
+              }
             />
-          ) : (
-            <DetailItem label="Family Head" value={familyHeadLabel(publisher, publishers)} />
           )}
-          {record?.birth_date?.value && (
-            <DetailItem label="Date of Birth" value={formatDate(record.birth_date.value)} />
+          {(type || canEdit) && (
+            <DetailItem
+              label="Type"
+              value={type ?? "None"}
+              onEdit={
+                canEdit
+                  ? () =>
+                      openOptionEdit("type", "Type", publisher.type ?? null, publisherTypeOptions())
+                  : undefined
+              }
+            />
           )}
-          {record?.baptism_date?.value && (
-            <DetailItem label="Baptism Date" value={formatDate(record.baptism_date.value)} />
+          {(gender || canEdit) && (
+            <DetailItem
+              label="Gender"
+              value={gender ?? "None"}
+              onEdit={
+                canEdit
+                  ? () =>
+                      openOptionEdit("gender", "Gender", publisher.gender ?? null, GENDER_OPTIONS)
+                  : undefined
+              }
+            />
+          )}
+          {status && <DetailItem label="Status" value={status} />}
+          <DetailItem
+            label="Family Head"
+            value={familyHeadLabel(publisher, publishers)}
+            onEdit={
+              canEdit
+                ? () => {
+                    setIsFamilyHeadModalOpen(true);
+                  }
+                : undefined
+            }
+          />
+          {(record?.birth_date?.value || canEdit) && (
+            <DetailItem
+              label="Date of Birth"
+              value={record?.birth_date?.value ? formatDate(record.birth_date.value) : "None"}
+              onEdit={
+                canEdit
+                  ? () =>
+                      setEditing({
+                        kind: "date",
+                        field: "birth_date",
+                        title: "Date of Birth",
+                        value: record?.birth_date?.value ?? null,
+                      })
+                  : undefined
+              }
+            />
+          )}
+          {(record?.baptism_date?.value || canEdit) && (
+            <DetailItem
+              label="Baptism Date"
+              value={record?.baptism_date?.value ? formatDate(record.baptism_date.value) : "None"}
+              onEdit={
+                canEdit
+                  ? () =>
+                      setEditing({
+                        kind: "date",
+                        field: "baptism_date",
+                        title: "Baptism Date",
+                        value: record?.baptism_date?.value ?? null,
+                      })
+                  : undefined
+              }
+            />
           )}
         </IonList>
       </div>
@@ -515,6 +844,51 @@ export function PublisherDetailView({
           </PublisherSelect>
         </IonContent>
       </IonModal>
+      <AddContactDetailModal
+        isOpen={editing?.kind === "contact"}
+        field={displayEditing?.kind === "contact" ? displayEditing.field : null}
+        initial={displayEditing?.kind === "contact" ? displayEditing.item : null}
+        publisherName={getPublisherDisplayName(publisher)}
+        onSave={saveContactDetail}
+        onDismiss={() => {
+          setEditing(null);
+        }}
+      />
+      <DetailOptionModal
+        isOpen={editing?.kind === "option"}
+        title={displayEditing?.kind === "option" ? displayEditing.title : ""}
+        options={displayEditing?.kind === "option" ? displayEditing.options : []}
+        selected={displayEditing?.kind === "option" ? displayEditing.selected : null}
+        onSelect={(value) => {
+          if (editing?.kind === "option") {
+            void savePublisherField(editing.field, value);
+          }
+          setEditing(null);
+        }}
+        onDismiss={() => {
+          setEditing(null);
+        }}
+      />
+      <DetailDateModal
+        isOpen={editing?.kind === "date"}
+        title={displayEditing?.kind === "date" ? displayEditing.title : ""}
+        value={displayEditing?.kind === "date" ? displayEditing.value : null}
+        onSelect={(date) => {
+          if (editing?.kind === "date") {
+            void saveDate(editing.field, date);
+          }
+          setEditing(null);
+        }}
+        onClear={() => {
+          if (editing?.kind === "date") {
+            void saveDate(editing.field, null);
+          }
+          setEditing(null);
+        }}
+        onDismiss={() => {
+          setEditing(null);
+        }}
+      />
       <IonToast
         isOpen={showCopiedToast}
         message="Copied to clipboard"

@@ -19,13 +19,27 @@ import {
   IonToolbar,
 } from "@ionic/react";
 
-import type { ContactDetailInput } from "./edit.ts";
+import type { ContactDetailInput, ContactDetailItem } from "./edit.ts";
 import type { MissingContactField } from "./missing.ts";
+import type {
+  PublisherLocalAddress,
+  PublisherLocalEmail,
+  PublisherLocalEmergencyContact,
+  PublisherLocalPhone,
+} from "./schema.ts";
+
+/** Field shape the modal edits — same keys as MissingContactField, custom labels allowed. */
+export interface ContactDetailField {
+  key: MissingContactField["key"];
+  label: string;
+}
 
 export interface AddContactDetailModalProps {
   isOpen: boolean;
   /** The missing field being filled in, or null while no row is selected. */
-  field: MissingContactField | null;
+  field: ContactDetailField | null;
+  /** Existing detail to edit; omit for add mode. */
+  initial?: ContactDetailItem | null;
   /** Shown in the list header so the editor knows whose detail this is. */
   publisherName?: string;
   /** Persists the detail; the modal stays open and shows the error if it rejects. */
@@ -65,6 +79,46 @@ function emptyDraft(): ContactDetailDraft {
   };
 }
 
+function draftFromItem(
+  field: ContactDetailField["key"],
+  item: ContactDetailItem,
+): ContactDetailDraft {
+  const draft = emptyDraft();
+  switch (field) {
+    case "phone": {
+      const phone = item as PublisherLocalPhone;
+      draft.number = phone.number;
+      draft.label = phone.label;
+      break;
+    }
+    case "email": {
+      const email = item as PublisherLocalEmail;
+      draft.address = email.address;
+      draft.label = email.label;
+      break;
+    }
+    case "address": {
+      const address = item as PublisherLocalAddress;
+      draft.label = address.label;
+      draft.unit_number = address.unit_number ?? "";
+      draft.house_number = address.house_number ?? "";
+      draft.street = address.street ?? "";
+      draft.suburb = address.suburb ?? "";
+      break;
+    }
+    case "emergency_contact": {
+      const contact = item as PublisherLocalEmergencyContact;
+      draft.first_name = contact.first_name;
+      draft.last_name = contact.last_name;
+      draft.relationship = contact.relationship;
+      draft.phone = contact.phone[0]?.number ?? "";
+      draft.email = contact.email?.[0]?.address ?? "";
+      break;
+    }
+  }
+  return draft;
+}
+
 const PERSONAL_EMAIL_LABEL = "Personal";
 const JW_PUB_EMAIL_LABEL = "JW Pub";
 const EMAIL_LABELS = [PERSONAL_EMAIL_LABEL, JW_PUB_EMAIL_LABEL];
@@ -102,7 +156,7 @@ function isJwPubAddress(value: string): boolean {
   return /^.+@jwpub\.org$/i.test(value.trim());
 }
 
-function isDraftValid(field: MissingContactField, draft: ContactDetailDraft): boolean {
+function isDraftValid(field: ContactDetailField, draft: ContactDetailDraft): boolean {
   const filled = (value: string) => value.trim().length > 0;
   const emailish = (value: string) => filled(value) && value.trim().includes("@");
   switch (field.key) {
@@ -125,7 +179,7 @@ function isDraftValid(field: MissingContactField, draft: ContactDetailDraft): bo
   }
 }
 
-function toInput(field: MissingContactField, draft: ContactDetailDraft): ContactDetailInput {
+function toInput(field: ContactDetailField, draft: ContactDetailDraft): ContactDetailInput {
   switch (field.key) {
     case "phone":
       return { number: draft.number, label: draft.label };
@@ -150,10 +204,11 @@ function toInput(field: MissingContactField, draft: ContactDetailDraft): Contact
   }
 }
 
-/** Adds one missing contact detail (address, phone, email, or emergency contact). */
+/** Adds or edits one contact detail (address, phone, email, or emergency contact). */
 export function AddContactDetailModal({
   isOpen,
   field,
+  initial,
   publisherName,
   onSave,
   onDismiss,
@@ -164,11 +219,14 @@ export function AddContactDetailModal({
 
   // Render from the last non-null field/name — `field` goes null the moment
   // the parent starts dismissing, which would blank the form mid-animation.
-  const lastField = useRef<MissingContactField | null>(null);
+  const lastField = useRef<ContactDetailField | null>(null);
   if (field) lastField.current = field;
+  const lastInitial = useRef<ContactDetailItem | null>(null);
+  if (initial) lastInitial.current = initial;
   const lastPublisherName = useRef<string | undefined>(undefined);
   if (publisherName != null) lastPublisherName.current = publisherName;
   const displayField = field ?? lastField.current;
+  const displayInitial = initial ?? lastInitial.current;
   const displayPublisherName = publisherName ?? lastPublisherName.current;
 
   // Seed the draft only when the modal opens so in-progress edits aren't wiped.
@@ -177,7 +235,10 @@ export function AddContactDetailModal({
     const opened = isOpen && !wasOpen.current;
     wasOpen.current = isOpen;
     if (opened) {
-      setDraft(emptyDraft());
+      // Reset the fallback item so an add-mode open after an edit doesn't
+      // keep rendering the previous detail in the title.
+      lastInitial.current = initial ?? null;
+      setDraft(field && initial ? draftFromItem(field.key, initial) : emptyDraft());
       setSaving(false);
       setSaveError(null);
     }
@@ -245,7 +306,9 @@ export function AddContactDetailModal({
     <IonModal isOpen={isOpen} onDidDismiss={onDismiss}>
       <IonHeader>
         <IonToolbar>
-          <IonTitle>{displayField ? `Add ${displayField.label}` : ""}</IonTitle>
+          <IonTitle>
+            {displayField ? `${displayInitial ? "Edit" : "Add"} ${displayField.label}` : ""}
+          </IonTitle>
           <IonButtons slot="start">
             <IonButton onClick={onDismiss} disabled={saving}>
               Cancel

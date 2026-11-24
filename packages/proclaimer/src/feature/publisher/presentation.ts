@@ -92,6 +92,19 @@ export function publisherTypeLabel(publisher: Publisher): string | null {
   return publisher.type ? TYPE_LABELS[publisher.type] : null;
 }
 
+export interface PublisherFieldOption {
+  value: string;
+  label: string;
+}
+
+export function publisherStandingOptions(): PublisherFieldOption[] {
+  return Object.entries(STANDING_LABELS).map(([value, label]) => ({ value, label }));
+}
+
+export function publisherTypeOptions(): PublisherFieldOption[] {
+  return Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label }));
+}
+
 /**
  * Display name for the publisher's family head. A family head's `family_id`
  * points at their own row, so they resolve to themselves.

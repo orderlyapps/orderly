@@ -8,7 +8,9 @@ import {
   isPioneer,
   pioneerBadgeLabel,
   publisherStandingLabel,
+  publisherStandingOptions,
   publisherTypeLabel,
+  publisherTypeOptions,
   type Publisher,
   type PublisherStanding,
   type PublisherType,
@@ -181,4 +183,17 @@ test("groupPublishers skips archived and removed publishers", () => {
   expect(groups.elders).toEqual([]);
   expect(groups.ministerialServants).toEqual([]);
   expect(groups.pioneers).toEqual([]);
+});
+
+test("publisherStandingOptions and publisherTypeOptions expose value/label pairs", () => {
+  expect(publisherStandingOptions()).toContainEqual({ value: "elder", label: "Elder" });
+  expect(publisherStandingOptions()).toContainEqual({
+    value: "ministerial_servant",
+    label: "Ministerial Servant",
+  });
+  expect(publisherTypeOptions()).toContainEqual({
+    value: "regular_pioneer",
+    label: "Regular Pioneer",
+  });
+  expect(publisherTypeOptions()).toContainEqual({ value: "removed", label: "Removed" });
 });

@@ -27,7 +27,7 @@ import {
   usePublishers,
   type PublisherCollection,
 } from "../publisher/index.ts";
-import { AddContactDetailModal } from "./AddContactDetailModal.tsx";
+import { AddContactDetailModal } from "./ContactDetailModal.tsx";
 import { getPublisherLocalCollection, type PublisherLocalCollection } from "./collection.ts";
 import { addContactDetail, type ContactDetailInput } from "./edit.ts";
 import { usePublisherLocalRecords } from "./hooks.ts";

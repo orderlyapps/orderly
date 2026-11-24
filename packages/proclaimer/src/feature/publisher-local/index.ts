@@ -20,7 +20,8 @@ export {
 export {
   AddContactDetailModal,
   type AddContactDetailModalProps,
-} from "./AddContactDetailModal.tsx";
+  type ContactDetailField,
+} from "./ContactDetailModal.tsx";
 export { DataImportView, type DataImportViewProps } from "./DataImportView.tsx";
 export {
   filterDirectoryPublishers,
@@ -34,7 +35,10 @@ export {
 } from "./PublisherDirectoryView.tsx";
 export {
   addContactDetail,
+  applyContactDetailInput,
   buildContactDetailItem,
+  updateContactDetail,
+  updatePublisherLocalDate,
   type AddressDetailInput,
   type ContactDetailInput,
   type ContactDetailItem,

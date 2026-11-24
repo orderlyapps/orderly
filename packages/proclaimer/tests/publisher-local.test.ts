@@ -4,6 +4,7 @@ import type { StorageApi } from "../src/feature/settings/index.ts";
 import type { Publisher } from "../src/feature/publisher/index.ts";
 import {
   addContactDetail,
+  applyContactDetailInput,
   buildContactDetailItem,
   buildImportPreviewItems,
   buildMissingContactItems,
@@ -17,6 +18,8 @@ import {
   mergePublisherLocal,
   normalizePublisherLocal,
   parsePublisherLocalRecords,
+  updateContactDetail,
+  updatePublisherLocalDate,
   type PublisherLocal,
   type PublisherLocalCollection,
   type Version,
@@ -849,6 +852,247 @@ test("addContactDetail appends to an already populated field array", async () =>
     expect(saved?.phone?.[0]?.id).toBe("p1");
     expect(saved?.phone?.[0]?.number).toBe("111");
     expect(saved?.phone?.[1]?.number).toBe("+61 422 987 654");
+  } finally {
+    await collection.cleanup().catch(() => {});
+  }
+});
+
+test("applyContactDetailInput keeps ids and preserves extra emergency contact entries", () => {
+  const contact = {
+    id: "ec1",
+    first_name: "Jane",
+    last_name: "Doe",
+    relationship: "Wife",
+    phone: [
+      { id: "p1", number: "111", label: "", version: version() },
+      { id: "p2", number: "222", label: "Work", version: version() },
+    ],
+    email: [{ id: "e1", address: "a@b.c", label: "", version: version() }],
+    version: version(),
+  } as NonNullable<PublisherLocal["emergency_contact"]>[number];
+
+  const updated = applyContactDetailInput("emergency_contact", contact, {
+    first_name: "Janet",
+    last_name: "Doe",
+    relationship: "Sister",
+    phone: "0412345678",
+    email: "",
+  }) as NonNullable<PublisherLocal["emergency_contact"]>[number];
+
+  expect(updated.id).toBe("ec1");
+  expect(updated.first_name).toBe("Janet");
+  expect(updated.relationship).toBe("Sister");
+  // The primary phone is updated in place; the second entry is kept.
+  expect(updated.phone.map((p) => p.id)).toEqual(["p1", "p2"]);
+  expect(updated.phone[0]?.number).toBe("+61 412 345 678");
+  // Clearing the only email removes the list entirely.
+  expect(updated.email).toBeUndefined();
+});
+
+test("updateContactDetail replaces a phone in place and keeps its id", async () => {
+  const { collection } = createTestCollection();
+  try {
+    const seedTx = collection.insert(
+      record({
+        version: version({ updated_at: 5 }),
+        phone: [
+          { id: "p1", number: "111", label: "Mobile", version: version({ updated_at: 5 }) },
+          { id: "p2", number: "222", label: "Home", version: version() },
+        ],
+      }),
+    );
+    await seedTx.isPersisted.promise;
+
+    await updateContactDetail(collection, "pub-1", "phone", "p1", {
+      number: "0412 345 678",
+      label: "Work",
+    });
+
+    const saved = collection.get("pub-1");
+    expect(saved?.phone?.map((p) => p.id)).toEqual(["p1", "p2"]);
+    expect(saved?.phone?.[0]).toMatchObject({ number: "+61 412 345 678", label: "Work" });
+    // Item and record versions are touched so a merge can tell they changed.
+    expect(saved?.phone?.[0]?.version.updated_at).toBeGreaterThan(5);
+    expect(saved?.version.updated_at).toBeGreaterThan(5);
+    expect(saved?.phone?.[1]?.number).toBe("222");
+  } finally {
+    await collection.cleanup().catch(() => {});
+  }
+});
+
+test("updateContactDetail preserves address coordinates and clears emptied optional fields", async () => {
+  const { collection } = createTestCollection();
+  try {
+    const seedTx = collection.insert(
+      record({
+        address: [
+          {
+            id: "a1",
+            label: "Home",
+            unit_number: "4",
+            house_number: "12",
+            street: "Main St",
+            suburb: "Springfield",
+            coordinates: [151.2, -33.8],
+            version: version(),
+          },
+        ],
+      }),
+    );
+    await seedTx.isPersisted.promise;
+
+    await updateContactDetail(collection, "pub-1", "address", "a1", {
+      label: "Work",
+      unit_number: "",
+      house_number: "12",
+      street: "Other St",
+      suburb: "Springfield",
+    });
+
+    const saved = collection.get("pub-1")?.address?.[0];
+    expect(saved).toMatchObject({
+      label: "Work",
+      house_number: "12",
+      street: "Other St",
+      suburb: "Springfield",
+      coordinates: [151.2, -33.8],
+    });
+    expect(saved?.unit_number).toBeUndefined();
+  } finally {
+    await collection.cleanup().catch(() => {});
+  }
+});
+
+test("updateContactDetail edits a phone nested inside an emergency contact", async () => {
+  const { collection } = createTestCollection();
+  try {
+    const seedTx = collection.insert(
+      record({
+        emergency_contact: [
+          {
+            id: "ec1",
+            first_name: "Jane",
+            last_name: "Doe",
+            relationship: "Wife",
+            phone: [{ id: "p1", number: "111", label: "", version: version() }],
+            version: version(),
+          },
+        ],
+      }),
+    );
+    await seedTx.isPersisted.promise;
+
+    await updateContactDetail(
+      collection,
+      "pub-1",
+      "phone",
+      "p1",
+      { number: "0422987654", label: "" },
+      "ec1",
+    );
+
+    const contact = collection.get("pub-1")?.emergency_contact?.[0];
+    expect(contact?.phone[0]?.id).toBe("p1");
+    expect(contact?.phone[0]?.number).toBe("+61 422 987 654");
+    // A top-level phone list is untouched by the nested edit.
+    expect(collection.get("pub-1")?.phone).toBeUndefined();
+  } finally {
+    await collection.cleanup().catch(() => {});
+  }
+});
+
+test("updateContactDetail updates an emergency contact's fields", async () => {
+  const { collection } = createTestCollection();
+  try {
+    const seedTx = collection.insert(
+      record({
+        emergency_contact: [
+          {
+            id: "ec1",
+            first_name: "Jane",
+            last_name: "Doe",
+            relationship: "Wife",
+            phone: [{ id: "p1", number: "111", label: "", version: version() }],
+            version: version(),
+          },
+        ],
+      }),
+    );
+    await seedTx.isPersisted.promise;
+
+    await updateContactDetail(collection, "pub-1", "emergency_contact", "ec1", {
+      first_name: "Janet",
+      last_name: "Doe",
+      relationship: "Sister",
+      phone: "0412345678",
+      email: "janet@example.com",
+    });
+
+    const contact = collection.get("pub-1")?.emergency_contact?.[0];
+    expect(contact?.first_name).toBe("Janet");
+    expect(contact?.relationship).toBe("Sister");
+    expect(contact?.phone[0]?.id).toBe("p1");
+    expect(contact?.phone[0]?.number).toBe("+61 412 345 678");
+    expect(contact?.email?.[0]?.address).toBe("janet@example.com");
+  } finally {
+    await collection.cleanup().catch(() => {});
+  }
+});
+
+test("updateContactDetail rejects an unknown item", async () => {
+  const { collection } = createTestCollection();
+  try {
+    const seedTx = collection.insert(
+      record({
+        phone: [{ id: "p1", number: "111", label: "Mobile", version: version() }],
+      }),
+    );
+    await seedTx.isPersisted.promise;
+
+    await expect(
+      updateContactDetail(collection, "pub-1", "phone", "p9", {
+        number: "0412345678",
+        label: "",
+      }),
+    ).rejects.toThrow("could not be found");
+    await expect(
+      updateContactDetail(collection, "pub-9", "phone", "p1", {
+        number: "0412345678",
+        label: "",
+      }),
+    ).rejects.toThrow("could not be found");
+  } finally {
+    await collection.cleanup().catch(() => {});
+  }
+});
+
+test("updatePublisherLocalDate sets then clears a date on an existing record", async () => {
+  const { collection } = createTestCollection();
+  try {
+    const seedTx = collection.insert(record({ version: version({ updated_at: 5 }) }));
+    await seedTx.isPersisted.promise;
+
+    await updatePublisherLocalDate(collection, "pub-1", "birth_date", "1990-05-01");
+    let saved = collection.get("pub-1");
+    expect(saved?.birth_date?.value).toBe("1990-05-01");
+    expect(saved?.version.updated_at).toBeGreaterThan(5);
+
+    await updatePublisherLocalDate(collection, "pub-1", "birth_date", null);
+    saved = collection.get("pub-1");
+    expect(saved?.birth_date).toBeUndefined();
+  } finally {
+    await collection.cleanup().catch(() => {});
+  }
+});
+
+test("updatePublisherLocalDate creates a record when the publisher has none", async () => {
+  const { collection } = createTestCollection();
+  try {
+    await updatePublisherLocalDate(collection, "pub-1", "baptism_date", "2010-03-20");
+    const saved = collection.get("pub-1");
+    expect(saved?.publisher_id).toBe("pub-1");
+    expect(saved?.baptism_date?.value).toBe("2010-03-20");
+    expect(saved?.phone).toBeUndefined();
   } finally {
     await collection.cleanup().catch(() => {});
   }
