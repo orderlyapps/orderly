@@ -9,11 +9,12 @@ import {
   IonToolbar,
 } from "@ionic/react";
 import { Navigate } from "react-router-dom";
-import { usePermissions, useSettings } from "proclaimer-core";
+import { MissingContactsView, usePermissions, useSettings } from "proclaimer-core";
 
 const EmergencyContacts = () => {
   const { settings, isLoading: settingsLoading } = useSettings();
-  const permissions = usePermissions(settings.congregationId || undefined);
+  const congregationId = settings.congregationId || undefined;
+  const permissions = usePermissions(congregationId);
   const canUseSecretary = permissions.hasSecretary || permissions.isSuperAdmin;
   const isLoading = settingsLoading || !permissions.isLoaded;
 
@@ -41,7 +42,9 @@ const EmergencyContacts = () => {
           <div style={{ display: "flex", justifyContent: "center", paddingTop: 64 }}>
             <IonSpinner name="crescent" />
           </div>
-        ) : null}
+        ) : (
+          <MissingContactsView congregationId={congregationId} />
+        )}
         <div style={{ paddingBottom: 48 }} />
       </IonContent>
     </IonPage>

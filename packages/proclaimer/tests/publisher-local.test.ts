@@ -3,6 +3,7 @@ import { expect, test } from "vite-plus/test";
 import type { StorageApi } from "../src/feature/settings/index.ts";
 import {
   buildImportPreviewItems,
+  buildMissingContactItems,
   buildPublisherLocalExport,
   createPublisherLocalCollection,
   diffPublisherLocalRecords,
@@ -546,4 +547,93 @@ test("buildImportPreviewItems includes previous values for changed fields only",
   const dob = items[0]?.fields.find((f) => f.key === "birth_date");
   expect(dob?.value).toBe("June 6, 1981");
   expect(dob?.previousValue).toBe("May 5, 1980");
+});
+
+test("buildMissingContactItems reports only the fields missing from the record", () => {
+  const items = buildMissingContactItems({
+    publishers: [{ id: "pub-1", first_name: "Amy", last_name: "Adams", congregation_id: "c1" }],
+    records: [
+      record({
+        phone: [{ id: "p1", number: "111", label: "Mobile", version: version() }],
+        email: [{ id: "e1", address: "a@b.c", label: "Home", version: version() }],
+      }),
+    ],
+  });
+
+  expect(items).toHaveLength(1);
+  expect(items[0]?.publisher_name).toBe("Adams, Amy");
+  expect(items[0]?.missing.map((f) => f.key)).toEqual(["address", "emergency_contact"]);
+});
+
+test("buildMissingContactItems treats a publisher with no record as missing every field", () => {
+  const items = buildMissingContactItems({
+    publishers: [{ id: "pub-1", first_name: "Amy", last_name: "Adams", congregation_id: "c1" }],
+    records: [],
+  });
+
+  expect(items).toHaveLength(1);
+  expect(items[0]?.missing.map((f) => f.key)).toEqual([
+    "address",
+    "phone",
+    "email",
+    "emergency_contact",
+  ]);
+});
+
+test("buildMissingContactItems omits complete, archived, and removed publishers", () => {
+  const items = buildMissingContactItems({
+    publishers: [
+      { id: "pub-1", first_name: "Amy", last_name: "Adams", congregation_id: "c1" },
+      {
+        id: "pub-2",
+        first_name: "Bob",
+        last_name: "Brown",
+        congregation_id: "c1",
+        archived_at: "2024-01-01",
+      },
+      {
+        id: "pub-3",
+        first_name: "Cora",
+        last_name: "Clark",
+        congregation_id: "c1",
+        type: "removed",
+      },
+    ],
+    records: [
+      record({
+        address: [{ id: "a1", label: "Home", street: "Main St", version: version() }],
+        phone: [{ id: "p1", number: "111", label: "Mobile", version: version() }],
+        email: [{ id: "e1", address: "a@b.c", label: "Home", version: version() }],
+        emergency_contact: [
+          {
+            id: "ec1",
+            first_name: "Jane",
+            last_name: "Doe",
+            relationship: "Wife",
+            phone: [],
+            version: version(),
+          },
+        ],
+      }),
+    ],
+  });
+
+  expect(items).toEqual([]);
+});
+
+test("buildMissingContactItems sorts publishers by last then first name", () => {
+  const items = buildMissingContactItems({
+    publishers: [
+      { id: "pub-2", first_name: "Zoe", last_name: "Zimmerman", congregation_id: "c1" },
+      { id: "pub-1", first_name: "Amy", last_name: "Adams", congregation_id: "c1" },
+      { id: "pub-3", first_name: "Bea", last_name: "Adams", congregation_id: "c1" },
+    ],
+    records: [],
+  });
+
+  expect(items.map((i) => i.publisher_name)).toEqual([
+    "Adams, Amy",
+    "Adams, Bea",
+    "Zimmerman, Zoe",
+  ]);
 });

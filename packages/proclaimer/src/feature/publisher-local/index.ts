@@ -26,6 +26,14 @@ export {
   type UseTerritoryNamesResult,
 } from "./hooks.ts";
 export { ImportPreviewList, type ImportPreviewListProps } from "./ImportPreviewList.tsx";
+export { MissingContactsView, type MissingContactsViewProps } from "./MissingContactsView.tsx";
+export {
+  buildMissingContactItems,
+  MISSING_CONTACT_FIELDS,
+  type BuildMissingContactItemsInput,
+  type MissingContactField,
+  type MissingContactItem,
+} from "./missing.ts";
 export { formatPhoneNumber } from "./phone.ts";
 export {
   buildImportPreviewItems,
