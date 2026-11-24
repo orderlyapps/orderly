@@ -4,16 +4,29 @@ import {
   IonAccordion,
   IonAccordionGroup,
   IonButton,
+  IonButtons,
+  IonContent,
+  IonHeader,
   IonIcon,
   IonItem,
   IonLabel,
   IonList,
+  IonModal,
   IonNote,
   IonSpinner,
+  IonTitle,
+  IonToolbar,
+  useIonAlert,
 } from "@ionic/react";
-import { addCircleOutline } from "ionicons/icons";
+import { addCircleOutline, checkmark } from "ionicons/icons";
 
-import { usePublishers, type PublisherCollection } from "../publisher/index.ts";
+import {
+  familyHeadOptions,
+  isPublisherRowId,
+  PublisherSelect,
+  usePublishers,
+  type PublisherCollection,
+} from "../publisher/index.ts";
 import { AddContactDetailModal } from "./AddContactDetailModal.tsx";
 import { getPublisherLocalCollection, type PublisherLocalCollection } from "./collection.ts";
 import { addContactDetail, type ContactDetailInput } from "./edit.ts";
@@ -40,6 +53,8 @@ export function MissingContactsView({
     item: MissingContactItem;
     field: MissingContactField;
   } | null>(null);
+  const [familyHeadPublisherId, setFamilyHeadPublisherId] = useState<string | null>(null);
+  const [presentAlert] = useIonAlert();
   const localCollection = collection ?? getPublisherLocalCollection();
   const {
     records,
@@ -52,6 +67,7 @@ export function MissingContactsView({
     error: publishersError,
     canRetry,
     retry,
+    collection: publishersCollection,
   } = usePublishers(congregationId, publisherCollection);
 
   const items = useMemo(
@@ -59,9 +75,33 @@ export function MissingContactsView({
     [publishers, records],
   );
 
+  const familyHeadPublisher = publishers.find((p) => p.id === familyHeadPublisherId);
+  const familyHeadCandidates = familyHeadPublisher
+    ? familyHeadOptions(familyHeadPublisher, publishers)
+    : [];
+
   async function handleSave(input: ContactDetailInput) {
     if (!editing) return;
     await addContactDetail(localCollection, editing.item.publisher_id, editing.field.key, input);
+  }
+
+  async function saveFamilyHead(headId: string | null) {
+    const id = familyHeadPublisherId;
+    if (!publishersCollection || !isPublisherRowId(id)) {
+      return;
+    }
+    try {
+      const tx = publishersCollection.update(id, (draft) => {
+        draft.family_id = headId;
+      });
+      await tx.isPersisted.promise;
+    } catch {
+      void presentAlert({
+        header: "Save Failed",
+        message: "The family head could not be updated.",
+        buttons: ["OK"],
+      });
+    }
   }
 
   if (publishersError) {
@@ -96,7 +136,7 @@ export function MissingContactsView({
         style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
       >
         <IonSpinner name="crescent" />
-        <IonNote color="medium">Loading publisher contact details…</IonNote>
+        <IonNote color="medium">Loading publisher details…</IonNote>
       </div>
     );
   }
@@ -105,7 +145,7 @@ export function MissingContactsView({
     return (
       <div className="ion-padding" style={{ textAlign: "center" }}>
         <IonNote color="medium" style={{ display: "block" }}>
-          All publishers have complete contact details.
+          All publishers have complete details.
         </IonNote>
       </div>
     );
@@ -115,7 +155,7 @@ export function MissingContactsView({
     <div className="ion-padding">
       <IonNote style={{ display: "block", marginBottom: "0.5rem", textAlign: "center" }}>
         {items.length} publisher{items.length !== 1 ? "s" : ""}{" "}
-        {items.length !== 1 ? "have" : "has"} missing contact details:
+        {items.length !== 1 ? "have" : "has"} missing details:
       </IonNote>
       <IonAccordionGroup
         onIonChange={(e) => {
@@ -155,7 +195,11 @@ export function MissingContactsView({
                     lines="none"
                     button
                     detail={false}
-                    onClick={() => setEditing({ item, field })}
+                    onClick={() =>
+                      field.key === "family_head"
+                        ? setFamilyHeadPublisherId(item.publisher_id)
+                        : setEditing({ item, field })
+                    }
                   >
                     <IonLabel className="ion-text-wrap" style={{ margin: "0.375rem 0" }}>
                       {field.label}
@@ -175,6 +219,51 @@ export function MissingContactsView({
         onSave={handleSave}
         onDismiss={() => setEditing(null)}
       />
+      <IonModal
+        isOpen={familyHeadPublisherId !== null}
+        onDidDismiss={() => {
+          setFamilyHeadPublisherId(null);
+        }}
+      >
+        <IonHeader>
+          <IonToolbar>
+            <IonTitle>Family Head</IonTitle>
+            <IonButtons slot="end">
+              <IonButton
+                onClick={() => {
+                  setFamilyHeadPublisherId(null);
+                }}
+              >
+                Close
+              </IonButton>
+            </IonButtons>
+          </IonToolbar>
+        </IonHeader>
+        <IonContent>
+          <PublisherSelect
+            publishers={familyHeadCandidates}
+            selectedId={familyHeadPublisher?.family_id ?? undefined}
+            onSelect={(id) => {
+              void saveFamilyHead(id);
+              setFamilyHeadPublisherId(null);
+            }}
+          >
+            <IonItem
+              button
+              detail={false}
+              onClick={() => {
+                void saveFamilyHead(null);
+                setFamilyHeadPublisherId(null);
+              }}
+            >
+              <IonLabel>No family</IonLabel>
+              {!familyHeadPublisher?.family_id ? (
+                <IonIcon icon={checkmark} slot="end" color="primary" />
+              ) : null}
+            </IonItem>
+          </PublisherSelect>
+        </IonContent>
+      </IonModal>
     </div>
   );
 }

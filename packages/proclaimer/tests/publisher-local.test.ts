@@ -556,7 +556,15 @@ test("buildImportPreviewItems includes previous values for changed fields only",
 
 test("buildMissingContactItems reports only the fields missing from the record", () => {
   const items = buildMissingContactItems({
-    publishers: [{ id: "pub-1", first_name: "Amy", last_name: "Adams", congregation_id: "c1" }],
+    publishers: [
+      {
+        id: "pub-1",
+        first_name: "Amy",
+        last_name: "Adams",
+        congregation_id: "c1",
+        family_id: "head-1",
+      },
+    ],
     records: [
       record({
         phone: [{ id: "p1", number: "111", label: "Mobile", version: version() }],
@@ -572,7 +580,15 @@ test("buildMissingContactItems reports only the fields missing from the record",
 
 test("buildMissingContactItems treats a publisher with no record as missing every field", () => {
   const items = buildMissingContactItems({
-    publishers: [{ id: "pub-1", first_name: "Amy", last_name: "Adams", congregation_id: "c1" }],
+    publishers: [
+      {
+        id: "pub-1",
+        first_name: "Amy",
+        last_name: "Adams",
+        congregation_id: "c1",
+        family_id: "head-1",
+      },
+    ],
     records: [],
   });
 
@@ -585,10 +601,42 @@ test("buildMissingContactItems treats a publisher with no record as missing ever
   ]);
 });
 
+test("buildMissingContactItems flags a publisher without a family head", () => {
+  const items = buildMissingContactItems({
+    publishers: [{ id: "pub-1", first_name: "Amy", last_name: "Adams", congregation_id: "c1" }],
+    records: [
+      record({
+        address: [{ id: "a1", label: "Home", street: "Main St", version: version() }],
+        phone: [{ id: "p1", number: "111", label: "Mobile", version: version() }],
+        email: [{ id: "e1", address: "a@b.c", label: "Home", version: version() }],
+        emergency_contact: [
+          {
+            id: "ec1",
+            first_name: "Jane",
+            last_name: "Doe",
+            relationship: "Wife",
+            phone: [],
+            version: version(),
+          },
+        ],
+      }),
+    ],
+  });
+
+  expect(items).toHaveLength(1);
+  expect(items[0]?.missing.map((f) => f.key)).toEqual(["family_head"]);
+});
+
 test("buildMissingContactItems omits complete, archived, and removed publishers", () => {
   const items = buildMissingContactItems({
     publishers: [
-      { id: "pub-1", first_name: "Amy", last_name: "Adams", congregation_id: "c1" },
+      {
+        id: "pub-1",
+        first_name: "Amy",
+        last_name: "Adams",
+        congregation_id: "c1",
+        family_id: "head-1",
+      },
       {
         id: "pub-2",
         first_name: "Bob",
@@ -697,7 +745,15 @@ test("addContactDetail inserts a new record when the publisher has none", async 
     expect(saved?.phone?.[0]?.number).toBe("+61 412 345 678");
 
     const items = buildMissingContactItems({
-      publishers: [{ id: "pub-1", first_name: "Amy", last_name: "Adams", congregation_id: "c1" }],
+      publishers: [
+        {
+          id: "pub-1",
+          first_name: "Amy",
+          last_name: "Adams",
+          congregation_id: "c1",
+          family_id: "head-1",
+        },
+      ],
       records: [saved as PublisherLocal],
     });
     expect(items[0]?.missing.map((f) => f.key)).toEqual(["address", "email", "emergency_contact"]);
@@ -756,7 +812,15 @@ test("addContactDetail for an emergency contact clears that field from the missi
     expect(saved.emergency_contact).toHaveLength(1);
     expect(saved.emergency_contact?.[0]?.first_name).toBe("Jane");
     const items = buildMissingContactItems({
-      publishers: [{ id: "pub-1", first_name: "Amy", last_name: "Adams", congregation_id: "c1" }],
+      publishers: [
+        {
+          id: "pub-1",
+          first_name: "Amy",
+          last_name: "Adams",
+          congregation_id: "c1",
+          family_id: "head-1",
+        },
+      ],
       records: [saved],
     });
     expect(items).toEqual([]);

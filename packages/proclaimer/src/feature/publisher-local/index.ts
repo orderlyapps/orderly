@@ -53,10 +53,12 @@ export { ImportPreviewList, type ImportPreviewListProps } from "./ImportPreviewL
 export { MissingContactsView, type MissingContactsViewProps } from "./MissingContactsView.tsx";
 export {
   buildMissingContactItems,
+  FAMILY_HEAD_FIELD,
   MISSING_CONTACT_FIELDS,
   type BuildMissingContactItemsInput,
   type MissingContactField,
   type MissingContactItem,
+  type MissingField,
 } from "./missing.ts";
 export { formatPhoneNumber } from "./phone.ts";
 export {

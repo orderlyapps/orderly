@@ -16,12 +16,18 @@ export const MISSING_CONTACT_FIELDS = [
 
 export type MissingContactField = (typeof MISSING_CONTACT_FIELDS)[number];
 
+// The family head lives on the publisher row rather than the on-device
+// record, but a publisher without one is listed as missing it too.
+export const FAMILY_HEAD_FIELD = { key: "family_head", label: "Family head" } as const;
+
+export type MissingField = MissingContactField | typeof FAMILY_HEAD_FIELD;
+
 export interface MissingContactItem {
   publisher_id: string;
   publisher_name: string;
   last_name: string;
   first_name: string;
-  missing: MissingContactField[];
+  missing: MissingField[];
 }
 
 export interface BuildMissingContactItemsInput {
@@ -30,9 +36,10 @@ export interface BuildMissingContactItemsInput {
 }
 
 /**
- * Lists active publishers whose on-device record is missing contact details.
- * Archived and removed publishers are excluded; a publisher with no record at
- * all is reported as missing every field.
+ * Lists active publishers that are missing details — contact details absent
+ * from the on-device record, or no family head assigned. Archived and
+ * removed publishers are excluded; a publisher with no record at all is
+ * reported as missing every field.
  */
 export function buildMissingContactItems({
   publishers,
@@ -45,7 +52,12 @@ export function buildMissingContactItems({
       continue;
     }
     const record = recordMap.get(publisher.id);
-    const missing = MISSING_CONTACT_FIELDS.filter((field) => !record?.[field.key]?.length);
+    const missing: MissingField[] = MISSING_CONTACT_FIELDS.filter(
+      (field) => !record?.[field.key]?.length,
+    );
+    if (!publisher.family_id) {
+      missing.push(FAMILY_HEAD_FIELD);
+    }
     if (missing.length === 0) {
       continue;
     }
