@@ -58,6 +58,7 @@ const Map = () => {
       <IonContent fullscreen scrollY={false}>
         <MapView
           accessToken={mapboxAccessToken}
+          maxPitch={0}
           showNavigationControl={false}
           viewStateStorageKey={MAP_VIEW_STATE_STORAGE_KEY}
         >

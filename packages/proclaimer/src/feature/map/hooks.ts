@@ -33,6 +33,7 @@ export interface UseMapViewOptions {
   zoom?: number;
   minZoom?: number;
   maxZoom?: number;
+  maxPitch?: number;
   interactive?: boolean;
   viewStateStorageKey?: string;
   onLoad?: (map: MapInstance) => void;
@@ -54,6 +55,7 @@ export interface UseMapViewResult {
     | "initialViewState"
     | "minZoom"
     | "maxZoom"
+    | "maxPitch"
     | "interactive"
     | "onLoad"
     | "onError"
@@ -70,6 +72,7 @@ export function useMapView(options: UseMapViewOptions = {}): UseMapViewResult {
     zoom = MAP_DEFAULT_ZOOM,
     minZoom,
     maxZoom,
+    maxPitch,
     interactive = true,
     viewStateStorageKey,
     onLoad,
@@ -192,6 +195,7 @@ export function useMapView(options: UseMapViewOptions = {}): UseMapViewResult {
       initialViewState,
       minZoom,
       maxZoom,
+      maxPitch,
       interactive,
       onLoad: handleLoad,
       onError: handleError,
