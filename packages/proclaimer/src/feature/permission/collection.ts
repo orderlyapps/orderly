@@ -1,14 +1,20 @@
 import { createSupabaseTableCollection } from "../backend/collections.ts";
 import {
   AUTH_USER_TABLE,
+  CONGREGATION_ADMIN_TABLE,
   ELDER_PERMISSION_TABLE,
   SECRETARY_PERMISSION_TABLE,
+  SERVICE_OVERSEER_PERMISSION_TABLE,
   authUserSchema,
+  congregationAdminSchema,
   elderPermissionSchema,
   secretaryPermissionSchema,
+  serviceOverseerPermissionSchema,
   type AuthUser,
+  type CongregationAdmin,
   type ElderPermission,
   type SecretaryPermission,
+  type ServiceOverseerPermission,
 } from "./schema.ts";
 
 export function createSecretaryPermissionCollection() {
@@ -51,6 +57,48 @@ export function getElderPermissionCollection(): ElderPermissionCollection {
   return defaultElderPermissionCollection;
 }
 
+export function createServiceOverseerPermissionCollection() {
+  return createSupabaseTableCollection<ServiceOverseerPermission>({
+    table: SERVICE_OVERSEER_PERMISSION_TABLE,
+    id: SERVICE_OVERSEER_PERMISSION_TABLE,
+    keyColumns: ["auth_user_id", "congregation_id"],
+    schema: serviceOverseerPermissionSchema,
+  });
+}
+
+export type ServiceOverseerPermissionCollection = ReturnType<
+  typeof createServiceOverseerPermissionCollection
+>;
+
+let defaultServiceOverseerPermissionCollection: ServiceOverseerPermissionCollection | null = null;
+
+export function getServiceOverseerPermissionCollection(): ServiceOverseerPermissionCollection {
+  if (!defaultServiceOverseerPermissionCollection) {
+    defaultServiceOverseerPermissionCollection = createServiceOverseerPermissionCollection();
+  }
+  return defaultServiceOverseerPermissionCollection;
+}
+
+export function createCongregationAdminCollection() {
+  return createSupabaseTableCollection<CongregationAdmin>({
+    table: CONGREGATION_ADMIN_TABLE,
+    id: CONGREGATION_ADMIN_TABLE,
+    keyColumns: ["auth_user_id", "congregation_id"],
+    schema: congregationAdminSchema,
+  });
+}
+
+export type CongregationAdminCollection = ReturnType<typeof createCongregationAdminCollection>;
+
+let defaultCongregationAdminCollection: CongregationAdminCollection | null = null;
+
+export function getCongregationAdminCollection(): CongregationAdminCollection {
+  if (!defaultCongregationAdminCollection) {
+    defaultCongregationAdminCollection = createCongregationAdminCollection();
+  }
+  return defaultCongregationAdminCollection;
+}
+
 export function createAuthUserCollection() {
   return createSupabaseTableCollection<AuthUser>({
     table: AUTH_USER_TABLE,
@@ -75,10 +123,14 @@ export async function resetPermissionCollectionsForTesting(): Promise<void> {
   const collections = [
     defaultSecretaryPermissionCollection,
     defaultElderPermissionCollection,
+    defaultServiceOverseerPermissionCollection,
+    defaultCongregationAdminCollection,
     defaultAuthUserCollection,
   ];
   defaultSecretaryPermissionCollection = null;
   defaultElderPermissionCollection = null;
+  defaultServiceOverseerPermissionCollection = null;
+  defaultCongregationAdminCollection = null;
   defaultAuthUserCollection = null;
   await Promise.all(
     collections

@@ -10,9 +10,10 @@ import {
   IonPage,
   IonToolbar,
 } from "@ionic/react";
-import { mapOutline, settingsOutline } from "ionicons/icons";
+import { createOutline, mapOutline, settingsOutline } from "ionicons/icons";
 import {
   MAP_VIEW_STATE_STORAGE_KEY,
+  MapEditModal,
   MapSettingsModal,
   MapsLayer,
   MapsListModal,
@@ -21,6 +22,7 @@ import {
   NotAtHomesLayer,
   readMapViewState,
   useMasterMap,
+  usePermissions,
   useSettings,
 } from "proclaimer-core";
 
@@ -33,10 +35,14 @@ const hasSavedView = () =>
 const Map = () => {
   const [mapsOpen, setMapsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const { settings, setSetting } = useSettings();
   const congregationId = settings.congregationId.trim();
   const selectedMap = settings.selectedMaps[congregationId] || null;
   const { bounds: masterBounds } = useMasterMap(congregationId);
+  const permissions = usePermissions(congregationId || undefined);
+  const canEditMap =
+    permissions.hasServiceOverseer || permissions.isCongregationAdmin || permissions.isSuperAdmin;
 
   return (
     <IonPage>
@@ -46,6 +52,11 @@ const Map = () => {
             <IonBackButton defaultHref="/ministry" />
           </IonButtons>
           <IonButtons slot="end">
+            {canEditMap && (
+              <IonButton onClick={() => setEditOpen(true)} aria-label="Edit map">
+                <IonIcon slot="icon-only" icon={createOutline} />
+              </IonButton>
+            )}
             <IonButton onClick={() => setMapsOpen(true)} aria-label="Select map">
               <IonIcon slot="icon-only" icon={mapOutline} />
             </IonButton>
@@ -70,6 +81,7 @@ const Map = () => {
           />
           <NotAtHomesLayer />
         </MapView>
+        <MapEditModal isOpen={editOpen} onDidDismiss={() => setEditOpen(false)} />
         <MapSettingsModal isOpen={settingsOpen} onDidDismiss={() => setSettingsOpen(false)} />
         <MapsListModal
           isOpen={mapsOpen}

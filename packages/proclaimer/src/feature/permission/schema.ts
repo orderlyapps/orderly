@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const SECRETARY_PERMISSION_TABLE = "secretary_permission";
 export const ELDER_PERMISSION_TABLE = "elder_permission";
+export const SERVICE_OVERSEER_PERMISSION_TABLE = "service_overseer_permission";
+export const CONGREGATION_ADMIN_TABLE = "congregation_admin";
 export const AUTH_USER_TABLE = "auth_user";
 
 // Mirrors the Supabase "secretary_permission" table: grants a signed-in
@@ -29,6 +31,31 @@ export const elderPermissionSchema = z.object({
 });
 
 export type ElderPermission = z.infer<typeof elderPermissionSchema>;
+
+// Mirrors the Supabase "service_overseer_permission" table: grants a
+// signed-in user (auth_user_id) edit rights over a congregation's
+// service overseer data (e.g. territory maps)
+export const serviceOverseerPermissionSchema = z.object({
+  auth_user_id: z.uuid(),
+  congregation_id: z.uuid(),
+  granted_by: z.uuid().nullable().optional(),
+  created_at: z.string().nullable().optional(),
+  updated_at: z.string().nullable().optional(),
+  can_edit: z.boolean(),
+});
+
+export type ServiceOverseerPermission = z.infer<typeof serviceOverseerPermissionSchema>;
+
+// Mirrors the Supabase "congregation_admin" table: a row marks a
+// signed-in user (auth_user_id) as an administrator of a congregation
+export const congregationAdminSchema = z.object({
+  auth_user_id: z.uuid(),
+  congregation_id: z.uuid(),
+  created_by: z.uuid().nullable().optional(),
+  created_at: z.string().nullable().optional(),
+});
+
+export type CongregationAdmin = z.infer<typeof congregationAdminSchema>;
 
 // Mirrors the Supabase "auth_user" table (one row per signed-in user)
 export const authUserSchema = z.object({

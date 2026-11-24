@@ -3,17 +3,23 @@ import { expect, test } from "vite-plus/test";
 import {
   authUserSchema,
   clamOverseerPermissionSchema,
+  congregationAdminSchema,
   elderPermissionSchema,
   hasClamOverseerPermission,
   hasElderPermission,
   hasSecretaryPermission,
+  hasServiceOverseerPermission,
+  isCongregationAdminUser,
   isSuperAdminUser,
   midweekParticipationSchema,
   secretaryPermissionSchema,
+  serviceOverseerPermissionSchema,
   type AuthUser,
   type ClamOverseerPermission,
+  type CongregationAdmin,
   type ElderPermission,
   type SecretaryPermission,
+  type ServiceOverseerPermission,
 } from "../src/feature/index.ts";
 
 const authUserId = "7b15d4e5-d4fa-4eb4-a276-3790b7c4897b";
@@ -147,6 +153,72 @@ test("hasElderPermission requires can_edit", () => {
   ];
   expect(hasElderPermission(rows, authUserId, congregationId)).toBe(false);
   expect(hasElderPermission(rows, authUserId, otherCongregationId)).toBe(true);
+});
+
+function serviceOverseerPermission(
+  overrides: Partial<ServiceOverseerPermission>,
+): ServiceOverseerPermission {
+  return {
+    auth_user_id: authUserId,
+    congregation_id: congregationId,
+    can_edit: true,
+    ...overrides,
+  };
+}
+
+test("serviceOverseerPermissionSchema mirrors the table shape", () => {
+  const row = serviceOverseerPermission({});
+  expect(serviceOverseerPermissionSchema.safeParse(row).success).toBe(true);
+  expect(serviceOverseerPermissionSchema.safeParse({ ...row, can_edit: "yes" }).success).toBe(
+    false,
+  );
+  expect(serviceOverseerPermissionSchema.safeParse({ ...row, auth_user_id: "x" }).success).toBe(
+    false,
+  );
+});
+
+test("hasServiceOverseerPermission requires a matching editable row", () => {
+  const rows = [serviceOverseerPermission({})];
+  expect(hasServiceOverseerPermission(rows, authUserId, congregationId)).toBe(true);
+  expect(hasServiceOverseerPermission(rows, otherUserId, congregationId)).toBe(false);
+  expect(hasServiceOverseerPermission(rows, authUserId, otherCongregationId)).toBe(false);
+  expect(hasServiceOverseerPermission(rows, undefined, congregationId)).toBe(false);
+  expect(hasServiceOverseerPermission(rows, authUserId, undefined)).toBe(false);
+  expect(hasServiceOverseerPermission(undefined, authUserId, congregationId)).toBe(false);
+});
+
+test("hasServiceOverseerPermission requires can_edit", () => {
+  const rows = [
+    serviceOverseerPermission({ can_edit: false }),
+    serviceOverseerPermission({ congregation_id: otherCongregationId, can_edit: true }),
+  ];
+  expect(hasServiceOverseerPermission(rows, authUserId, congregationId)).toBe(false);
+  expect(hasServiceOverseerPermission(rows, authUserId, otherCongregationId)).toBe(true);
+});
+
+function congregationAdmin(overrides: Partial<CongregationAdmin>): CongregationAdmin {
+  return {
+    auth_user_id: authUserId,
+    congregation_id: congregationId,
+    ...overrides,
+  };
+}
+
+test("congregationAdminSchema mirrors the table shape", () => {
+  const row = congregationAdmin({});
+  expect(congregationAdminSchema.safeParse(row).success).toBe(true);
+  expect(congregationAdminSchema.safeParse({ ...row, auth_user_id: "x" }).success).toBe(false);
+  expect(congregationAdminSchema.safeParse({ ...row, congregation_id: "x" }).success).toBe(false);
+});
+
+test("isCongregationAdminUser requires a matching row", () => {
+  const rows = [congregationAdmin({})];
+  expect(isCongregationAdminUser(rows, authUserId, congregationId)).toBe(true);
+  expect(isCongregationAdminUser(rows, otherUserId, congregationId)).toBe(false);
+  expect(isCongregationAdminUser(rows, authUserId, otherCongregationId)).toBe(false);
+  expect(isCongregationAdminUser(rows, undefined, congregationId)).toBe(false);
+  expect(isCongregationAdminUser(rows, authUserId, undefined)).toBe(false);
+  expect(isCongregationAdminUser(undefined, authUserId, congregationId)).toBe(false);
 });
 
 function authUser(overrides: Partial<AuthUser>): AuthUser {
