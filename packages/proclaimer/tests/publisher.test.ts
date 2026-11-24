@@ -1,6 +1,8 @@
 import { expect, test } from "vite-plus/test";
 
 import {
+  familyHeadLabel,
+  familyHeadOptions,
   groupPublishers,
   isActiveElderOrMinisterialServant,
   isPioneer,
@@ -90,6 +92,81 @@ test("isActiveElderOrMinisterialServant only matches active elders and ministeri
     }),
   ).toBe(false);
   expect(isActiveElderOrMinisterialServant(publisher("elder", "removed"))).toBe(false);
+});
+
+test("familyHeadLabel resolves another publisher as the head", () => {
+  const head = {
+    ...publisher("publisher", "publisher"),
+    id: "head-1",
+    first_name: "John",
+    last_name: "Smith",
+  };
+  const member = { ...publisher("publisher", "publisher"), id: "m-1", family_id: "head-1" };
+
+  expect(familyHeadLabel(member, [head, member])).toBe("Smith, John");
+});
+
+test("familyHeadLabel uses the publisher's own id when they are the head", () => {
+  const head = {
+    ...publisher("publisher", "publisher"),
+    id: "head-1",
+    first_name: "Jane",
+    last_name: "Doe",
+    family_id: "head-1",
+  };
+
+  expect(familyHeadLabel(head, [head])).toBe("Doe, Jane");
+});
+
+test("familyHeadLabel reports None when unset and Unknown when unresolvable", () => {
+  const member = { ...publisher("publisher", "publisher"), id: "m-1" };
+
+  expect(familyHeadLabel(member, [member])).toBe("None");
+  expect(familyHeadLabel({ ...member, family_id: "missing" }, [member])).toBe("Unknown");
+});
+
+test("familyHeadLabel prefers the head's display name", () => {
+  const head = {
+    ...publisher("publisher", "publisher"),
+    id: "head-1",
+    first_name: "John",
+    last_name: "Smith",
+    display_name: "Johnny",
+  };
+  const member = { ...publisher("publisher", "publisher"), id: "m-1", family_id: "head-1" };
+
+  expect(familyHeadLabel(member, [head, member])).toBe("Smith, Johnny");
+});
+
+test("familyHeadOptions offers only heads and the publisher being edited", () => {
+  const head = { ...publisher("publisher", "publisher"), id: "head-1", family_id: "head-1" };
+  const member = { ...publisher("publisher", "publisher"), id: "m-1", family_id: "head-1" };
+  const other = { ...publisher("publisher", "publisher"), id: "m-2", family_id: "head-1" };
+
+  expect(familyHeadOptions(member, [head, member, other])).toEqual([head, member]);
+});
+
+test("familyHeadOptions keeps the current head even when they are not a head", () => {
+  const assigned = { ...publisher("publisher", "publisher"), id: "h-1", family_id: "other" };
+  const member = { ...publisher("publisher", "publisher"), id: "m-1", family_id: "h-1" };
+  const head = { ...publisher("publisher", "publisher"), id: "head-1", family_id: "head-1" };
+
+  expect(familyHeadOptions(member, [assigned, member, head])).toEqual([assigned, member, head]);
+});
+
+test("familyHeadOptions excludes removed heads unless they are the current head", () => {
+  const removedHead = {
+    ...publisher("publisher", "removed"),
+    id: "removed-1",
+    family_id: "removed-1",
+  };
+  const head = { ...publisher("publisher", "publisher"), id: "head-1", family_id: "head-1" };
+  const member = { ...publisher("publisher", "publisher"), id: "m-1" };
+
+  expect(familyHeadOptions(member, [removedHead, head, member])).toEqual([head, member]);
+  expect(
+    familyHeadOptions({ ...member, family_id: "removed-1" }, [removedHead, head, member]),
+  ).toEqual([removedHead, head, member]);
 });
 
 test("groupPublishers skips archived and removed publishers", () => {

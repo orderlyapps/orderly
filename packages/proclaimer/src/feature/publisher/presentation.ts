@@ -1,4 +1,10 @@
-import type { Publisher, PublisherStanding, PublisherType } from "./schema.ts";
+import {
+  getPublisherDisplayName,
+  isPublisherRowId,
+  type Publisher,
+  type PublisherStanding,
+  type PublisherType,
+} from "./schema.ts";
 
 export const ELDER_STANDING = "elder";
 export const MINISTERIAL_SERVANT_STANDING = "ministerial_servant";
@@ -84,6 +90,33 @@ const TYPE_LABELS: Record<PublisherType, string> = {
 
 export function publisherTypeLabel(publisher: Publisher): string | null {
   return publisher.type ? TYPE_LABELS[publisher.type] : null;
+}
+
+/**
+ * Display name for the publisher's family head. A family head's `family_id`
+ * points at their own row, so they resolve to themselves.
+ */
+export function familyHeadLabel(publisher: Publisher, publishers: Publisher[]): string {
+  if (!publisher.family_id) {
+    return "None";
+  }
+  const head = publishers.find((p) => p.id === publisher.family_id);
+  return head ? getPublisherDisplayName(head) : "Unknown";
+}
+
+/**
+ * Publishers that may be picked as `publisher`'s family head: existing heads
+ * (a head's `family_id` points at their own row, `removed` rows excluded), the
+ * publisher themselves so they can become their family's head, and the
+ * currently assigned head so the selection stays visible.
+ */
+export function familyHeadOptions(publisher: Publisher, publishers: Publisher[]): Publisher[] {
+  return publishers.filter(
+    (p) =>
+      p.id === publisher.id ||
+      p.id === publisher.family_id ||
+      (isPublisherRowId(p.id) && p.id === p.family_id && !isRemoved(p)),
+  );
 }
 
 export function groupPublishers(publishers: Publisher[]): PublisherGroups {

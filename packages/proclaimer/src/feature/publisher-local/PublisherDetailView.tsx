@@ -1,26 +1,40 @@
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import {
   IonAvatar,
   IonButton,
+  IonButtons,
+  IonContent,
+  IonHeader,
+  IonIcon,
   IonItem,
   IonLabel,
   IonList,
+  IonModal,
   IonNote,
   IonSpinner,
+  IonTitle,
+  IonToolbar,
   useIonActionSheet,
+  useIonAlert,
   type ActionSheetButton,
 } from "@ionic/react";
 import {
   callOutline,
   chatbubbleOutline,
+  checkmark,
   copyOutline,
   mailOutline,
   navigateOutline,
 } from "ionicons/icons";
 
+import { usePermissions } from "../permission/index.ts";
 import {
+  familyHeadLabel,
+  familyHeadOptions,
   isArchived,
+  isPublisherRowId,
   isRemoved,
+  PublisherSelect,
   publisherStandingLabel,
   publisherTypeLabel,
   usePublishers,
@@ -188,6 +202,7 @@ export function PublisherDetailView({
     error,
     canRetry,
     retry,
+    collection: publishersCollection,
   } = usePublishers(congregationId, collection);
   const {
     records,
@@ -200,6 +215,9 @@ export function PublisherDetailView({
     streetCollection,
   );
   const [presentActionSheet] = useIonActionSheet();
+  const [presentAlert] = useIonAlert();
+  const [isFamilyHeadModalOpen, setIsFamilyHeadModalOpen] = useState(false);
+  const permissions = usePermissions(congregationId);
 
   const showActions = (header: string, buttons: ActionSheetButton[]) => {
     if (buttons.length === 0) {
@@ -267,6 +285,28 @@ export function PublisherDetailView({
   const emails = record?.email ?? [];
   const addresses = record?.address ?? [];
   const emergencyContacts = record?.emergency_contact ?? [];
+
+  const canEditFamilyHead = permissions.hasSecretary || permissions.isSuperAdmin;
+  const familyHeadCandidates = familyHeadOptions(publisher, publishers);
+
+  const saveFamilyHead = async (headId: string | null) => {
+    const id = publisher.id;
+    if (!publishersCollection || !isPublisherRowId(id)) {
+      return;
+    }
+    const tx = publishersCollection.update(id, (draft) => {
+      draft.family_id = headId;
+    });
+    try {
+      await tx.isPersisted.promise;
+    } catch {
+      void presentAlert({
+        header: "Save Failed",
+        message: "The family head could not be updated.",
+        buttons: ["OK"],
+      });
+    }
+  };
 
   return (
     <>
@@ -382,6 +422,17 @@ export function PublisherDetailView({
         {type && <DetailItem label="Type" value={type} />}
         {gender && <DetailItem label="Gender" value={gender} />}
         {status && <DetailItem label="Status" value={status} />}
+        {canEditFamilyHead ? (
+          <ActionItem
+            label="Family Head"
+            value={familyHeadLabel(publisher, publishers)}
+            onSelect={() => {
+              setIsFamilyHeadModalOpen(true);
+            }}
+          />
+        ) : (
+          <DetailItem label="Family Head" value={familyHeadLabel(publisher, publishers)} />
+        )}
         {record?.birth_date?.value && (
           <DetailItem label="Date of Birth" value={formatDate(record.birth_date.value)} />
         )}
@@ -389,6 +440,51 @@ export function PublisherDetailView({
           <DetailItem label="Baptism Date" value={formatDate(record.baptism_date.value)} />
         )}
       </IonList>
+      <IonModal
+        isOpen={isFamilyHeadModalOpen}
+        onDidDismiss={() => {
+          setIsFamilyHeadModalOpen(false);
+        }}
+      >
+        <IonHeader>
+          <IonToolbar>
+            <IonTitle>Family Head</IonTitle>
+            <IonButtons slot="end">
+              <IonButton
+                onClick={() => {
+                  setIsFamilyHeadModalOpen(false);
+                }}
+              >
+                Close
+              </IonButton>
+            </IonButtons>
+          </IonToolbar>
+        </IonHeader>
+        <IonContent>
+          <PublisherSelect
+            publishers={familyHeadCandidates}
+            selectedId={publisher.family_id ?? undefined}
+            onSelect={(id) => {
+              void saveFamilyHead(id);
+              setIsFamilyHeadModalOpen(false);
+            }}
+          >
+            <IonItem
+              button
+              detail={false}
+              onClick={() => {
+                void saveFamilyHead(null);
+                setIsFamilyHeadModalOpen(false);
+              }}
+            >
+              <IonLabel>No family</IonLabel>
+              {!publisher.family_id ? (
+                <IonIcon icon={checkmark} slot="end" color="primary" />
+              ) : null}
+            </IonItem>
+          </PublisherSelect>
+        </IonContent>
+      </IonModal>
     </>
   );
 }

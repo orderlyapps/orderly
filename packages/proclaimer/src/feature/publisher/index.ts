@@ -15,6 +15,8 @@ export {
 } from "./hooks.ts";
 export {
   ELDER_STANDING,
+  familyHeadLabel,
+  familyHeadOptions,
   groupPublishers,
   isActiveElderOrMinisterialServant,
   isArchived,
