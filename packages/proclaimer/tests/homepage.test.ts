@@ -4,6 +4,10 @@ import { expect, test } from "vite-plus/test";
 
 import { createCollection, localStorageCollectionOptions } from "@tanstack/react-db";
 
+import type {
+  CleaningAssignmentCollection,
+  CleaningAssignmentRow,
+} from "../src/feature/cleaning/index.ts";
 import type { EventCollection, EventRow } from "../src/feature/event/index.ts";
 import {
   AssignmentsView,
@@ -42,6 +46,8 @@ function nextStoreName() {
 
 const congregationId = "7b15d4e5-d4fa-4eb4-a276-3790b7c4897b";
 const weekId = "2025-11-03";
+const groupId = "11111111-1111-4111-8111-111111111111";
+const otherGroupId = "22222222-2222-4222-8222-222222222222";
 
 const meeting: MidweekMeetingData = {
   week_id: weekId,
@@ -99,6 +105,10 @@ function weekendAssignment(
 
 function speakerAssignment(week: string, speakerId = "pub-1"): SpeakerAssignment {
   return { week_id: week, speaker_id: speakerId, congregation_id: congregationId };
+}
+
+function cleanAssignment(week: string, group: string): CleaningAssignmentRow {
+  return { week_id: week, congregation_id: congregationId, group_id: group };
 }
 
 test("welcome name prefers display_name and falls back to first_name", () => {
@@ -206,6 +216,18 @@ test("buildUpcomingAssignments labels weekend roles and public talks", () => {
   expect(byId.get(`${weekId}-speaker-${congregationId}`)).toBe("Public Talk");
 });
 
+test("buildUpcomingAssignments labels cleaning assignments", () => {
+  const assignments = buildUpcomingAssignments({
+    cleanMajor: [cleanAssignment("2025-11-10", groupId)],
+    cleanMinor: [cleanAssignment(weekId, groupId)],
+  });
+
+  const byId = new Map(assignments.map((a) => [a.id, a.label]));
+  expect(byId.get(`${weekId}-clean-minor`)).toBe("Cleaning (Light)");
+  expect(byId.get("2025-11-10-clean-major")).toBe("Cleaning (Thorough)");
+  expect(assignments.map((a) => a.weekId)).toEqual(["2025-11-03", "2025-11-10"]);
+});
+
 test("buildUpcomingAssignments merges and sorts all types by week", () => {
   const assignments = buildUpcomingAssignments({
     midweek: [midweekAssignment("prayer_1", "pub-1", "2025-11-17")],
@@ -263,7 +285,15 @@ test("renders the next 3 upcoming assignments for the selected publisher", async
   const publisher = memoryCollection<Publisher>(
     `publishers_homepage_assignments_${Date.now()}`,
     (p) => p.id ?? "",
-    [{ id: "pub-1", first_name: "Alice", last_name: "Smith", congregation_id: congregationId }],
+    [
+      {
+        id: "pub-1",
+        first_name: "Alice",
+        last_name: "Smith",
+        congregation_id: congregationId,
+        group_id: groupId,
+      },
+    ],
   );
   const midweek = memoryCollection<MidweekMeetingAssignment>(
     `midweek_homepage_assignments_${Date.now()}`,
@@ -292,6 +322,16 @@ test("renders the next 3 upcoming assignments for the selected publisher", async
     (a) => `${a.week_id}:${a.congregation_id}:${a.speaker_id}`,
     [speakerAssignment(latestWeek)],
   );
+  const cleanMajor = memoryCollection<CleaningAssignmentRow>(
+    `clean_major_homepage_assignments_${Date.now()}`,
+    (a) => `${a.week_id}:${a.congregation_id}`,
+    [cleanAssignment(thisWeek, otherGroupId)],
+  );
+  const cleanMinor = memoryCollection<CleaningAssignmentRow>(
+    `clean_minor_homepage_assignments_${Date.now()}`,
+    (a) => `${a.week_id}:${a.congregation_id}`,
+    [cleanAssignment(nextWeek, groupId)],
+  );
 
   const store = await createSettingsStore({ name: nextStoreName() });
   try {
@@ -301,6 +341,8 @@ test("renders the next 3 upcoming assignments for the selected publisher", async
       meetingData.collection.preload(),
       weekend.collection.preload(),
       speaker.collection.preload(),
+      cleanMajor.collection.preload(),
+      cleanMinor.collection.preload(),
     ]);
     await Promise.all(
       [
@@ -309,6 +351,8 @@ test("renders the next 3 upcoming assignments for the selected publisher", async
         meetingData.collection.insert(meetingData.rows),
         weekend.collection.insert(weekend.rows),
         speaker.collection.insert(speaker.rows),
+        cleanMajor.collection.insert(cleanMajor.rows),
+        cleanMinor.collection.insert(cleanMinor.rows),
       ].map((tx) => tx.isPersisted.promise),
     );
     await store.updateSettings({ congregationId, publisherId: "pub-1" });
@@ -322,6 +366,8 @@ test("renders the next 3 upcoming assignments for the selected publisher", async
           midweekMeetingData: meetingData.collection as unknown as MidweekMeetingDataCollection,
           weekendAssignments: weekend.collection as unknown as WeekendAssignmentCollection,
           speakerAssignments: speaker.collection as unknown as SpeakerAssignmentCollection,
+          cleanMajor: cleanMajor.collection as unknown as CleaningAssignmentCollection,
+          cleanMinor: cleanMinor.collection as unknown as CleaningAssignmentCollection,
         },
       }),
     );
@@ -329,8 +375,11 @@ test("renders the next 3 upcoming assignments for the selected publisher", async
     expect(markup).toContain("Assignments");
     expect(markup).toContain("Chairman (Midweek)");
     expect(markup).toContain("4. Starting a Conversation (3 min)");
-    expect(markup).toContain("Reader (Watchtower)");
-    // Only the next 3 are shown; the later public talk is cut off.
+    // The publisher's group clean shows; another group's does not.
+    expect(markup).toContain("Cleaning (Light)");
+    expect(markup).not.toContain("Cleaning (Thorough)");
+    // Only the next 3 are shown; the later assignments are cut off.
+    expect(markup).not.toContain("Reader (Watchtower)");
     expect(markup).not.toContain("Public Talk");
     // More assignments than fit link to the full list.
     expect(markup).toContain("See more");
@@ -339,7 +388,15 @@ test("renders the next 3 upcoming assignments for the selected publisher", async
     expect(markup).not.toContain("A Story of Unfailing Love");
   } finally {
     await store.close();
-    for (const { collection } of [publisher, midweek, meetingData, weekend, speaker]) {
+    for (const { collection } of [
+      publisher,
+      midweek,
+      meetingData,
+      weekend,
+      speaker,
+      cleanMajor,
+      cleanMinor,
+    ]) {
       await collection.cleanup().catch(() => {});
     }
   }
@@ -441,7 +498,15 @@ test("renders all upcoming assignments on the assignments page", async () => {
   const publisher = memoryCollection<Publisher>(
     `publishers_assignments_page_${Date.now()}`,
     (p) => p.id ?? "",
-    [{ id: "pub-1", first_name: "Alice", last_name: "Smith", congregation_id: congregationId }],
+    [
+      {
+        id: "pub-1",
+        first_name: "Alice",
+        last_name: "Smith",
+        congregation_id: congregationId,
+        group_id: groupId,
+      },
+    ],
   );
   const midweek = memoryCollection<MidweekMeetingAssignment>(
     `midweek_assignments_page_${Date.now()}`,
@@ -470,6 +535,16 @@ test("renders all upcoming assignments on the assignments page", async () => {
     (a) => `${a.week_id}:${a.congregation_id}:${a.speaker_id}`,
     [speakerAssignment(latestWeek)],
   );
+  const cleanMajor = memoryCollection<CleaningAssignmentRow>(
+    `clean_major_assignments_page_${Date.now()}`,
+    (a) => `${a.week_id}:${a.congregation_id}`,
+    [cleanAssignment(latestWeek, groupId)],
+  );
+  const cleanMinor = memoryCollection<CleaningAssignmentRow>(
+    `clean_minor_assignments_page_${Date.now()}`,
+    (a) => `${a.week_id}:${a.congregation_id}`,
+    [cleanAssignment(thisWeek, otherGroupId)],
+  );
 
   const store = await createSettingsStore({ name: nextStoreName() });
   try {
@@ -479,6 +554,8 @@ test("renders all upcoming assignments on the assignments page", async () => {
       meetingData.collection.preload(),
       weekend.collection.preload(),
       speaker.collection.preload(),
+      cleanMajor.collection.preload(),
+      cleanMinor.collection.preload(),
     ]);
     await Promise.all(
       [
@@ -487,6 +564,8 @@ test("renders all upcoming assignments on the assignments page", async () => {
         meetingData.collection.insert(meetingData.rows),
         weekend.collection.insert(weekend.rows),
         speaker.collection.insert(speaker.rows),
+        cleanMajor.collection.insert(cleanMajor.rows),
+        cleanMinor.collection.insert(cleanMinor.rows),
       ].map((tx) => tx.isPersisted.promise),
     );
     await store.updateSettings({ congregationId, publisherId: "pub-1" });
@@ -500,6 +579,9 @@ test("renders all upcoming assignments on the assignments page", async () => {
           midweekMeetingData: meetingData.collection as unknown as MidweekMeetingDataCollection,
           weekendAssignments: weekend.collection as unknown as WeekendAssignmentCollection,
           speakerAssignments: speaker.collection as unknown as SpeakerAssignmentCollection,
+          publishers: publisher.collection as unknown as PublisherCollection,
+          cleanMajor: cleanMajor.collection as unknown as CleaningAssignmentCollection,
+          cleanMinor: cleanMinor.collection as unknown as CleaningAssignmentCollection,
         },
       }),
     );
@@ -509,11 +591,22 @@ test("renders all upcoming assignments on the assignments page", async () => {
     expect(markup).toContain("Reader (Watchtower)");
     // The full page lists every assignment, including the fourth.
     expect(markup).toContain("Public Talk");
+    // The publisher's group clean shows; another group's does not.
+    expect(markup).toContain("Cleaning (Thorough)");
+    expect(markup).not.toContain("Cleaning (Light)");
     // Another publisher's assignment is excluded.
     expect(markup).not.toContain("A Story of Unfailing Love");
   } finally {
     await store.close();
-    for (const { collection } of [publisher, midweek, meetingData, weekend, speaker]) {
+    for (const { collection } of [
+      publisher,
+      midweek,
+      meetingData,
+      weekend,
+      speaker,
+      cleanMajor,
+      cleanMinor,
+    ]) {
       await collection.cleanup().catch(() => {});
     }
   }
@@ -657,6 +750,8 @@ function permissions(overrides: Partial<PermissionsResult>): PermissionsResult {
     hasMidweekMeetingOverseer: false,
     hasSecretary: false,
     hasElder: false,
+    hasServiceOverseer: false,
+    isCongregationAdmin: false,
     isSuperAdmin: false,
     isAuthenticated: true,
     isLoaded: true,

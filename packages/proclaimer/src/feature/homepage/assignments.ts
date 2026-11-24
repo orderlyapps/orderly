@@ -1,10 +1,11 @@
 import { parseWeekId } from "../../util/week.ts";
+import type { CleaningAssignmentRow } from "../cleaning/schema.ts";
 import { buildMeetingProgram } from "../midweek-meeting/program.ts";
 import type { MidweekMeetingAssignment, MidweekMeetingData } from "../midweek-meeting/schema.ts";
 import type { MeetingProgramItem } from "../meeting/types.ts";
 import type { SpeakerAssignment, WeekendAssignment } from "../weekend-meeting/schema.ts";
 
-export type UpcomingAssignmentType = "midweek" | "weekend" | "speaker";
+export type UpcomingAssignmentType = "midweek" | "weekend" | "speaker" | "cleaning";
 
 export interface UpcomingAssignment {
   id: string;
@@ -18,6 +19,10 @@ export interface BuildUpcomingAssignmentsInput {
   midweekMeetingData?: MidweekMeetingData[];
   weekend?: WeekendAssignment[];
   speaker?: SpeakerAssignment[];
+  /** `clean_major` rows already filtered to the publisher's group. */
+  cleanMajor?: CleaningAssignmentRow[];
+  /** `clean_minor` rows already filtered to the publisher's group. */
+  cleanMinor?: CleaningAssignmentRow[];
 }
 
 const WEEKEND_ASSIGNMENT_LABELS: Record<string, string> = {
@@ -61,7 +66,14 @@ function midweekAssignmentLabel(
 export function buildUpcomingAssignments(
   input: BuildUpcomingAssignmentsInput,
 ): UpcomingAssignment[] {
-  const { midweek = [], midweekMeetingData = [], weekend = [], speaker = [] } = input;
+  const {
+    midweek = [],
+    midweekMeetingData = [],
+    weekend = [],
+    speaker = [],
+    cleanMajor = [],
+    cleanMinor = [],
+  } = input;
 
   const meetingByWeek = new Map<string, MidweekMeetingData>();
   for (const meeting of midweekMeetingData) {
@@ -101,6 +113,18 @@ export function buildUpcomingAssignments(
       type: "speaker" as const,
       weekId: a.week_id,
       label: "Public Talk",
+    })),
+    ...cleanMajor.map((a) => ({
+      id: `${a.week_id}-clean-major`,
+      type: "cleaning" as const,
+      weekId: a.week_id,
+      label: "Cleaning (Thorough)",
+    })),
+    ...cleanMinor.map((a) => ({
+      id: `${a.week_id}-clean-minor`,
+      type: "cleaning" as const,
+      weekId: a.week_id,
+      label: "Cleaning (Light)",
     })),
   ];
 

@@ -3,11 +3,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { and, eq, gte, inArray, useLiveQuery } from "@tanstack/react-db";
 
 import {
+  getCleanMajorCollection,
+  getCleanMinorCollection,
+  type CleaningAssignmentCollection,
+} from "../cleaning/collection.ts";
+import {
   getMidweekAssignmentCollection,
   getMidweekMeetingDataCollection,
   type MidweekAssignmentCollection,
   type MidweekMeetingDataCollection,
 } from "../midweek-meeting/collection.ts";
+import { getPublisherCollection, type PublisherCollection } from "../publisher/collection.ts";
 import {
   getSpeakerAssignmentCollection,
   getWeekendAssignmentCollection,
@@ -22,6 +28,9 @@ export interface UpcomingAssignmentCollections {
   midweekMeetingData?: MidweekMeetingDataCollection;
   weekendAssignments?: WeekendAssignmentCollection;
   speakerAssignments?: SpeakerAssignmentCollection;
+  publishers?: PublisherCollection;
+  cleanMajor?: CleaningAssignmentCollection;
+  cleanMinor?: CleaningAssignmentCollection;
 }
 
 export interface UseUpcomingAssignmentsResult {
@@ -37,6 +46,9 @@ interface ResolvedCollections {
   midweekMeetingData: MidweekMeetingDataCollection | null;
   weekendAssignments: WeekendAssignmentCollection | null;
   speakerAssignments: SpeakerAssignmentCollection | null;
+  publishers: PublisherCollection | null;
+  cleanMajor: CleaningAssignmentCollection | null;
+  cleanMinor: CleaningAssignmentCollection | null;
   error: Error | null;
 }
 
@@ -54,6 +66,9 @@ function collectionError(collections: ResolvedCollections): Error | null {
     collections.midweekMeetingData,
     collections.weekendAssignments,
     collections.speakerAssignments,
+    collections.publishers,
+    collections.cleanMajor,
+    collections.cleanMinor,
   ]) {
     if (collection?.utils.isError && collection.utils.lastError != null) {
       return toError(collection.utils.lastError);
@@ -71,6 +86,9 @@ function resolveCollections(
     midweekMeetingData: injected?.midweekMeetingData ?? null,
     weekendAssignments: injected?.weekendAssignments ?? null,
     speakerAssignments: injected?.speakerAssignments ?? null,
+    publishers: injected?.publishers ?? null,
+    cleanMajor: injected?.cleanMajor ?? null,
+    cleanMinor: injected?.cleanMinor ?? null,
     error: null,
   };
   try {
@@ -86,6 +104,9 @@ function resolveCollections(
   try {
     resolved.midweekAssignments ??= getMidweekAssignmentCollection(congregationId);
     resolved.weekendAssignments ??= getWeekendAssignmentCollection(congregationId);
+    resolved.publishers ??= getPublisherCollection(congregationId);
+    resolved.cleanMajor ??= getCleanMajorCollection(congregationId);
+    resolved.cleanMinor ??= getCleanMinorCollection(congregationId);
   } catch (err) {
     resolved.error = toError(err);
   }
@@ -98,6 +119,9 @@ function sameCollections(a: ResolvedCollections, b: ResolvedCollections): boolea
     a.midweekMeetingData === b.midweekMeetingData &&
     a.weekendAssignments === b.weekendAssignments &&
     a.speakerAssignments === b.speakerAssignments &&
+    a.publishers === b.publishers &&
+    a.cleanMajor === b.cleanMajor &&
+    a.cleanMinor === b.cleanMinor &&
     a.error === b.error
   );
 }
@@ -165,6 +189,37 @@ export function useUpcomingAssignments(
         : undefined,
   });
 
+  const { data: publisherRows, isLoading: publisherLoading } = useLiveQuery({
+    query: (q) =>
+      collections.publishers && publisherId
+        ? q.from({ p: collections.publishers }).where(({ p }) => eq(p.id, publisherId))
+        : undefined,
+  });
+
+  // Cleaning assignments belong to the publisher's field service group, not
+  // the publisher directly.
+  const groupId = publisherRows?.[0]?.group_id ?? null;
+
+  const { data: cleanMajorRows, isLoading: cleanMajorLoading } = useLiveQuery({
+    query: (q) =>
+      collections.cleanMajor && groupId
+        ? q
+            .from({ c: collections.cleanMajor })
+            .where(({ c }) => and(eq(c.group_id, groupId), gte(c.week_id, weekStart)))
+            .orderBy(({ c }) => c.week_id)
+        : undefined,
+  });
+
+  const { data: cleanMinorRows, isLoading: cleanMinorLoading } = useLiveQuery({
+    query: (q) =>
+      collections.cleanMinor && groupId
+        ? q
+            .from({ c: collections.cleanMinor })
+            .where(({ c }) => and(eq(c.group_id, groupId), gte(c.week_id, weekStart)))
+            .orderBy(({ c }) => c.week_id)
+        : undefined,
+  });
+
   const assignments = useMemo(
     () =>
       buildUpcomingAssignments({
@@ -172,8 +227,10 @@ export function useUpcomingAssignments(
         midweekMeetingData: meetingData,
         weekend: weekendRows,
         speaker: speakerRows,
+        cleanMajor: cleanMajorRows,
+        cleanMinor: cleanMinorRows,
       }),
-    [midweekRows, meetingData, weekendRows, speakerRows],
+    [midweekRows, meetingData, weekendRows, speakerRows, cleanMajorRows, cleanMinorRows],
   );
 
   const isLoading =
@@ -181,7 +238,10 @@ export function useUpcomingAssignments(
     ((collections.midweekAssignments !== null && midweekLoading) ||
       (collections.midweekMeetingData !== null && weekIds.length > 0 && meetingDataLoading) ||
       (collections.weekendAssignments !== null && weekendLoading) ||
-      (collections.speakerAssignments !== null && speakerLoading));
+      (collections.speakerAssignments !== null && speakerLoading) ||
+      (collections.publishers !== null && publisherLoading) ||
+      (collections.cleanMajor !== null && groupId !== null && cleanMajorLoading) ||
+      (collections.cleanMinor !== null && groupId !== null && cleanMinorLoading));
 
   const retry = useCallback(async () => {
     const next = resolveCollections(congregationId, injectedCollections);
@@ -192,6 +252,9 @@ export function useUpcomingAssignments(
         next.midweekMeetingData,
         next.weekendAssignments,
         next.speakerAssignments,
+        next.publishers,
+        next.cleanMajor,
+        next.cleanMinor,
       ].map((collection) => Promise.resolve(collection?.utils.refetch?.({ throwOnError: false }))),
     );
   }, [congregationId, injectedCollections]);
@@ -205,7 +268,10 @@ export function useUpcomingAssignments(
       collections.midweekAssignments !== null ||
       collections.midweekMeetingData !== null ||
       collections.weekendAssignments !== null ||
-      collections.speakerAssignments !== null,
+      collections.speakerAssignments !== null ||
+      collections.publishers !== null ||
+      collections.cleanMajor !== null ||
+      collections.cleanMinor !== null,
     retry,
   };
 }

@@ -38,12 +38,19 @@ test("changelog entries are semantic versions sorted newest-first", () => {
 
 test("AboutView renders the version and every changelog entry", () => {
   const markup = renderToStaticMarkup(createElement(AboutView));
-  expect(markup).toContain(APP_VERSION);
+  // React escapes apostrophes and friends; compare against unescaped text.
+  const text = markup
+    .replaceAll("&#x27;", "'")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&amp;", "&");
+  expect(text).toContain(APP_VERSION);
   for (const entry of CHANGELOG) {
-    expect(markup).toContain(entry.version);
-    expect(markup).toContain(entry.date);
+    expect(text).toContain(entry.version);
+    expect(text).toContain(entry.date);
     for (const change of entry.changes) {
-      expect(markup).toContain(change);
+      expect(text).toContain(change);
     }
   }
 });

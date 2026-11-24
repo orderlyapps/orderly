@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+
 import { IonText } from "@ionic/react";
 
 import type { EventCollection } from "../event/collection.ts";
@@ -29,6 +31,14 @@ export const HomepageView = ({
   const { settings } = useSettings(store);
   const { publishers } = usePublishers(settings.congregationId, publisherCollection);
   const name = getWelcomeName(publishers.find((p) => p.id === settings.publisherId));
+  // The assignments hook needs the publisher row to resolve the field service
+  // group behind cleaning assignments.
+  const collections = useMemo<UpcomingAssignmentCollections | undefined>(() => {
+    if (!publisherCollection || assignmentCollections?.publishers) {
+      return assignmentCollections;
+    }
+    return { ...assignmentCollections, publishers: publisherCollection };
+  }, [assignmentCollections, publisherCollection]);
 
   return (
     <>
@@ -42,7 +52,7 @@ export const HomepageView = ({
         <HomeAssignments
           congregationId={settings.congregationId}
           publisherId={settings.publisherId}
-          collections={assignmentCollections}
+          collections={collections}
         />
       ) : null}
       <HomeEvents congregationId={settings.congregationId} collection={eventCollection} />

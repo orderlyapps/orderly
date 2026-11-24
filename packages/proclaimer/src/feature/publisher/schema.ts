@@ -47,6 +47,7 @@ export const publisherSchema = z.object({
   standing: publisherStandingSchema.nullish().catch(null),
   type: publisherTypeSchema.nullish().catch(null),
   gender: z.enum(["male", "female"]).nullish(),
+  group_id: z.string().nullish(),
   archived_at: z.string().nullish(),
   auth_id: z.string().nullish(),
 });
