@@ -23,8 +23,7 @@ import {
   applyMapEditFeatureToRow,
   asMapEditFeature,
   buildMapEditFeatures,
-  MAP_EDIT_LINE_MODE,
-  MAP_EDIT_POLYGON_MODE,
+  MAP_EDIT_SELECT_FLAGS,
   MAP_EDIT_SELECT_MODE,
   mapEditVerticesToGeoJSON,
   type MapEditFeature,
@@ -91,29 +90,14 @@ function createTerraDraw(map: MapboxMap): TerraDraw {
     adapter: new TerraDrawMapboxGLAdapter({ map }),
     modes: [
       new TerraDrawSelectMode({
-        flags: {
-          [MAP_EDIT_POLYGON_MODE]: {
-            feature: {
-              draggable: true,
-              rotateable: true,
-              scaleable: true,
-              coordinates: { midpoints: true, draggable: true, deletable: true },
-            },
-          },
-          [MAP_EDIT_LINE_MODE]: {
-            feature: {
-              draggable: true,
-              coordinates: { midpoints: true, draggable: true, deletable: true },
-            },
-          },
-        },
+        flags: MAP_EDIT_SELECT_FLAGS,
         // The Delete key would drop whole features; vertices are removed by
         // right-click or by arming one with a tap (handled in MapEditLayer).
         keyEvents: {
           deselect: "Escape",
           delete: null,
-          rotate: ["Control", "r"],
-          scale: ["Control", "s"],
+          rotate: null,
+          scale: null,
         },
         styles: {
           // The armed-vertex highlight lives on the overlay layer's paint —

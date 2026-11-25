@@ -7,6 +7,7 @@ export {
   MAP_EDIT_KINDS,
   MAP_EDIT_LINE_MODE,
   MAP_EDIT_POLYGON_MODE,
+  MAP_EDIT_SELECT_FLAGS,
   MAP_EDIT_SELECT_MODE,
   mapEditFeatureId,
   mapEditVerticesToGeoJSON,

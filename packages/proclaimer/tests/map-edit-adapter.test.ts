@@ -6,7 +6,11 @@ import {
   TerraDrawSelectMode,
 } from "terra-draw";
 import { TerraDrawMapboxGLAdapter } from "terra-draw-mapbox-gl-adapter";
-import { buildMapEditFeatures, MAP_EDIT_SELECT_MODE } from "../src/feature/map/edit/schema.ts";
+import {
+  buildMapEditFeatures,
+  MAP_EDIT_SELECT_FLAGS,
+  MAP_EDIT_SELECT_MODE,
+} from "../src/feature/map/edit/schema.ts";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -80,20 +84,7 @@ test("adapter end-to-end renders our features into mapbox sources", async () => 
     adapter: new TerraDrawMapboxGLAdapter({ map: map as never }),
     modes: [
       new TerraDrawSelectMode({
-        flags: {
-          polygon: {
-            feature: {
-              draggable: true,
-              coordinates: { midpoints: true, draggable: true, deletable: true },
-            },
-          },
-          linestring: {
-            feature: {
-              draggable: true,
-              coordinates: { midpoints: true, draggable: true, deletable: true },
-            },
-          },
-        },
+        flags: MAP_EDIT_SELECT_FLAGS,
       }),
       new TerraDrawPolygonMode({
         styles: {

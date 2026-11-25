@@ -13,6 +13,23 @@ export const MAP_EDIT_SELECT_MODE = "select";
 export const MAP_EDIT_POLYGON_MODE = "polygon";
 export const MAP_EDIT_LINE_MODE = "linestring";
 
+export const MAP_EDIT_SELECT_FLAGS = {
+  [MAP_EDIT_POLYGON_MODE]: {
+    feature: {
+      draggable: false,
+      rotateable: false,
+      scaleable: false,
+      coordinates: { midpoints: true, draggable: true, deletable: true },
+    },
+  },
+  [MAP_EDIT_LINE_MODE]: {
+    feature: {
+      draggable: false,
+      coordinates: { midpoints: true, draggable: true, deletable: true },
+    },
+  },
+} as const;
+
 export const MAP_EDIT_KINDS = ["master", "border", "block", "face"] as const;
 export type MapEditFeatureKind = (typeof MAP_EDIT_KINDS)[number];
 
