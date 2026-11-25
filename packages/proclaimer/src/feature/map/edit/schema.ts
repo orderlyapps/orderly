@@ -44,6 +44,7 @@ export interface MapEditFeatureProperties {
   kind: MapEditFeatureKind;
   mapId?: string;
   blockId?: string;
+  selected?: boolean;
 }
 
 export interface MapEditFeature {
@@ -56,7 +57,7 @@ export interface MapEditFeature {
 export type MapEditVertexFeature = {
   type: "Feature";
   geometry: { type: "Point"; coordinates: number[] };
-  properties: { feature: string; index: number };
+  properties: { feature: string; index: number; selected: boolean };
 };
 
 export type MapEditVertexCollection = {
@@ -240,6 +241,60 @@ export function applyMapEditFeatureToMaster(draft: MapMasterRow, feature: MapEdi
   }
 }
 
+export function replaceMapEditVertex(
+  geometry: MapEditGeometry,
+  index: number,
+  position: [number, number],
+): MapEditGeometry | null {
+  if (geometry.type === "Polygon") {
+    const ring = geometry.coordinates[0];
+    if (!ring || index < 0 || index >= ring.length) {
+      return null;
+    }
+    const nextRing = ring.map((vertex) => [...vertex]);
+    if (index === 0 || index === ring.length - 1) {
+      nextRing[0] = position;
+      nextRing[ring.length - 1] = position;
+    } else {
+      nextRing[index] = position;
+    }
+    return { type: "Polygon", coordinates: [nextRing] };
+  }
+  if (index < 0 || index >= geometry.coordinates.length) {
+    return null;
+  }
+  const coordinates = geometry.coordinates.map((vertex) => [...vertex]);
+  coordinates[index] = position;
+  return { type: "LineString", coordinates };
+}
+
+export function removeMapEditVertex(
+  geometry: MapEditGeometry,
+  index: number,
+): MapEditGeometry | null {
+  if (geometry.type === "Polygon") {
+    const ring = geometry.coordinates[0];
+    if (!ring || ring.length <= 4 || index < 0 || index >= ring.length) {
+      return null;
+    }
+    const nextRing = ring.map((vertex) => [...vertex]);
+    if (index === 0 || index === ring.length - 1) {
+      nextRing.shift();
+      nextRing.pop();
+      nextRing.push([...nextRing[0]]);
+    } else {
+      nextRing.splice(index, 1);
+    }
+    return { type: "Polygon", coordinates: [nextRing] };
+  }
+  if (geometry.coordinates.length <= 2 || index < 0 || index >= geometry.coordinates.length) {
+    return null;
+  }
+  const coordinates = geometry.coordinates.map((vertex) => [...vertex]);
+  coordinates.splice(index, 1);
+  return { type: "LineString", coordinates };
+}
+
 // Point feature for every vertex of every editable feature so vertices are
 // visible throughout edit mode, not just on the selected feature.
 export function mapEditVerticesToGeoJSON(
@@ -258,7 +313,11 @@ export function mapEditVerticesToGeoJSON(
       points.push({
         type: "Feature",
         geometry: { type: "Point", coordinates: vertex },
-        properties: { feature: feature.id, index },
+        properties: {
+          feature: feature.id,
+          index,
+          selected: feature.properties.selected === true,
+        },
       });
     }
   }

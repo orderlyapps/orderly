@@ -1,7 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 
 import type { Expression, Map as MapboxMap, MapMouseEvent, PointLike } from "mapbox-gl";
-import { Layer, Source, useMap } from "react-map-gl/mapbox";
+import { Layer, Marker, Source, useMap } from "react-map-gl/mapbox";
 import {
   TerraDraw,
   TerraDrawLineStringMode,
@@ -26,6 +33,8 @@ import {
   MAP_EDIT_SELECT_FLAGS,
   MAP_EDIT_SELECT_MODE,
   mapEditVerticesToGeoJSON,
+  removeMapEditVertex,
+  replaceMapEditVertex,
   type MapEditFeature,
   type MapEditVertexCollection,
 } from "./schema.ts";
@@ -43,12 +52,188 @@ const EMPTY_VERTICES: MapEditVertexCollection = {
   features: [],
 };
 
+const vertexHandleMarkerStyle: CSSProperties = {
+  pointerEvents: "none",
+};
+
+const vertexHandleRootStyle: CSSProperties = {
+  position: "relative",
+  width: 40,
+  height: 90,
+  pointerEvents: "none",
+};
+
+const vertexHandleStemStyle: CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  top: 34,
+  width: 2,
+  height: 22,
+  transform: "translateX(-50%)",
+  borderRadius: 1,
+  background: MAP_SELECTED_COLOR,
+};
+
+const vertexHandleGripStyle: CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  top: 50,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 5,
+  boxSizing: "border-box",
+  width: 40,
+  height: 40,
+  transform: "translateX(-50%)",
+  border: `3px solid ${MAP_SELECTED_COLOR}`,
+  borderRadius: "50%",
+  background: VERTEX_COLOR,
+  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.35)",
+  cursor: "grab",
+  pointerEvents: "auto",
+  touchAction: "none",
+};
+
+const vertexHandleGripLineStyle: CSSProperties = {
+  width: 14,
+  height: 2,
+  borderRadius: 1,
+  background: MAP_SELECTED_COLOR,
+};
+
+const vertexDeleteButtonStyle: CSSProperties = {
+  height: 32,
+  padding: "0 12px",
+  border: 0,
+  borderRadius: 999,
+  background: MAP_SELECTED_COLOR,
+  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.35)",
+  color: VERTEX_COLOR,
+  cursor: "pointer",
+  fontFamily: "inherit",
+  fontSize: 13,
+  fontWeight: 600,
+  pointerEvents: "auto",
+  touchAction: "manipulation",
+};
+
+const MINIMUM_VERTEX_DELETE_MESSAGE =
+  "The vertex cannot be deleted because the shape must keep its minimum number of vertices.";
+
+const stopNativePropagationBeforeMapbox = (event: { nativeEvent: Event }) => {
+  event.nativeEvent.stopPropagation();
+};
+
+const vertexControlCaptureProps = {
+  onClickCapture: stopNativePropagationBeforeMapbox,
+  onContextMenuCapture: stopNativePropagationBeforeMapbox,
+  onDoubleClickCapture: stopNativePropagationBeforeMapbox,
+  onMouseDownCapture: stopNativePropagationBeforeMapbox,
+  onMouseMoveCapture: stopNativePropagationBeforeMapbox,
+  onMouseUpCapture: stopNativePropagationBeforeMapbox,
+  onPointerCancelCapture: stopNativePropagationBeforeMapbox,
+  onPointerDownCapture: stopNativePropagationBeforeMapbox,
+  onPointerMoveCapture: stopNativePropagationBeforeMapbox,
+  onPointerUpCapture: stopNativePropagationBeforeMapbox,
+  onTouchCancelCapture: stopNativePropagationBeforeMapbox,
+  onTouchEndCapture: stopNativePropagationBeforeMapbox,
+  onTouchMoveCapture: stopNativePropagationBeforeMapbox,
+  onTouchStartCapture: stopNativePropagationBeforeMapbox,
+};
+
+function zoomScaledPointWidth(property: string, endScale: number): Expression {
+  return [
+    "interpolate",
+    ["exponential", 1.2],
+    ["zoom"],
+    10,
+    0,
+    18,
+    ["*", ["get", property], endScale],
+  ] as Expression;
+}
+
+function hiddenSelectionPointOpacity(property: string): Expression {
+  return ["case", ["get", "selectionPoint"], 0, ["get", property]] as Expression;
+}
+
+function applyZoomScaledPointStyling(map: MapboxMap) {
+  if (!map.getLayer("td-point")) {
+    return;
+  }
+  map.setPaintProperty("td-point", "circle-radius", zoomScaledPointWidth("pointWidth", 3.6));
+  map.setPaintProperty(
+    "td-point",
+    "circle-stroke-width",
+    zoomScaledPointWidth("pointOutlineWidth", 1),
+  );
+  map.setPaintProperty("td-point", "circle-opacity", hiddenSelectionPointOpacity("pointOpacity"));
+  map.setPaintProperty(
+    "td-point",
+    "circle-stroke-opacity",
+    hiddenSelectionPointOpacity("pointOutlineOpacity"),
+  );
+}
+
+function moveVertexOverlayToTop(map: MapboxMap) {
+  if (map.getLayer("map-edit-vertex-points")) {
+    map.moveLayer("map-edit-vertex-points");
+  }
+}
+
 interface EditContext {
   maps: MapRow[];
   collection: MapCollection | null;
   master: MapMasterRow | null;
   masterCollection: MapMasterCollection | null;
   onError?: (message: string) => void;
+}
+
+interface VertexDragState {
+  pointerId: number;
+  featureId: string | number;
+  index: number;
+  startClientX: number;
+  startClientY: number;
+  startCoordinates: [number, number];
+  moved: boolean;
+}
+
+function roundCoordinate(value: number): number {
+  return Math.round(value * 1e9) / 1e9;
+}
+
+function setFeatureVertexPosition(
+  draw: TerraDraw,
+  featureId: string | number,
+  index: number,
+  position: [number, number],
+): boolean {
+  const feature = asMapEditFeature(draw.getSnapshotFeature(featureId) ?? {});
+  if (!feature) {
+    return false;
+  }
+  const geometry = replaceMapEditVertex(feature.geometry, index, position);
+  if (!geometry) {
+    return false;
+  }
+  draw.updateFeatureGeometry(featureId, geometry);
+  return true;
+}
+
+function deleteFeatureVertex(draw: TerraDraw, featureId: string | number, index: number): boolean {
+  const feature = asMapEditFeature(draw.getSnapshotFeature(featureId) ?? {});
+  if (!feature) {
+    return false;
+  }
+  const geometry = removeMapEditVertex(feature.geometry, index);
+  if (!geometry) {
+    return false;
+  }
+  draw.updateFeatureGeometry(featureId, geometry);
+  return true;
 }
 
 function persistFeature(draw: TerraDraw, id: string | number, context: EditContext) {
@@ -172,6 +357,13 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
     featureId: string | number;
     index: number;
   } | null>(null);
+  const drawRef = useRef<TerraDraw | null>(null);
+  const vertexDragRef = useRef<VertexDragState | null>(null);
+  const dragPanRestoreRef = useRef<{ map: MapboxMap; wasEnabled: boolean } | null>(null);
+
+  useEffect(() => {
+    drawRef.current = draw;
+  }, [draw]);
 
   useEffect(() => {
     const mapboxMap = mapRef?.getMap();
@@ -181,8 +373,8 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
     let cancelled = false;
     let instance: TerraDraw | null = null;
 
-    // Tap a vertex dot to arm it (red), tap again or press Delete to remove
-    // that coordinate — the touch-friendly counterpart to Terra Draw's
+    // Tap a vertex dot to arm it (red); its Delete button or the Delete key
+    // removes that coordinate — the touch-friendly counterpart to Terra Draw's
     // right-click deletion. The vertex overlay dots are the tap targets so
     // arming works whether or not the feature is selected.
     const vertexAt = (point: MapMouseEvent["point"]) => {
@@ -231,40 +423,13 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
       if (!armed || !draw) {
         return;
       }
-      setArmed(null);
-      const feature = draw.getSnapshotFeature(armed.featureId);
-      if (!feature) {
-        return;
-      }
-      let next: MapEditFeature["geometry"] | null = null;
-      if (feature.geometry.type === "Polygon") {
-        const ring = [...feature.geometry.coordinates[0]];
-        // A ring needs at least three real vertices plus the closing point.
-        if (ring.length <= 4) {
-          return;
-        }
-        if (armed.index === 0 || armed.index === ring.length - 1) {
-          ring.shift();
-          ring.pop();
-          ring.push([ring[0][0], ring[0][1]]);
-        } else {
-          ring.splice(armed.index, 1);
-        }
-        next = { type: "Polygon", coordinates: [ring] };
-      } else if (feature.geometry.type === "LineString") {
-        if (feature.geometry.coordinates.length <= 2) {
-          return;
-        }
-        const coordinates = [...feature.geometry.coordinates];
-        coordinates.splice(armed.index, 1);
-        next = { type: "LineString", coordinates };
-      }
-      if (!next) {
-        return;
-      }
       try {
-        draw.updateFeatureGeometry(armed.featureId, next);
-        persistFeature(draw, armed.featureId, contextRef.current);
+        if (deleteFeatureVertex(draw, armed.featureId, armed.index)) {
+          setArmed(null);
+          persistFeature(draw, armed.featureId, contextRef.current);
+        } else {
+          contextRef.current.onError?.(MINIMUM_VERTEX_DELETE_MESSAGE);
+        }
       } catch (error) {
         console.error(`MapEditLayer: failed to delete vertex on ${String(armed.featureId)}`, error);
         contextRef.current.onError?.("The vertex could not be deleted.");
@@ -277,11 +442,6 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
         return;
       }
       const hit = vertexAt(event.point);
-      const armed = armedVertexRef.current;
-      if (hit && armed && armed.featureId === hit.featureId && armed.index === hit.index) {
-        deleteArmedVertex();
-        return;
-      }
       disarmVertex();
       if (hit) {
         setArmed(hit);
@@ -376,6 +536,8 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
           }
         });
         instance.start();
+        applyZoomScaledPointStyling(mapboxMap);
+        moveVertexOverlayToTop(mapboxMap);
         instance.setMode(MAP_EDIT_SELECT_MODE);
         setDraw(instance);
       } catch (error) {
@@ -424,6 +586,12 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
     window.addEventListener("keydown", onKeyDown);
     return () => {
       cancelled = true;
+      vertexDragRef.current = null;
+      const restore = dragPanRestoreRef.current;
+      dragPanRestoreRef.current = null;
+      if (restore?.wasEnabled) {
+        restore.map.dragPan.enable();
+      }
       mapboxMap.off("style.load", create);
       mapboxMap.off("idle", onIdle);
       mapboxMap.off("click", onMapClick);
@@ -514,6 +682,142 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
     }
   }, [draw, maps, master, selectedMap]);
 
+  const armedVertexPoint = armedVertex
+    ? vertices.features.find(
+        (point) =>
+          point.properties.feature === String(armedVertex.featureId) &&
+          point.properties.index === armedVertex.index,
+      )
+    : undefined;
+  const armedVertexCoordinates = armedVertexPoint?.geometry.coordinates;
+  const armedVertexPosition: [number, number] | null =
+    armedVertexCoordinates && armedVertexCoordinates.length >= 2
+      ? [armedVertexCoordinates[0], armedVertexCoordinates[1]]
+      : null;
+
+  const disableMapDragPan = () => {
+    const mapboxMap = mapRef?.getMap();
+    if (!mapboxMap || dragPanRestoreRef.current) {
+      return;
+    }
+    const wasEnabled = mapboxMap.dragPan.isEnabled();
+    dragPanRestoreRef.current = { map: mapboxMap, wasEnabled };
+    if (wasEnabled) {
+      mapboxMap.dragPan.disable();
+    }
+  };
+
+  const restoreMapDragPan = () => {
+    const restore = dragPanRestoreRef.current;
+    dragPanRestoreRef.current = null;
+    if (restore?.wasEnabled) {
+      restore.map.dragPan.enable();
+    }
+  };
+
+  const updateDraggedVertex = (clientX: number, clientY: number) => {
+    const drag = vertexDragRef.current;
+    const instance = drawRef.current;
+    const mapboxMap = mapRef?.getMap();
+    if (!drag || !instance || !mapboxMap) {
+      return;
+    }
+    const start = mapboxMap.project({
+      lng: drag.startCoordinates[0],
+      lat: drag.startCoordinates[1],
+    });
+    const next = mapboxMap.unproject([
+      start.x + clientX - drag.startClientX,
+      start.y + clientY - drag.startClientY,
+    ]);
+    try {
+      if (
+        setFeatureVertexPosition(instance, drag.featureId, drag.index, [
+          roundCoordinate(next.lng),
+          roundCoordinate(next.lat),
+        ])
+      ) {
+        drag.moved = true;
+      }
+    } catch (error) {
+      console.error(`MapEditLayer: failed to move vertex on ${String(drag.featureId)}`, error);
+    }
+  };
+
+  const onVertexDeleteClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const armed = armedVertexRef.current;
+    const instance = drawRef.current;
+    if (!armed || !instance) {
+      return;
+    }
+    try {
+      if (deleteFeatureVertex(instance, armed.featureId, armed.index)) {
+        armedVertexRef.current = null;
+        setArmedVertex(null);
+        persistFeature(instance, armed.featureId, contextRef.current);
+      } else {
+        contextRef.current.onError?.(MINIMUM_VERTEX_DELETE_MESSAGE);
+      }
+    } catch (error) {
+      console.error(`MapEditLayer: failed to delete vertex on ${String(armed.featureId)}`, error);
+      contextRef.current.onError?.("The vertex could not be deleted.");
+    }
+  };
+
+  const onVertexHandlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (
+      !armedVertex ||
+      !armedVertexPosition ||
+      !event.isPrimary ||
+      vertexDragRef.current ||
+      (event.pointerType === "mouse" && event.button !== 0)
+    ) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    disableMapDragPan();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    vertexDragRef.current = {
+      pointerId: event.pointerId,
+      featureId: armedVertex.featureId,
+      index: armedVertex.index,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startCoordinates: armedVertexPosition,
+      moved: false,
+    };
+  };
+
+  const onVertexHandlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (vertexDragRef.current?.pointerId !== event.pointerId) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    updateDraggedVertex(event.clientX, event.clientY);
+  };
+
+  const onVertexHandlePointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = vertexDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    vertexDragRef.current = null;
+    restoreMapDragPan();
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    const instance = drawRef.current;
+    if (drag.moved && instance) {
+      persistFeature(instance, drag.featureId, contextRef.current);
+    }
+  };
+
   // Matches the armed vertex in the overlay data (feature id + ring index).
   // Always a data-driven expression — flipping the paint between a literal and
   // an expression switches the bucket's program configuration (constant ↔
@@ -526,18 +830,84 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
   ];
 
   return (
-    <Source id="map-edit-vertices" type="geojson" data={vertices}>
-      <Layer
-        id="map-edit-vertex-points"
-        type="circle"
-        paint={{
-          "circle-radius": ["case", armedMatch, 10, 4],
-          "circle-color": ["case", armedMatch, MAP_SELECTED_COLOR, VERTEX_COLOR],
-          "circle-opacity": 0.9,
-          "circle-stroke-color": ["case", armedMatch, VERTEX_COLOR, MAP_PRIMARY_COLOR],
-          "circle-stroke-width": 1.5,
-        }}
-      />
-    </Source>
+    <>
+      <Source id="map-edit-vertices" type="geojson" data={vertices}>
+        <Layer
+          id="map-edit-vertex-points"
+          type="circle"
+          paint={{
+            "circle-radius": [
+              "interpolate",
+              ["exponential", 1.2],
+              ["zoom"],
+              10,
+              0,
+              18,
+              ["case", ["get", "selected"], 32, 18],
+            ] as Expression,
+            "circle-color": ["case", armedMatch, MAP_SELECTED_COLOR, VERTEX_COLOR],
+            "circle-opacity": 0.9,
+            "circle-stroke-color": ["case", armedMatch, VERTEX_COLOR, MAP_PRIMARY_COLOR],
+            "circle-stroke-width": [
+              "interpolate",
+              ["exponential", 1.2],
+              ["zoom"],
+              10,
+              0,
+              18,
+              1.5,
+            ] as Expression,
+          }}
+        />
+      </Source>
+      {armedVertexPosition ? (
+        <Marker
+          longitude={armedVertexPosition[0]}
+          latitude={armedVertexPosition[1]}
+          anchor="bottom"
+          offset={[0, -40]}
+          pitchAlignment="viewport"
+          rotationAlignment="viewport"
+          style={vertexHandleMarkerStyle}
+        >
+          <button
+            type="button"
+            aria-label="Delete vertex"
+            style={vertexDeleteButtonStyle}
+            {...vertexControlCaptureProps}
+            onClick={onVertexDeleteClick}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            Delete
+          </button>
+        </Marker>
+      ) : null}
+      {armedVertexPosition ? (
+        <Marker
+          longitude={armedVertexPosition[0]}
+          latitude={armedVertexPosition[1]}
+          anchor="top"
+          pitchAlignment="viewport"
+          rotationAlignment="viewport"
+          style={vertexHandleMarkerStyle}
+        >
+          <div style={vertexHandleRootStyle}>
+            <div style={vertexHandleStemStyle} />
+            <div
+              style={vertexHandleGripStyle}
+              {...vertexControlCaptureProps}
+              onClick={(event) => event.stopPropagation()}
+              onPointerCancel={onVertexHandlePointerEnd}
+              onPointerDown={onVertexHandlePointerDown}
+              onPointerMove={onVertexHandlePointerMove}
+              onPointerUp={onVertexHandlePointerEnd}
+            >
+              <div style={vertexHandleGripLineStyle} />
+              <div style={vertexHandleGripLineStyle} />
+            </div>
+          </div>
+        </Marker>
+      ) : null}
+    </>
   );
 }

@@ -168,6 +168,7 @@ test("adapter end-to-end renders our features into mapbox sources", async () => 
   // real tap would), then remove a coordinate via updateFeatureGeometry and
   // confirm the sources keep their data.
   draw.selectFeature("border:map-1");
+  expect(draw.getSnapshotFeature("border:map-1")?.properties?.["selected"]).toBe(true);
   await new Promise((resolve) => setTimeout(resolve, 10));
   const borderFeature = draw.getSnapshotFeature("border:map-1")!;
   const borderRing = [...(borderFeature.geometry as { coordinates: number[][][] }).coordinates[0]];

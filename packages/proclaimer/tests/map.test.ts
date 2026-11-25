@@ -57,7 +57,9 @@ import {
   NotAtHomesLayer,
   readMapViewState,
   removeMapBlock,
+  removeMapEditVertex,
   renameMapBlock,
+  replaceMapEditVertex,
   resolveMapStyle,
   sortMapBlocks,
   sortMapTags,
@@ -887,6 +889,126 @@ test("applies edited features back onto map and master rows", () => {
   expect(masterDraft.boundary).toEqual(moved);
 });
 
+test("replaces polygon and line vertices while keeping rings closed", () => {
+  const polygon = {
+    type: "Polygon" as const,
+    coordinates: [
+      [
+        [151.0, -33.9],
+        [151.1, -33.9],
+        [151.1, -33.8],
+        [151.0, -33.9],
+      ],
+    ],
+  };
+  const movedRing = replaceMapEditVertex(polygon, 0, [152, -32]);
+  expect(movedRing?.type).toBe("Polygon");
+  expect(movedRing?.type === "Polygon" ? movedRing.coordinates[0] : []).toEqual([
+    [152, -32],
+    [151.1, -33.9],
+    [151.1, -33.8],
+    [152, -32],
+  ]);
+  const movedMiddle = replaceMapEditVertex(polygon, 1, [152, -32]);
+  expect(movedMiddle?.type === "Polygon" ? movedMiddle.coordinates[0][1] : null).toEqual([
+    152, -32,
+  ]);
+
+  const line = {
+    type: "LineString" as const,
+    coordinates: [
+      [151.0, -33.9],
+      [151.1, -33.9],
+    ],
+  };
+  expect(replaceMapEditVertex(line, 1, [152, -32])).toEqual({
+    type: "LineString",
+    coordinates: [
+      [151.0, -33.9],
+      [152, -32],
+    ],
+  });
+  expect(replaceMapEditVertex(line, 2, [152, -32])).toBeNull();
+});
+
+test("removes polygon and line vertices without dropping minimum geometry", () => {
+  const polygon = {
+    type: "Polygon" as const,
+    coordinates: [
+      [
+        [151.0, -33.9],
+        [151.1, -33.9],
+        [151.1, -33.8],
+        [151.0, -33.8],
+        [151.0, -33.9],
+      ],
+    ],
+  };
+  expect(removeMapEditVertex(polygon, 1)).toEqual({
+    type: "Polygon",
+    coordinates: [
+      [
+        [151.0, -33.9],
+        [151.1, -33.8],
+        [151.0, -33.8],
+        [151.0, -33.9],
+      ],
+    ],
+  });
+  expect(removeMapEditVertex(polygon, 0)).toEqual({
+    type: "Polygon",
+    coordinates: [
+      [
+        [151.1, -33.9],
+        [151.1, -33.8],
+        [151.0, -33.8],
+        [151.1, -33.9],
+      ],
+    ],
+  });
+
+  const triangle = {
+    type: "Polygon" as const,
+    coordinates: [
+      [
+        [151.0, -33.9],
+        [151.1, -33.9],
+        [151.1, -33.8],
+        [151.0, -33.9],
+      ],
+    ],
+  };
+  expect(removeMapEditVertex(triangle, 1)).toBeNull();
+
+  const line = {
+    type: "LineString" as const,
+    coordinates: [
+      [151.0, -33.9],
+      [151.1, -33.9],
+      [151.2, -33.9],
+    ],
+  };
+  expect(removeMapEditVertex(line, 1)).toEqual({
+    type: "LineString",
+    coordinates: [
+      [151.0, -33.9],
+      [151.2, -33.9],
+    ],
+  });
+  expect(
+    removeMapEditVertex(
+      {
+        type: "LineString",
+        coordinates: [
+          [151.0, -33.9],
+          [151.1, -33.9],
+        ],
+      },
+      1,
+    ),
+  ).toBeNull();
+});
+
 test("exposes every editable feature vertex as a point for edit mode", () => {
   const ring = [
     [151.0, -33.9],
@@ -923,7 +1045,18 @@ test("exposes every editable feature vertex as a point for edit mode", () => {
   expect(vertices.type).toBe("FeatureCollection");
   expect(vertices.features).toHaveLength(5);
   expect(vertices.features[0].geometry).toEqual({ type: "Point", coordinates: [151.0, -33.9] });
-  expect(vertices.features[0].properties).toEqual({ feature: "border:map-1", index: 0 });
+  expect(vertices.features[0].properties).toEqual({
+    feature: "border:map-1",
+    index: 0,
+    selected: false,
+  });
+  const selectedVertices = mapEditVerticesToGeoJSON([
+    {
+      ...features[0],
+      properties: { ...features[0].properties, selected: true },
+    },
+  ]);
+  expect(selectedVertices.features[0].properties.selected).toBe(true);
 
   expect(mapEditVerticesToGeoJSON([]).features).toHaveLength(0);
   expect(

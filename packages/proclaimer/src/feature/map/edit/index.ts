@@ -13,6 +13,8 @@ export {
   mapEditVerticesToGeoJSON,
   mapMasterToEditFeature,
   mapRowToEditFeatures,
+  removeMapEditVertex,
+  replaceMapEditVertex,
   type MapEditFeature,
   type MapEditFeatureKind,
   type MapEditFeatureProperties,
