@@ -49,6 +49,7 @@ export interface MapEditLayerProps {
 }
 
 const VERTEX_COLOR = "#ffffff";
+const SELECTED_VERTEX_COLOR = "#d8e3f4";
 const EMPTY_VERTICES: MapEditVertexCollection = {
   type: "FeatureCollection",
   features: [],
@@ -297,13 +298,13 @@ function createTerraDraw(map: MapboxMap): TerraDraw {
           selectionPointOutlineColor: primary,
           selectionPointWidth: 5,
           selectionPointOutlineWidth: 2,
-          midPointColor: VERTEX_COLOR,
+          midPointColor: primary,
           midPointOutlineColor: primary,
           midPointOpacity: 0.7,
           midPointWidth: 3,
           midPointOutlineWidth: 1,
           selectedPolygonColor: primary,
-          selectedPolygonFillOpacity: 0.05,
+          selectedPolygonFillOpacity: 0.18,
           selectedPolygonOutlineColor: primary,
           selectedPolygonOutlineOpacity: 0.95,
           selectedPolygonOutlineWidth: 3,
@@ -920,22 +921,29 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
               "interpolate",
               ["exponential", 1.2],
               ["zoom"],
-              10,
+              13,
               0,
               18,
-              ["case", ["get", "selected"], 32, 18],
+              ["case", ["get", "selected"], 16, 9],
             ] as Expression,
-            "circle-color": ["case", armedMatch, MAP_SELECTED_COLOR, VERTEX_COLOR],
+            "circle-color": [
+              "case",
+              armedMatch,
+              MAP_SELECTED_COLOR,
+              ["get", "selected"],
+              SELECTED_VERTEX_COLOR,
+              VERTEX_COLOR,
+            ] as Expression,
             "circle-opacity": 0.9,
             "circle-stroke-color": ["case", armedMatch, VERTEX_COLOR, MAP_PRIMARY_COLOR],
             "circle-stroke-width": [
               "interpolate",
               ["exponential", 1.2],
               ["zoom"],
-              10,
+              13,
               0,
               18,
-              1.5,
+              0.75,
             ] as Expression,
           }}
         />
