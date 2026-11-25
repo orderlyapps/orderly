@@ -189,6 +189,55 @@ export function mapMasterToEditFeature(
   };
 }
 
+const MAP_EDIT_SELECTION_PRIORITY: Record<MapEditFeatureKind, number> = {
+  face: 0,
+  block: 1,
+  border: 2,
+  master: 3,
+};
+
+function mapEditGeometryArea(geometry: MapEditGeometry): number {
+  if (geometry.type !== "Polygon") {
+    return 0;
+  }
+  const ring = geometry.coordinates[0] ?? [];
+  let area = 0;
+  for (let index = 0; index < ring.length - 1; index += 1) {
+    const [x1, y1] = ring[index];
+    const [x2, y2] = ring[index + 1];
+    area += x1 * y2 - x2 * y1;
+  }
+  return Math.abs(area / 2);
+}
+
+export function sortMapEditFeaturesForSelection(features: MapEditFeature[]): MapEditFeature[] {
+  return [...features].sort((a, b) => {
+    const kindPriority =
+      MAP_EDIT_SELECTION_PRIORITY[a.properties.kind] -
+      MAP_EDIT_SELECTION_PRIORITY[b.properties.kind];
+    if (kindPriority !== 0) {
+      return kindPriority;
+    }
+    const areaPriority = mapEditGeometryArea(a.geometry) - mapEditGeometryArea(b.geometry);
+    if (areaPriority !== 0) {
+      return areaPriority;
+    }
+    return a.id.localeCompare(b.id);
+  });
+}
+
+export function nextMapEditSelectionIndex(
+  candidateCount: number,
+  selectedIndex: number,
+  repeatedClick: boolean,
+): number | null {
+  if (candidateCount <= 0) {
+    return null;
+  }
+  const canCycle = repeatedClick && selectedIndex >= 0 && selectedIndex < candidateCount;
+  return canCycle ? (selectedIndex + 1) % candidateCount : 0;
+}
+
 // Every map border is editable; blocks and faces only exist for the map the
 // user has selected, matching what MapsLayer renders.
 export function buildMapEditFeatures(

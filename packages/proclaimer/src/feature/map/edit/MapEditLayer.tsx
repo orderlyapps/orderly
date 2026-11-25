@@ -33,8 +33,10 @@ import {
   MAP_EDIT_SELECT_FLAGS,
   MAP_EDIT_SELECT_MODE,
   mapEditVerticesToGeoJSON,
+  nextMapEditSelectionIndex,
   removeMapEditVertex,
   replaceMapEditVertex,
+  sortMapEditFeaturesForSelection,
   type MapEditFeature,
   type MapEditVertexCollection,
 } from "./schema.ts";
@@ -121,6 +123,8 @@ const vertexDeleteButtonStyle: CSSProperties = {
 
 const MINIMUM_VERTEX_DELETE_MESSAGE =
   "The vertex cannot be deleted because the shape must keep its minimum number of vertices.";
+const REPEAT_FEATURE_CLICK_MS = 1500;
+const EDIT_FEATURE_HIT_PX = 40;
 
 const stopNativePropagationBeforeMapbox = (event: { nativeEvent: Event }) => {
   event.nativeEvent.stopPropagation();
@@ -276,6 +280,7 @@ function createTerraDraw(map: MapboxMap): TerraDraw {
     modes: [
       new TerraDrawSelectMode({
         flags: MAP_EDIT_SELECT_FLAGS,
+        allowManualSelection: false,
         // The Delete key would drop whole features; vertices are removed by
         // right-click or by arming one with a tap (handled in MapEditLayer).
         keyEvents: {
@@ -312,9 +317,11 @@ function createTerraDraw(map: MapboxMap): TerraDraw {
       new TerraDrawPolygonMode({
         styles: {
           fillColor: primary,
-          fillOpacity: 0.05,
+          fillOpacity: (feature: GeoJSONStoreFeatures) =>
+            feature.properties["kind"] === "master" ? 0 : 0.05,
           outlineColor: primary,
-          outlineOpacity: 0.95,
+          outlineOpacity: (feature: GeoJSONStoreFeatures) =>
+            feature.properties["kind"] === "master" ? 0.4 : 0.95,
           outlineWidth: 2,
         },
       }),
@@ -408,6 +415,69 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
       return null;
     };
 
+    const editingControlAt = (event: MapMouseEvent, draw: TerraDraw) =>
+      draw
+        .getFeaturesAtLngLat(
+          { lng: event.lngLat.lng, lat: event.lngLat.lat },
+          { pointerDistance: EDIT_FEATURE_HIT_PX, ignoreSelectFeatures: false },
+        )
+        .some((feature) =>
+          Boolean(
+            feature.properties?.["selectionPoint"] ||
+            feature.properties?.["midPoint"] ||
+            feature.properties?.["coordinatePoint"],
+          ),
+        );
+
+    let lastFeatureClick: { key: string; x: number; y: number; time: number } | null = null;
+
+    const resetFeatureClick = () => {
+      lastFeatureClick = null;
+    };
+
+    const selectFeatureAt = (event: MapMouseEvent, draw: TerraDraw) => {
+      const candidates = sortMapEditFeaturesForSelection(
+        draw
+          .getFeaturesAtLngLat(
+            { lng: event.lngLat.lng, lat: event.lngLat.lat },
+            { pointerDistance: EDIT_FEATURE_HIT_PX },
+          )
+          .map(asMapEditFeature)
+          .filter((feature): feature is MapEditFeature => feature !== null),
+      );
+      if (candidates.length === 0) {
+        lastFeatureClick = null;
+        return;
+      }
+
+      let selectedId: string | null = null;
+      for (const snapshotFeature of draw.getSnapshot()) {
+        const feature = asMapEditFeature(snapshotFeature);
+        if (feature?.properties.selected) {
+          selectedId = feature.id;
+          break;
+        }
+      }
+
+      const key = JSON.stringify(candidates.map((feature) => feature.id));
+      const selectedIndex = candidates.findIndex((feature) => feature.id === selectedId);
+      const now = Date.now();
+      const repeatedClick =
+        lastFeatureClick?.key === key &&
+        now - lastFeatureClick.time <= REPEAT_FEATURE_CLICK_MS &&
+        Math.hypot(event.point.x - lastFeatureClick.x, event.point.y - lastFeatureClick.y) <= 8;
+      const nextIndex = nextMapEditSelectionIndex(candidates.length, selectedIndex, repeatedClick);
+      if (nextIndex === null) {
+        lastFeatureClick = null;
+        return;
+      }
+      const nextId = candidates[nextIndex].id;
+      lastFeatureClick = { key, x: event.point.x, y: event.point.y, time: now };
+      if (selectedId !== nextId) {
+        draw.selectFeature(nextId);
+      }
+    };
+
     const setArmed = (armed: { featureId: string | number; index: number } | null) => {
       armedVertexRef.current = armed;
       setArmedVertex(armed);
@@ -438,13 +508,17 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
 
     const onMapClick = (event: MapMouseEvent) => {
       const draw = instance;
-      if (!draw) {
+      if (!draw || event.originalEvent.detail > 1) {
         return;
       }
       const hit = vertexAt(event.point);
       disarmVertex();
       if (hit) {
         setArmed(hit);
+        return;
+      }
+      if (!editingControlAt(event, draw)) {
+        selectFeatureAt(event, draw);
       }
     };
 
@@ -583,6 +657,7 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
     mapboxMap.on("style.load", create);
     mapboxMap.on("idle", onIdle);
     mapboxMap.on("click", onMapClick);
+    mapboxMap.on("movestart", resetFeatureClick);
     window.addEventListener("keydown", onKeyDown);
     return () => {
       cancelled = true;
@@ -595,6 +670,7 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
       mapboxMap.off("style.load", create);
       mapboxMap.off("idle", onIdle);
       mapboxMap.off("click", onMapClick);
+      mapboxMap.off("movestart", resetFeatureClick);
       window.removeEventListener("keydown", onKeyDown);
       setDraw(null);
       setVertices(EMPTY_VERTICES);

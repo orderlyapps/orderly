@@ -43,6 +43,7 @@ import {
   mapRowSchema,
   mapRowsToBounds,
   mapRowsToGeoJSON,
+  nextMapEditSelectionIndex,
   MapEditLayer,
   MapEditModal,
   MapsLayer,
@@ -62,6 +63,7 @@ import {
   replaceMapEditVertex,
   resolveMapStyle,
   sortMapBlocks,
+  sortMapEditFeaturesForSelection,
   sortMapTags,
   toMapboxCenter,
   useMapPolygons,
@@ -790,6 +792,14 @@ test("builds editable features from map borders, blocks, faces, and the master b
   expect(mapMasterToEditFeature(null)).toBe(null);
   expect(mapRowToEditFeatures(row({ boundary: ring }), false)).toEqual([]);
 
+  expect(sortMapEditFeaturesForSelection(features).map((feature) => feature.id)).toEqual([
+    "face:map-1:f-1",
+    "block:map-1:b-1",
+    "border:map-1",
+    "border:map-2",
+    "master",
+  ]);
+
   // Store snapshots narrow back to editable features; Terra Draw's guidance
   // features (selection points, midpoints) carry no kind and are ignored.
   const snapshot = features.map((feature) => feature);
@@ -801,6 +811,17 @@ test("builds editable features from map borders, blocks, faces, and the master b
       properties: { mode: "select", selectionPoint: true },
     }),
   ).toBe(null);
+});
+
+test("calculates the next overlapping edit feature selection index", () => {
+  expect(nextMapEditSelectionIndex(0, -1, false)).toBe(null);
+  expect(nextMapEditSelectionIndex(3, -1, false)).toBe(0);
+  expect(nextMapEditSelectionIndex(3, -1, true)).toBe(0);
+  expect(nextMapEditSelectionIndex(3, 0, false)).toBe(0);
+  expect(nextMapEditSelectionIndex(3, 0, true)).toBe(1);
+  expect(nextMapEditSelectionIndex(3, 1, true)).toBe(2);
+  expect(nextMapEditSelectionIndex(3, 2, true)).toBe(0);
+  expect(nextMapEditSelectionIndex(3, 3, true)).toBe(0);
 });
 
 test("applies edited features back onto map and master rows", () => {
