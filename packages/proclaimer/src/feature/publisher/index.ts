@@ -34,6 +34,11 @@ export {
   type PublisherFieldOption,
   type PublisherGroups,
 } from "./presentation.ts";
+export {
+  PublisherNameModal,
+  type PublisherNameInput,
+  type PublisherNameModalProps,
+} from "./PublisherNameModal.tsx";
 export { PublishersView, type PublishersViewProps } from "./PublishersView.tsx";
 export {
   PublisherAutocomplete,

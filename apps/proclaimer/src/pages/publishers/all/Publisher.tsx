@@ -1,21 +1,29 @@
+import { useState } from "react";
+
 import {
   IonBackButton,
+  IonButton,
   IonButtons,
   IonContent,
   IonHeader,
+  IonIcon,
   IonPage,
   IonSpinner,
   IonTitle,
   IonToolbar,
 } from "@ionic/react";
+import { createOutline } from "ionicons/icons";
 import { Navigate, useParams } from "react-router-dom";
 import {
   getPublisherDisplayName,
+  isPublisherRowId,
   isRestrictedDirectoryEntry,
   PublisherDetailView,
+  PublisherNameModal,
   usePermissions,
   usePublishers,
   useSettings,
+  type PublisherNameInput,
 } from "proclaimer-core";
 
 const PublisherDetail = () => {
@@ -23,10 +31,16 @@ const PublisherDetail = () => {
   const congregationId = settings.congregationId || undefined;
   const permissions = usePermissions(congregationId);
   const { publisherId } = useParams<{ publisherId?: string }>();
-  const { publishers, isLoading: publishersLoading } = usePublishers(congregationId);
+  const {
+    publishers,
+    isLoading: publishersLoading,
+    collection: publishersCollection,
+  } = usePublishers(congregationId);
   const publisher = publishers.find((p) => p.id === publisherId);
+  const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const canViewAllPublishers = permissions.hasElder || permissions.isSuperAdmin;
   const canViewRestricted = permissions.hasSecretary || permissions.isSuperAdmin;
+  const canEditPublisher = permissions.hasSecretary || permissions.isSuperAdmin;
   const isLoading = settingsLoading || !permissions.isLoaded;
 
   if (!isLoading && !canViewAllPublishers) {
@@ -42,6 +56,20 @@ const PublisherDetail = () => {
     return <Navigate to="/publishers/all" replace />;
   }
 
+  const saveName = async (input: PublisherNameInput) => {
+    const id = publisher?.id;
+    if (!publishersCollection || !isPublisherRowId(id)) {
+      return;
+    }
+    const tx = publishersCollection.update(id, (draft) => {
+      draft.first_name = input.first_name;
+      draft.last_name = input.last_name;
+      draft.middle_name = input.middle_name || null;
+      draft.display_name = input.display_name || null;
+    });
+    await tx.isPersisted.promise;
+  };
+
   return (
     <IonPage>
       <IonHeader>
@@ -50,6 +78,13 @@ const PublisherDetail = () => {
             <IonBackButton defaultHref="/publishers/all" />
           </IonButtons>
           <IonTitle>{publisher ? getPublisherDisplayName(publisher) : "Publisher"}</IonTitle>
+          {canEditPublisher && publisher && (
+            <IonButtons slot="end">
+              <IonButton aria-label="Edit name" onClick={() => setIsNameModalOpen(true)}>
+                <IonIcon slot="icon-only" icon={createOutline} />
+              </IonButton>
+            </IonButtons>
+          )}
         </IonToolbar>
       </IonHeader>
       <IonContent fullscreen>
@@ -60,6 +95,14 @@ const PublisherDetail = () => {
         ) : (
           <PublisherDetailView publisherId={publisherId} congregationId={congregationId} />
         )}
+        <PublisherNameModal
+          isOpen={isNameModalOpen}
+          publisher={publisher ?? null}
+          onSave={saveName}
+          onDismiss={() => {
+            setIsNameModalOpen(false);
+          }}
+        />
         <div style={{ paddingBottom: 48 }} />
       </IonContent>
     </IonPage>
