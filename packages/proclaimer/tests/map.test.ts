@@ -3,11 +3,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vite-plus/test";
 
 import {
+  applyMapEditFeatureToMaster,
+  applyMapEditFeatureToRow,
   areCoordinatesEqual,
+  asMapEditFeature,
   boundariesToBounds,
   boundaryToBounds,
   boundaryToLabelPoint,
   boundaryToPolygonCoords,
+  buildMapEditFeatures,
   buildNotAtHomeFeatures,
   clampMapZoom,
   DEFAULT_MAP_CENTER,
@@ -22,9 +26,13 @@ import {
   isValidMapViewState,
   mapBlocksToGeoJSON,
   mapBlockToFeature,
+  mapEditFeatureId,
+  mapEditVerticesToGeoJSON,
   mapMasterRowSchema,
   mapMasterToBounds,
+  mapMasterToEditFeature,
   mapMasterToGeoJSON,
+  mapRowToEditFeatures,
   MasterMapLayer,
   MAPBOX_DARK_STYLE,
   MAPBOX_LIGHT_STYLE,
@@ -35,6 +43,7 @@ import {
   mapRowSchema,
   mapRowsToBounds,
   mapRowsToGeoJSON,
+  MapEditLayer,
   MapEditModal,
   MapsLayer,
   MapSettingsModal,
@@ -61,6 +70,7 @@ import {
   useNotAtHomes,
   writeMapViewState,
   type MapBlock,
+  type MapEditFeature,
   type MapMasterRow,
   type MapRow,
   type MapTagRow,
@@ -691,4 +701,236 @@ test("filters not-at-home features by the hide_old and hide_new visibility optio
   // Hide New keeps stale groups and write-only houses; fresh return visits go.
   const hideNew = buildNotAtHomeFeatures(groups, 90, now, "hide_new");
   expect(hideNew.map((feature) => feature.id).sort()).toEqual(["stale", "write"]);
+});
+
+test("builds editable features from map borders, blocks, faces, and the master border", () => {
+  const ring = [
+    [151.0, -33.9],
+    [151.1, -33.9],
+    [151.1, -33.8],
+    [151.0, -33.9],
+  ] as [number, number][];
+  const row = (overrides: Partial<MapRow>): MapRow => ({
+    congregation_id: "cong-1",
+    name: "Map 1",
+    ...overrides,
+  });
+  const master: MapMasterRow = { congregation_id: "cong-1", boundary: ring };
+  const maps = [
+    row({
+      id: "map-1",
+      boundary: ring,
+      blocks: [
+        { id: "b-1", name: "Block 1", type: "block", coordinates: ring.slice(0, 3) },
+        {
+          id: "f-1",
+          name: "Main St",
+          type: "face",
+          coordinates: [
+            [151.0, -33.9],
+            [151.1, -33.9],
+          ],
+        },
+        { id: "f-2", name: "Short", type: "face", coordinates: [[151.0, -33.9]] },
+      ],
+    }),
+    row({ id: "map-2", boundary: ring }),
+    row({ name: "No id", boundary: ring }),
+  ];
+
+  expect(mapEditFeatureId("master")).toBe("master");
+  expect(mapEditFeatureId("border", "map-1")).toBe("border:map-1");
+  expect(mapEditFeatureId("face", "map-1", "f-1")).toBe("face:map-1:f-1");
+
+  const features = buildMapEditFeatures(maps, "map-1", master);
+  expect(features.map((feature) => feature.id).sort()).toEqual(
+    ["block:map-1:b-1", "border:map-1", "border:map-2", "face:map-1:f-1", "master"].sort(),
+  );
+
+  const border = features.find((feature) => feature.id === "border:map-1")!;
+  expect(border.properties).toEqual({ mode: "polygon", kind: "border", mapId: "map-1" });
+  expect(border.geometry).toEqual({ type: "Polygon", coordinates: [ring] });
+
+  // Open block rings are closed for the editable polygon.
+  expect(features.find((feature) => feature.id === "block:map-1:b-1")?.geometry).toEqual({
+    type: "Polygon",
+    coordinates: [ring],
+  });
+  const face = features.find((feature) => feature.id === "face:map-1:f-1")!;
+  expect(face.geometry).toEqual({
+    type: "LineString",
+    coordinates: [
+      [151.0, -33.9],
+      [151.1, -33.9],
+    ],
+  });
+  expect(face.properties).toEqual({
+    mode: "linestring",
+    kind: "face",
+    mapId: "map-1",
+    blockId: "f-1",
+  });
+
+  // Blocks and faces belong to the selected map only; rows without an id are
+  // skipped because they cannot be persisted.
+  expect(
+    buildMapEditFeatures(maps, "map-2", master)
+      .map((feature) => feature.properties.kind)
+      .sort(),
+  ).toEqual(["border", "border", "master"]);
+  expect(
+    buildMapEditFeatures(maps, null, null)
+      .map((feature) => feature.id)
+      .sort(),
+  ).toEqual(["border:map-1", "border:map-2"]);
+
+  expect(mapMasterToEditFeature(master)?.id).toBe("master");
+  expect(mapMasterToEditFeature(null)).toBe(null);
+  expect(mapRowToEditFeatures(row({ boundary: ring }), false)).toEqual([]);
+
+  // Store snapshots narrow back to editable features; Terra Draw's guidance
+  // features (selection points, midpoints) carry no kind and are ignored.
+  const snapshot = features.map((feature) => feature);
+  expect(snapshot.map(asMapEditFeature).filter(Boolean)).toHaveLength(features.length);
+  expect(
+    asMapEditFeature({
+      id: "guidance",
+      geometry: { type: "Point", coordinates: [151.0, -33.9] },
+      properties: { mode: "select", selectionPoint: true },
+    }),
+  ).toBe(null);
+});
+
+test("applies edited features back onto map and master rows", () => {
+  const ring = [
+    [151.0, -33.9],
+    [151.1, -33.9],
+    [151.1, -33.8],
+    [151.0, -33.9],
+  ] as [number, number][];
+  const moved = [
+    [152.0, -32.9],
+    [152.1, -32.9],
+    [152.1, -32.8],
+    [152.0, -32.9],
+  ];
+  const draft: MapRow = {
+    id: "map-1",
+    congregation_id: "cong-1",
+    name: "Map 1",
+    boundary: ring,
+    blocks: [
+      { id: "b-1", name: "Block 1", type: "block", coordinates: ring },
+      {
+        id: "f-1",
+        name: "Main St",
+        type: "face",
+        coordinates: [
+          [151.0, -33.9],
+          [151.1, -33.9],
+        ],
+      },
+    ],
+  };
+  const editFeature = (feature: Partial<MapEditFeature>): MapEditFeature => ({
+    type: "Feature",
+    id: "border:map-1",
+    geometry: { type: "Polygon", coordinates: [moved] },
+    properties: { mode: "polygon", kind: "border", mapId: "map-1" },
+    ...feature,
+  });
+
+  applyMapEditFeatureToRow(draft, editFeature({}));
+  expect(draft.boundary).toEqual(moved);
+
+  applyMapEditFeatureToRow(
+    draft,
+    editFeature({
+      id: "face:map-1:f-1",
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [150.9, -33.9],
+          [151.2, -33.9],
+        ],
+      },
+      properties: { mode: "linestring", kind: "face", mapId: "map-1", blockId: "f-1" },
+    }),
+  );
+  expect(draft.blocks?.[1].coordinates).toEqual([
+    [150.9, -33.9],
+    [151.2, -33.9],
+  ]);
+  // Sibling blocks are untouched.
+  expect(draft.blocks?.[0].coordinates).toEqual(ring);
+
+  // Unknown block ids and non-edit kinds leave the row alone.
+  applyMapEditFeatureToRow(
+    draft,
+    editFeature({
+      id: "block:map-1:missing",
+      properties: { mode: "polygon", kind: "block", mapId: "map-1", blockId: "missing" },
+    }),
+  );
+  expect(draft.blocks).toHaveLength(2);
+
+  const masterDraft: MapMasterRow = { congregation_id: "cong-1", boundary: ring };
+  applyMapEditFeatureToMaster(
+    masterDraft,
+    editFeature({ id: "master", properties: { mode: "polygon", kind: "master" } }),
+  );
+  expect(masterDraft.boundary).toEqual(moved);
+  applyMapEditFeatureToMaster(
+    masterDraft,
+    editFeature({ properties: { mode: "polygon", kind: "border", mapId: "map-1" } }),
+  );
+  expect(masterDraft.boundary).toEqual(moved);
+});
+
+test("exposes every editable feature vertex as a point for edit mode", () => {
+  const ring = [
+    [151.0, -33.9],
+    [151.1, -33.9],
+    [151.1, -33.8],
+    [151.0, -33.9],
+  ] as [number, number][];
+  const features = buildMapEditFeatures(
+    [
+      {
+        id: "map-1",
+        congregation_id: "cong-1",
+        name: "Map 1",
+        boundary: ring,
+        blocks: [
+          {
+            id: "f-1",
+            name: "Main St",
+            type: "face",
+            coordinates: [
+              [151.0, -33.9],
+              [151.1, -33.9],
+            ],
+          },
+        ],
+      },
+    ],
+    "map-1",
+    null,
+  );
+
+  // The closed ring's duplicated final coordinate is not double-counted.
+  const vertices = mapEditVerticesToGeoJSON(features);
+  expect(vertices.type).toBe("FeatureCollection");
+  expect(vertices.features).toHaveLength(5);
+  expect(vertices.features[0].geometry).toEqual({ type: "Point", coordinates: [151.0, -33.9] });
+  expect(vertices.features[0].properties).toEqual({ feature: "border:map-1", index: 0 });
+
+  expect(mapEditVerticesToGeoJSON([]).features).toHaveLength(0);
+  expect(
+    mapEditVerticesToGeoJSON([
+      { id: "pt", geometry: { type: "Point", coordinates: [1, 1] }, properties: {} },
+    ]).features,
+  ).toHaveLength(0);
+
+  expect(typeof MapEditLayer).toBe("function");
 });

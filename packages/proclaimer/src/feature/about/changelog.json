@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.5.0",
+    "date": "2026-11-24",
+    "changes": [
+      "Home page greets you by name and lists your upcoming assignments and events, each linking to a full list",
+      "Tools section on the home page for secretaries: branch report and data import",
+      "Branch report page with month navigation, stats for attendance, publishers, and pioneers, publisher report history, and the ability to edit a month's report — pioneer hour credits are recorded and applied automatically",
+      "Data import tool brings in confidential publisher data from export files, previewing every change against current values and normalizing phone numbers",
+      "Publisher directory (elders only) with name search — only names are shown in the list and restricted entries are gated",
+      "Emergency contacts page lists publishers with missing contact details and lets you add them in a modal with masked phone inputs, a relationship picker, and Personal or JW Pub email labels",
+      "Ministry map shows territory boundaries with blocks and faces, the master map boundary, and not-at-homes; the map list is searchable, sortable, and opens fullscreen with fullscreen map images",
+      "Custom map styling with larger road names, labels that no longer hide each other, and pitch locked",
+      "Publishers page now lists elders, ministerial servants, and pioneers",
+      "Midweek meeting assignment editor for overseers; swipe to move between weeks on meeting pages",
+      "Map edit mode lets overseers reshape map borders, blocks, and faces by dragging vertices directly on the map",
+      "Sign in with a publisher account from Settings"
+    ]
+  },
+  {
     "version": "0.4.0",
     "date": "2026-11-06",
     "changes": [

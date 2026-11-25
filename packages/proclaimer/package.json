@@ -30,6 +30,8 @@
     "libphonenumber-js": "catalog:",
     "mapbox-gl": "^3.33.0",
     "react-map-gl": "catalog:",
+    "terra-draw": "catalog:",
+    "terra-draw-mapbox-gl-adapter": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

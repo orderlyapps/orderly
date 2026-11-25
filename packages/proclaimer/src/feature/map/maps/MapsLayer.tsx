@@ -37,9 +37,11 @@ export function MapsLayer({
   const { geojson, bounds, maps } = useMapPolygons(congregationId);
   const { current: map } = useMap();
   const hasFittedRef = useRef(false);
+  const selectedFittedForRef = useRef<string | null>(null);
 
   useEffect(() => {
     hasFittedRef.current = false;
+    selectedFittedForRef.current = null;
   }, [congregationId]);
 
   const fitBounds = bounds ?? fallbackBounds;
@@ -53,12 +55,22 @@ export function MapsLayer({
   }, [autoFitBounds, fitBounds, map, fitBoundsPadding]);
 
   useEffect(() => {
-    if (!map || !selectedMap) {
+    if (!map) {
+      return;
+    }
+    if (!selectedMap) {
+      selectedFittedForRef.current = null;
+      return;
+    }
+    if (selectedFittedForRef.current === selectedMap) {
       return;
     }
     const row = maps.find((entry) => mapRowKey(entry) === selectedMap);
     const selectedBounds = row ? boundaryToBounds(row.boundary) : null;
     if (selectedBounds) {
+      // Only mark after a real fit so a selection made before the rows load
+      // still zooms once the data arrives.
+      selectedFittedForRef.current = selectedMap;
       map.fitBounds(selectedBounds, { padding: fitBoundsPadding, animate: true });
     }
   }, [selectedMap, maps, map, fitBoundsPadding]);

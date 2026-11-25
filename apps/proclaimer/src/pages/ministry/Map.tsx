@@ -9,10 +9,18 @@ import {
   IonIcon,
   IonPage,
   IonToolbar,
+  useIonAlert,
 } from "@ionic/react";
-import { createOutline, mapOutline, settingsOutline } from "ionicons/icons";
+import {
+  checkmarkOutline,
+  createOutline,
+  mapOutline,
+  optionsOutline,
+  settingsOutline,
+} from "ionicons/icons";
 import {
   MAP_VIEW_STATE_STORAGE_KEY,
+  MapEditLayer,
   MapEditModal,
   MapSettingsModal,
   MapsLayer,
@@ -36,6 +44,8 @@ const Map = () => {
   const [mapsOpen, setMapsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [presentAlert] = useIonAlert();
   const { settings, setSetting } = useSettings();
   const congregationId = settings.congregationId.trim();
   const selectedMap = settings.selectedMaps[congregationId] || null;
@@ -43,6 +53,10 @@ const Map = () => {
   const permissions = usePermissions(congregationId || undefined);
   const canEditMap =
     permissions.hasServiceOverseer || permissions.isCongregationAdmin || permissions.isSuperAdmin;
+
+  const showSaveFailed = (message: string) => {
+    void presentAlert({ header: "Save Failed", message, buttons: ["OK"] });
+  };
 
   return (
     <IonPage>
@@ -53,8 +67,17 @@ const Map = () => {
           </IonButtons>
           <IonButtons slot="end">
             {canEditMap && (
-              <IonButton onClick={() => setEditOpen(true)} aria-label="Edit map">
-                <IonIcon slot="icon-only" icon={createOutline} />
+              <IonButton
+                onClick={() => setEditing((current) => !current)}
+                aria-label={editing ? "Finish editing" : "Edit map"}
+                color={editing ? "primary" : undefined}
+              >
+                <IonIcon slot="icon-only" icon={editing ? checkmarkOutline : createOutline} />
+              </IonButton>
+            )}
+            {canEditMap && editing && (
+              <IonButton onClick={() => setEditOpen(true)} aria-label="Edit map details">
+                <IonIcon slot="icon-only" icon={optionsOutline} />
               </IonButton>
             )}
             <IonButton onClick={() => setMapsOpen(true)} aria-label="Select map">
@@ -80,6 +103,14 @@ const Map = () => {
             selectedMap={selectedMap}
           />
           <NotAtHomesLayer />
+          {editing ? (
+            <MapEditLayer
+              key={congregationId}
+              congregationId={congregationId}
+              selectedMap={selectedMap}
+              onError={showSaveFailed}
+            />
+          ) : null}
         </MapView>
         <MapEditModal isOpen={editOpen} onDidDismiss={() => setEditOpen(false)} />
         <MapSettingsModal isOpen={settingsOpen} onDidDismiss={() => setSettingsOpen(false)} />
