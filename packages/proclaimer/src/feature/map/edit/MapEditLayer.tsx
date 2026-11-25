@@ -745,6 +745,7 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
   };
 
   const onVertexDeleteClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    stopNativePropagationBeforeMapbox(event);
     event.preventDefault();
     event.stopPropagation();
     const armed = armedVertexRef.current;
@@ -767,6 +768,7 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
   };
 
   const onVertexHandlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    stopNativePropagationBeforeMapbox(event);
     if (
       !armedVertex ||
       !armedVertexPosition ||
@@ -792,6 +794,7 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
   };
 
   const onVertexHandlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    stopNativePropagationBeforeMapbox(event);
     if (vertexDragRef.current?.pointerId !== event.pointerId) {
       return;
     }
@@ -801,6 +804,7 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
   };
 
   const onVertexHandlePointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    stopNativePropagationBeforeMapbox(event);
     const drag = vertexDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) {
       return;
@@ -875,8 +879,7 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
             aria-label="Delete vertex"
             style={vertexDeleteButtonStyle}
             {...vertexControlCaptureProps}
-            onClick={onVertexDeleteClick}
-            onPointerDown={(event) => event.stopPropagation()}
+            onClickCapture={onVertexDeleteClick}
           >
             Delete
           </button>
@@ -896,11 +899,10 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
             <div
               style={vertexHandleGripStyle}
               {...vertexControlCaptureProps}
-              onClick={(event) => event.stopPropagation()}
-              onPointerCancel={onVertexHandlePointerEnd}
-              onPointerDown={onVertexHandlePointerDown}
-              onPointerMove={onVertexHandlePointerMove}
-              onPointerUp={onVertexHandlePointerEnd}
+              onPointerCancelCapture={onVertexHandlePointerEnd}
+              onPointerDownCapture={onVertexHandlePointerDown}
+              onPointerMoveCapture={onVertexHandlePointerMove}
+              onPointerUpCapture={onVertexHandlePointerEnd}
             >
               <div style={vertexHandleGripLineStyle} />
               <div style={vertexHandleGripLineStyle} />
