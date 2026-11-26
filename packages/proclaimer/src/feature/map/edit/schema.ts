@@ -19,13 +19,13 @@ export const MAP_EDIT_SELECT_FLAGS = {
       draggable: false,
       rotateable: false,
       scaleable: false,
-      coordinates: { midpoints: true, draggable: true, deletable: true },
+      coordinates: { midpoints: true, draggable: false, deletable: true },
     },
   },
   [MAP_EDIT_LINE_MODE]: {
     feature: {
       draggable: false,
-      coordinates: { midpoints: true, draggable: true, deletable: true },
+      coordinates: { midpoints: true, draggable: false, deletable: true },
     },
   },
 } as const;
