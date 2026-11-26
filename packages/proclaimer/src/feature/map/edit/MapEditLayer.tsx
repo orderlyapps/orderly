@@ -7,7 +7,13 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
-import type { Expression, Map as MapboxMap, MapMouseEvent, PointLike } from "mapbox-gl";
+import type {
+  Expression,
+  Map as MapboxMap,
+  MapMouseEvent,
+  Marker as MapboxMarker,
+  PointLike,
+} from "mapbox-gl";
 import { Layer, Marker, Source, useMap } from "react-map-gl/mapbox";
 import {
   TerraDraw,
@@ -368,10 +374,28 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
   const drawRef = useRef<TerraDraw | null>(null);
   const vertexDragRef = useRef<VertexDragState | null>(null);
   const dragPanRestoreRef = useRef<{ map: MapboxMap; wasEnabled: boolean } | null>(null);
+  // pointermove can fire several times per frame; the latest position is
+  // coalesced into one store update per animation frame.
+  const dragFrameRef = useRef<number | null>(null);
+  const dragPendingRef = useRef<{ x: number; y: number } | null>(null);
+  // During a drag the handles are positioned imperatively — waiting for the
+  // store change → React re-render round trip leaves the grip trailing the
+  // pointer by a frame or more.
+  const handleMarkerRef = useRef<MapboxMarker | null>(null);
+  const deleteMarkerRef = useRef<MapboxMarker | null>(null);
 
   useEffect(() => {
     drawRef.current = draw;
   }, [draw]);
+
+  useEffect(
+    () => () => {
+      if (dragFrameRef.current !== null) {
+        cancelAnimationFrame(dragFrameRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const mapboxMap = mapRef?.getMap();
@@ -807,6 +831,8 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
       start.x + clientX - drag.startClientX,
       start.y + clientY - drag.startClientY,
     ]);
+    handleMarkerRef.current?.setLngLat(next);
+    deleteMarkerRef.current?.setLngLat(next);
     try {
       if (
         setFeatureVertexPosition(instance, drag.featureId, drag.index, [
@@ -877,7 +903,16 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
     }
     event.preventDefault();
     event.stopPropagation();
-    updateDraggedVertex(event.clientX, event.clientY);
+    dragPendingRef.current = { x: event.clientX, y: event.clientY };
+    if (dragFrameRef.current === null) {
+      dragFrameRef.current = requestAnimationFrame(() => {
+        dragFrameRef.current = null;
+        const pending = dragPendingRef.current;
+        if (pending && vertexDragRef.current) {
+          updateDraggedVertex(pending.x, pending.y);
+        }
+      });
+    }
   };
 
   const onVertexHandlePointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -888,6 +923,19 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
     }
     event.preventDefault();
     event.stopPropagation();
+    // Flush the final position synchronously — a coalesced frame could still
+    // be pending, and persistFeature below must capture the final geometry.
+    // Only when a move is actually outstanding: a pure tap on the grip must
+    // not touch the store or persist.
+    if (dragFrameRef.current !== null) {
+      cancelAnimationFrame(dragFrameRef.current);
+      dragFrameRef.current = null;
+    }
+    const pending = dragPendingRef.current;
+    dragPendingRef.current = null;
+    if (pending) {
+      updateDraggedVertex(event.clientX, event.clientY);
+    }
     vertexDragRef.current = null;
     restoreMapDragPan();
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -950,6 +998,7 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
       </Source>
       {armedVertexPosition ? (
         <Marker
+          ref={deleteMarkerRef}
           longitude={armedVertexPosition[0]}
           latitude={armedVertexPosition[1]}
           anchor="bottom"
@@ -971,6 +1020,7 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
       ) : null}
       {armedVertexPosition ? (
         <Marker
+          ref={handleMarkerRef}
           longitude={armedVertexPosition[0]}
           latitude={armedVertexPosition[1]}
           anchor="top"
