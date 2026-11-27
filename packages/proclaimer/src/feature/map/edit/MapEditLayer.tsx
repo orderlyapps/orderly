@@ -25,6 +25,7 @@ import {
 } from "terra-draw";
 import { TerraDrawMapboxGLAdapter } from "terra-draw-mapbox-gl-adapter";
 
+import type { MapEditColorScheme } from "../../settings/schema.ts";
 import { useMasterMap } from "../master/hooks.ts";
 import type { MapMasterCollection } from "../master/collection.ts";
 import type { MapMasterRow } from "../master/schema.ts";
@@ -38,6 +39,7 @@ import {
   buildMapEditFeatures,
   MAP_EDIT_SELECT_FLAGS,
   MAP_EDIT_SELECT_MODE,
+  mapEditFeatureColor,
   mapEditVerticesToGeoJSON,
   nextMapEditSelectionIndex,
   removeMapEditVertex,
@@ -51,6 +53,7 @@ export interface MapEditLayerProps {
   congregationId?: string;
   /** Key (id or name) of the map whose blocks and faces are editable. */
   selectedMap?: string | null;
+  colorScheme?: MapEditColorScheme;
   onError?: (message: string) => void;
 }
 
@@ -132,6 +135,10 @@ const MINIMUM_VERTEX_DELETE_MESSAGE =
   "The vertex cannot be deleted because the shape must keep its minimum number of vertices.";
 const REPEAT_FEATURE_CLICK_MS = 1500;
 const EDIT_FEATURE_HIT_PX = 40;
+const EDIT_POINT_MIN_ZOOM = 13;
+const EDIT_POINT_MAX_ZOOM = 18;
+const EDIT_VERTEX_OVERLAY_HIT_Z_INDEX = 100;
+const EDIT_VERTEX_SELECTION_POINT_HIT_Z_INDEX = 20;
 
 const stopNativePropagationBeforeMapbox = (event: { nativeEvent: Event }) => {
   event.nativeEvent.stopPropagation();
@@ -159,9 +166,9 @@ function zoomScaledPointWidth(property: string, endScale: number): Expression {
     "interpolate",
     ["exponential", 1.2],
     ["zoom"],
-    10,
+    EDIT_POINT_MIN_ZOOM,
     0,
-    18,
+    EDIT_POINT_MAX_ZOOM,
     ["*", ["get", property], endScale],
   ] as Expression;
 }
@@ -280,9 +287,21 @@ function persistFeature(draw: TerraDraw, id: string | number, context: EditConte
   }
 }
 
-function createTerraDraw(map: MapboxMap): TerraDraw {
+function createTerraDraw(map: MapboxMap, colorScheme: MapEditColorScheme): TerraDraw {
   const primary = MAP_PRIMARY_COLOR as HexColor;
-  return new TerraDraw({
+  const featureColor = (feature: GeoJSONStoreFeatures) =>
+    mapEditFeatureColor(feature.properties ?? {}, colorScheme) as HexColor;
+  let terraDraw: TerraDraw | null = null;
+  const guidanceFeatureColor = (feature: GeoJSONStoreFeatures) => {
+    const featureId =
+      feature.properties?.["selectionPointFeatureId"] ?? feature.properties?.["midPointFeatureId"];
+    if (!terraDraw || (typeof featureId !== "string" && typeof featureId !== "number")) {
+      return primary;
+    }
+    const parent = asMapEditFeature(terraDraw.getSnapshotFeature(featureId) ?? {});
+    return parent ? (mapEditFeatureColor(parent.properties, colorScheme) as HexColor) : primary;
+  };
+  const instance = new TerraDraw({
     adapter: new TerraDrawMapboxGLAdapter({ map }),
     modes: [
       new TerraDrawSelectMode({
@@ -301,20 +320,20 @@ function createTerraDraw(map: MapboxMap): TerraDraw {
           // guidance features reject updateFeatureProperties, so selection
           // points can't be styled via a store flag anyway.
           selectionPointColor: VERTEX_COLOR,
-          selectionPointOutlineColor: primary,
+          selectionPointOutlineColor: guidanceFeatureColor,
           selectionPointWidth: 5,
           selectionPointOutlineWidth: 2,
-          midPointColor: primary,
-          midPointOutlineColor: primary,
+          midPointColor: guidanceFeatureColor,
+          midPointOutlineColor: guidanceFeatureColor,
           midPointOpacity: 0.7,
           midPointWidth: 3,
           midPointOutlineWidth: 1,
-          selectedPolygonColor: primary,
+          selectedPolygonColor: featureColor,
           selectedPolygonFillOpacity: 0.18,
-          selectedPolygonOutlineColor: primary,
+          selectedPolygonOutlineColor: featureColor,
           selectedPolygonOutlineOpacity: 0.95,
           selectedPolygonOutlineWidth: 3,
-          selectedLineStringColor: primary,
+          selectedLineStringColor: featureColor,
           selectedLineStringOpacity: 0.95,
           selectedLineStringWidth: 3,
         },
@@ -323,10 +342,10 @@ function createTerraDraw(map: MapboxMap): TerraDraw {
       // own the store features so the select mode can edit them.
       new TerraDrawPolygonMode({
         styles: {
-          fillColor: primary,
+          fillColor: featureColor,
           fillOpacity: (feature: GeoJSONStoreFeatures) =>
             feature.properties["kind"] === "master" ? 0 : 0.05,
-          outlineColor: primary,
+          outlineColor: featureColor,
           outlineOpacity: (feature: GeoJSONStoreFeatures) =>
             feature.properties["kind"] === "master" ? 0.4 : 0.95,
           outlineWidth: 2,
@@ -334,7 +353,7 @@ function createTerraDraw(map: MapboxMap): TerraDraw {
       }),
       new TerraDrawLineStringMode({
         styles: {
-          lineStringColor: primary,
+          lineStringColor: featureColor,
           lineStringOpacity: 0.95,
           lineStringWidth: 2,
         },
@@ -343,12 +362,19 @@ function createTerraDraw(map: MapboxMap): TerraDraw {
     // Feature ids encode the row they came from (e.g. "border:<mapId>").
     idStrategy: { getId: () => crypto.randomUUID(), isValidId: () => true },
   });
+  terraDraw = instance;
+  return instance;
 }
 
 // Turns the map into a geometry editor: every congregation border, the master
 // border, and the selected map's blocks and faces can be selected and reshaped
 // with Terra Draw. A circle layer keeps every vertex visible while editing.
-export function MapEditLayer({ congregationId, selectedMap = null, onError }: MapEditLayerProps) {
+export function MapEditLayer({
+  congregationId,
+  selectedMap = null,
+  colorScheme = "standard",
+  onError,
+}: MapEditLayerProps) {
   const { current: mapRef } = useMap();
   const { maps, collection } = useMapPolygons(congregationId);
   const { master, collection: masterCollection } = useMasterMap(congregationId);
@@ -362,6 +388,8 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
     onError,
   });
   contextRef.current = { maps, collection, master, masterCollection, onError };
+  const selectedMapRef = useRef(selectedMap);
+  selectedMapRef.current = selectedMap;
   const skippedRowsRef = useRef<Set<string>>(new Set());
   const [armedVertex, setArmedVertex] = useState<{
     featureId: string | number;
@@ -424,7 +452,13 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
       const hits = mapboxMap.queryRenderedFeatures(box, {
         layers,
       }) as { properties?: Record<string, unknown> | null }[];
-      for (const hit of hits) {
+      const candidates: {
+        featureId: string | number;
+        index: number;
+        priority: number;
+        order: number;
+      }[] = [];
+      for (const [order, hit] of hits.entries()) {
         const props = hit.properties;
         const index = props?.["index"];
         const featureId = props?.["selectionPoint"]
@@ -434,10 +468,19 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
           typeof index === "number" &&
           (typeof featureId === "string" || typeof featureId === "number")
         ) {
-          return { featureId, index };
+          const zIndex = props?.["zIndex"];
+          let priority = 0;
+          if (typeof zIndex === "number" && typeof props?.["feature"] === "string") {
+            priority = zIndex + EDIT_VERTEX_OVERLAY_HIT_Z_INDEX;
+          } else if (props?.["selectionPoint"]) {
+            priority = EDIT_VERTEX_SELECTION_POINT_HIT_Z_INDEX;
+          }
+          candidates.push({ featureId, index, priority, order });
         }
       }
-      return null;
+      candidates.sort((a, b) => b.priority - a.priority || a.order - b.order);
+      const hit = candidates[0];
+      return hit ? { featureId: hit.featureId, index: hit.index } : null;
     };
 
     const editingControlAt = (event: MapMouseEvent, draw: TerraDraw) =>
@@ -621,9 +664,15 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
       }
       try {
         armedVertexRef.current = null;
-        instance = createTerraDraw(mapboxMap);
+        instance = createTerraDraw(mapboxMap, colorScheme);
         instance.on("change", () => {
-          setVertices(mapEditVerticesToGeoJSON(instance?.getSnapshot() ?? []));
+          setVertices(
+            mapEditVerticesToGeoJSON(
+              instance?.getSnapshot() ?? [],
+              colorScheme,
+              selectedMapRef.current,
+            ),
+          );
           // Defer — calling triggerRepaint synchronously inside a store change
           // re-renders mapbox reentrantly mid-mutation, which can crash the
           // frame ("reading 'r'" on an undefined paint uniform).
@@ -706,7 +755,14 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
         // The map may already be torn down.
       }
     };
-  }, [mapRef]);
+  }, [mapRef, colorScheme]);
+
+  useEffect(() => {
+    if (!draw) {
+      return;
+    }
+    setVertices(mapEditVerticesToGeoJSON(draw.getSnapshot(), colorScheme, selectedMap));
+  }, [draw, colorScheme, selectedMap]);
 
   // Keep the store in step with the rows: update moved geometry, add new
   // features, and drop ones that no longer exist (e.g. deselected blocks).
@@ -765,6 +821,13 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
       if (!current || current.geometry.type !== feature.geometry.type) {
         continue;
       }
+      if (current.properties?.["mapName"] !== feature.properties.mapName) {
+        try {
+          draw.updateFeatureProperties(feature.id, { mapName: feature.properties.mapName });
+        } catch (error) {
+          console.error(`MapEditLayer: failed to update ${feature.id} properties`, error);
+        }
+      }
       // A selected feature may be mid-drag — pushing possibly-stale row
       // geometry back into the store would snap the live edit away.
       if (current.properties?.["selected"]) {
@@ -795,6 +858,7 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
     armedVertexCoordinates && armedVertexCoordinates.length >= 2
       ? [armedVertexCoordinates[0], armedVertexCoordinates[1]]
       : null;
+  const armedVertexColor = armedVertexPoint?.properties.color ?? MAP_PRIMARY_COLOR;
 
   const disableMapDragPan = () => {
     const mapboxMap = mapRef?.getMap();
@@ -964,34 +1028,37 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
         <Layer
           id="map-edit-vertex-points"
           type="circle"
+          layout={{
+            "circle-sort-key": ["get", "zIndex"] as Expression,
+          }}
           paint={{
             "circle-radius": [
               "interpolate",
               ["exponential", 1.2],
               ["zoom"],
-              13,
+              EDIT_POINT_MIN_ZOOM,
               0,
-              18,
+              EDIT_POINT_MAX_ZOOM,
               ["case", ["get", "selected"], 16, 9],
             ] as Expression,
             "circle-color": [
               "case",
               armedMatch,
-              MAP_SELECTED_COLOR,
+              ["get", "color"],
               ["get", "selected"],
               SELECTED_VERTEX_COLOR,
               VERTEX_COLOR,
             ] as Expression,
             "circle-opacity": 0.9,
-            "circle-stroke-color": ["case", armedMatch, VERTEX_COLOR, MAP_PRIMARY_COLOR],
+            "circle-stroke-color": ["case", armedMatch, VERTEX_COLOR, ["get", "color"]],
             "circle-stroke-width": [
               "interpolate",
               ["exponential", 1.2],
               ["zoom"],
-              13,
+              EDIT_POINT_MIN_ZOOM,
               0,
-              18,
-              0.75,
+              EDIT_POINT_MAX_ZOOM,
+              1.5,
             ] as Expression,
           }}
         />
@@ -1029,17 +1096,17 @@ export function MapEditLayer({ congregationId, selectedMap = null, onError }: Ma
           style={vertexHandleMarkerStyle}
         >
           <div style={vertexHandleRootStyle}>
-            <div style={vertexHandleStemStyle} />
+            <div style={{ ...vertexHandleStemStyle, background: armedVertexColor }} />
             <div
-              style={vertexHandleGripStyle}
+              style={{ ...vertexHandleGripStyle, border: `3px solid ${armedVertexColor}` }}
               {...vertexControlCaptureProps}
               onPointerCancelCapture={onVertexHandlePointerEnd}
               onPointerDownCapture={onVertexHandlePointerDown}
               onPointerMoveCapture={onVertexHandlePointerMove}
               onPointerUpCapture={onVertexHandlePointerEnd}
             >
-              <div style={vertexHandleGripLineStyle} />
-              <div style={vertexHandleGripLineStyle} />
+              <div style={{ ...vertexHandleGripLineStyle, background: armedVertexColor }} />
+              <div style={{ ...vertexHandleGripLineStyle, background: armedVertexColor }} />
             </div>
           </div>
         </Marker>

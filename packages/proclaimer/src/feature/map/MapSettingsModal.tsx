@@ -15,12 +15,18 @@ import {
 } from "@ionic/react";
 
 import { useSettings } from "../settings/hooks.ts";
-import { isNotAtHomeVisibility, RECENT_MAP_COUNT_CHOICES } from "../settings/schema.ts";
+import {
+  isMapEditColorScheme,
+  isNotAtHomeVisibility,
+  RECENT_MAP_COUNT_CHOICES,
+  type MapEditColorScheme,
+} from "../settings/schema.ts";
 import { NOT_AT_HOME_STALE_DAY_CHOICES } from "./not-at-homes/schema.ts";
 
 export interface MapSettingsModalProps {
   isOpen: boolean;
   onDidDismiss: () => void;
+  showEditColorScheme?: boolean;
 }
 
 const STALE_DAY_OPTIONS: { label: string; value: number }[] = NOT_AT_HOME_STALE_DAY_CHOICES.map(
@@ -36,12 +42,60 @@ const VISIBILITY_OPTIONS = [
   { label: "Hide New", value: "hide_new" },
 ] as const;
 
+const EDIT_COLOR_SCHEME_OPTIONS = [
+  { label: "Single Color", value: "standard" },
+  { label: "Multicolored", value: "multicolored" },
+] as const;
+
 const RECENT_COUNT_OPTIONS = RECENT_MAP_COUNT_CHOICES.map((count) => ({
   label: count === 0 ? "None" : `${count} ${count === 1 ? "map" : "maps"}`,
   value: count,
 }));
 
-export function MapSettingsModal({ isOpen, onDidDismiss }: MapSettingsModalProps) {
+interface MapEditColorSchemeSelectProps {
+  visible: boolean;
+  value: MapEditColorScheme;
+  onChange: (value: MapEditColorScheme) => void;
+}
+
+export function MapEditColorSchemeSelect({
+  visible,
+  value,
+  onChange,
+}: MapEditColorSchemeSelectProps) {
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <IonItem>
+      <IonSelect
+        label="Edit Mode Map Colors"
+        value={value}
+        interface="popover"
+        onIonChange={(event) => {
+          const nextValue = event.detail.value;
+          if (!isMapEditColorScheme(nextValue)) {
+            return;
+          }
+          onChange(nextValue);
+        }}
+      >
+        {EDIT_COLOR_SCHEME_OPTIONS.map((option) => (
+          <IonSelectOption key={option.value} value={option.value}>
+            {option.label}
+          </IonSelectOption>
+        ))}
+      </IonSelect>
+    </IonItem>
+  );
+}
+
+export function MapSettingsModal({
+  isOpen,
+  onDidDismiss,
+  showEditColorScheme = false,
+}: MapSettingsModalProps) {
   const { settings, setSetting } = useSettings();
 
   // Imported settings may hold a value outside the preset choices; surface it
@@ -134,6 +188,15 @@ export function MapSettingsModal({ isOpen, onDidDismiss }: MapSettingsModalProps
               ))}
             </IonSelect>
           </IonItem>
+          <MapEditColorSchemeSelect
+            visible={showEditColorScheme}
+            value={settings.mapEditColorScheme}
+            onChange={(value) => {
+              void setSetting("mapEditColorScheme", value).catch((error: unknown) => {
+                console.warn("Failed to persist map edit color scheme", error);
+              });
+            }}
+          />
         </IonList>
       </IonContent>
     </IonModal>

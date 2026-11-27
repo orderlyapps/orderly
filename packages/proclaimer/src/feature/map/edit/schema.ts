@@ -1,7 +1,9 @@
+import type { MapEditColorScheme } from "../../settings/schema.ts";
 import type { MapMasterRow } from "../master/schema.ts";
 import {
   boundaryToPolygonCoords,
   ensureClosedRing,
+  MAP_PRIMARY_COLOR,
   mapRowKey,
   type MapBoundary,
   type MapRow,
@@ -33,16 +35,66 @@ export const MAP_EDIT_SELECT_FLAGS = {
 export const MAP_EDIT_KINDS = ["master", "border", "block", "face"] as const;
 export type MapEditFeatureKind = (typeof MAP_EDIT_KINDS)[number];
 
+// Saturated mid-tone colors remain legible over both light and dark basemaps.
+// The order jumps around the color wheel so the earliest entries — used by the
+// most common lower-numbered and earlier-lettered maps — contrast strongly.
+export const MAP_EDIT_MULTICOLOR_PALETTE = [
+  "#dc2626",
+  "#16a34a",
+  "#2563eb",
+  "#db2777",
+  "#ca8a04",
+  "#0891b2",
+  "#c026d3",
+  "#ea580c",
+  "#0d9488",
+  "#7c3aed",
+] as const;
+
+function mapEditColorIndex(mapName: string): number | null {
+  const trimmedName = mapName.trim();
+  const lastCharacter = trimmedName.charAt(trimmedName.length - 1).toUpperCase();
+  if (!lastCharacter) {
+    return null;
+  }
+  if (lastCharacter >= "1" && lastCharacter <= "9") {
+    return lastCharacter.charCodeAt(0) - "1".charCodeAt(0);
+  }
+  if (lastCharacter === "0") {
+    return 9;
+  }
+  if (lastCharacter >= "A" && lastCharacter <= "J") {
+    return lastCharacter.charCodeAt(0) - "A".charCodeAt(0);
+  }
+  return null;
+}
+
+// Borders, blocks, and faces belonging to one map share a color derived from
+// the final digit or A-J letter of the map's name. The congregation master
+// border is not a map and keeps the standard editing color.
+export function mapEditFeatureColor(
+  properties: { mapId?: unknown; mapName?: unknown },
+  colorScheme: MapEditColorScheme,
+) {
+  if (colorScheme !== "multicolored" || typeof properties.mapName !== "string") {
+    return MAP_PRIMARY_COLOR;
+  }
+  const colorIndex = mapEditColorIndex(properties.mapName);
+  return colorIndex === null ? MAP_PRIMARY_COLOR : MAP_EDIT_MULTICOLOR_PALETTE[colorIndex];
+}
+
 export type MapEditGeometry =
   | { type: "Polygon"; coordinates: number[][][] }
   | { type: "LineString"; coordinates: number[][] };
 
 // `mode` is required by Terra Draw's store validation; `kind`, `mapId`, and
-// `blockId` map the feature back to the row it was built from.
+// `blockId` map the feature back to the row it was built from. `mapName`
+// determines the multicolored edit color.
 export interface MapEditFeatureProperties {
   mode: typeof MAP_EDIT_POLYGON_MODE | typeof MAP_EDIT_LINE_MODE;
   kind: MapEditFeatureKind;
   mapId?: string;
+  mapName?: string;
   blockId?: string;
   selected?: boolean;
 }
@@ -57,7 +109,7 @@ export interface MapEditFeature {
 export type MapEditVertexFeature = {
   type: "Feature";
   geometry: { type: "Point"; coordinates: number[] };
-  properties: { feature: string; index: number; selected: boolean };
+  properties: { feature: string; index: number; selected: boolean; color: string; zIndex: number };
 };
 
 export type MapEditVertexCollection = {
@@ -130,7 +182,12 @@ export function mapRowToEditFeatures(row: MapRow, includeBlocks: boolean): MapEd
         type: "Polygon",
         coordinates: boundary.map((ring) => ring.map(roundPosition)),
       },
-      properties: { mode: MAP_EDIT_POLYGON_MODE, kind: "border", mapId: row.id },
+      properties: {
+        mode: MAP_EDIT_POLYGON_MODE,
+        kind: "border",
+        mapId: row.id,
+        mapName: row.name,
+      },
     });
   }
   if (includeBlocks) {
@@ -150,6 +207,7 @@ export function mapRowToEditFeatures(row: MapRow, includeBlocks: boolean): MapEd
             mode: MAP_EDIT_POLYGON_MODE,
             kind: "block",
             mapId: row.id,
+            mapName: row.name,
             blockId: block.id,
           },
         });
@@ -162,6 +220,7 @@ export function mapRowToEditFeatures(row: MapRow, includeBlocks: boolean): MapEd
             mode: MAP_EDIT_LINE_MODE,
             kind: "face",
             mapId: row.id,
+            mapName: row.name,
             blockId: block.id,
           },
         });
@@ -344,10 +403,21 @@ export function removeMapEditVertex(
   return { type: "LineString", coordinates };
 }
 
+const MAP_EDIT_VERTEX_KIND_Z_INDEX: Record<MapEditFeatureKind, number> = {
+  master: 0,
+  border: 1,
+  block: 2,
+  face: 3,
+};
+const MAP_EDIT_VERTEX_SELECTED_MAP_Z_INDEX = 10;
+const MAP_EDIT_VERTEX_SELECTED_FEATURE_Z_INDEX = 20;
+
 // Point feature for every vertex of every editable feature so vertices are
 // visible throughout edit mode, not just on the selected feature.
 export function mapEditVerticesToGeoJSON(
   features: { id?: unknown; geometry?: unknown; properties?: unknown }[],
+  colorScheme: MapEditColorScheme = "standard",
+  selectedMap?: string | null,
 ): MapEditVertexCollection {
   const points: MapEditVertexFeature[] = [];
   for (const candidate of features) {
@@ -355,9 +425,16 @@ export function mapEditVerticesToGeoJSON(
     if (!feature) {
       continue;
     }
+    const color = mapEditFeatureColor(feature.properties, colorScheme);
     const ring = feature.geometry.type === "Polygon" ? feature.geometry.coordinates[0] : null;
     const line = feature.geometry.type === "LineString" ? feature.geometry.coordinates : null;
     const vertices = ring ? ring.slice(0, -1) : (line ?? []);
+    const featureSelected = feature.properties.selected === true;
+    const mapSelected = selectedMap != null && feature.properties.mapId === selectedMap;
+    const zIndex =
+      MAP_EDIT_VERTEX_KIND_Z_INDEX[feature.properties.kind] +
+      (mapSelected ? MAP_EDIT_VERTEX_SELECTED_MAP_Z_INDEX : 0) +
+      (featureSelected ? MAP_EDIT_VERTEX_SELECTED_FEATURE_Z_INDEX : 0);
     for (const [index, vertex] of vertices.entries()) {
       points.push({
         type: "Feature",
@@ -365,10 +442,13 @@ export function mapEditVerticesToGeoJSON(
         properties: {
           feature: feature.id,
           index,
-          selected: feature.properties.selected === true,
+          selected: featureSelected,
+          color,
+          zIndex,
         },
       });
     }
   }
+  points.sort((a, b) => a.properties.zIndex - b.properties.zIndex);
   return { type: "FeatureCollection", features: points };
 }

@@ -43,6 +43,12 @@ export const notAtHomeVisibilitySchema = z.enum(NOT_AT_HOME_VISIBILITIES);
 
 export type NotAtHomeVisibility = z.infer<typeof notAtHomeVisibilitySchema>;
 
+export const MAP_EDIT_COLOR_SCHEMES = ["standard", "multicolored"] as const;
+
+export const mapEditColorSchemeSchema = z.enum(MAP_EDIT_COLOR_SCHEMES);
+
+export type MapEditColorScheme = z.infer<typeof mapEditColorSchemeSchema>;
+
 export const NOT_AT_HOME_STALE_DAYS_MAX = 365;
 
 export const notAtHomeStaleDaysSchema = z.number().int().min(0).max(NOT_AT_HOME_STALE_DAYS_MAX);
@@ -69,6 +75,7 @@ const SETTINGS_FIELD_SCHEMAS = {
   recentMapCount: recentMapCountSchema,
   notAtHomeStaleDays: notAtHomeStaleDaysSchema,
   notAtHomeVisibility: notAtHomeVisibilitySchema,
+  mapEditColorScheme: mapEditColorSchemeSchema,
 } as const;
 
 export const settingsDocumentSchema = z.object({
@@ -96,6 +103,7 @@ export const DEFAULT_SETTINGS: SettingsDocument = {
   recentMapCount: 5,
   notAtHomeStaleDays: 90,
   notAtHomeVisibility: "all",
+  mapEditColorScheme: "multicolored",
 };
 
 export function isThemeMode(value: unknown): value is ThemeMode {
@@ -149,6 +157,10 @@ export function isNotAtHomeStaleDays(value: unknown): value is number {
 
 export function isNotAtHomeVisibility(value: unknown): value is NotAtHomeVisibility {
   return notAtHomeVisibilitySchema.safeParse(value).success;
+}
+
+export function isMapEditColorScheme(value: unknown): value is MapEditColorScheme {
+  return mapEditColorSchemeSchema.safeParse(value).success;
 }
 
 export function isValidSettingsId(value: unknown): value is string {

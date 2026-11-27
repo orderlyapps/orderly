@@ -9,6 +9,8 @@ export {
   MAP_EDIT_POLYGON_MODE,
   MAP_EDIT_SELECT_FLAGS,
   MAP_EDIT_SELECT_MODE,
+  MAP_EDIT_MULTICOLOR_PALETTE,
+  mapEditFeatureColor,
   mapEditFeatureId,
   mapEditVerticesToGeoJSON,
   mapMasterToEditFeature,

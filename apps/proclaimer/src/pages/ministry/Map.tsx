@@ -109,12 +109,17 @@ const Map = () => {
               key={congregationId}
               congregationId={congregationId}
               selectedMap={selectedMap}
+              colorScheme={settings.mapEditColorScheme}
               onError={showSaveFailed}
             />
           ) : null}
         </MapView>
         <MapEditModal isOpen={editOpen} onDidDismiss={() => setEditOpen(false)} />
-        <MapSettingsModal isOpen={settingsOpen} onDidDismiss={() => setSettingsOpen(false)} />
+        <MapSettingsModal
+          isOpen={settingsOpen}
+          onDidDismiss={() => setSettingsOpen(false)}
+          showEditColorScheme={canEditMap}
+        />
         <MapsListModal
           isOpen={mapsOpen}
           onDidDismiss={() => setMapsOpen(false)}

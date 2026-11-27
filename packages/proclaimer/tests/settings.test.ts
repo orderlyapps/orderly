@@ -22,6 +22,7 @@ import {
   importSettingsBinary,
   importSettingsBinaryFile,
   isCongregationId,
+  isMapEditColorScheme,
   isNotAtHomeStaleDays,
   isNotAtHomeVisibility,
   isPublisherId,
@@ -76,6 +77,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     "recentMapCount",
     "notAtHomeStaleDays",
     "notAtHomeVisibility",
+    "mapEditColorScheme",
   ]);
   expect(THEME_LABELS).toEqual({ light: "Light", dark: "Dark", system: "System" });
   expect(THEME_OPTIONS).toEqual([
@@ -99,6 +101,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     recentMapCount: 5,
     notAtHomeStaleDays: 90,
     notAtHomeVisibility: "all",
+    mapEditColorScheme: "multicolored",
   });
   expect(normalizeSettingsDocument({ id: "", theme: "dark" })).toEqual({
     id: DEFAULT_SETTINGS_ID,
@@ -110,6 +113,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     recentMapCount: 5,
     notAtHomeStaleDays: 90,
     notAtHomeVisibility: "all",
+    mapEditColorScheme: "multicolored",
   });
   const overlongId = "a".repeat(SETTINGS_ID_MAX_LENGTH + 1);
   expect(isValidSettingsId(DEFAULT_SETTINGS_ID)).toBe(true);
@@ -172,6 +176,10 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
   expect(isNotAtHomeVisibility("hide_new")).toBe(true);
   expect(isNotAtHomeVisibility("none")).toBe(false);
   expect(isNotAtHomeVisibility(null)).toBe(false);
+  expect(isMapEditColorScheme("standard")).toBe(true);
+  expect(isMapEditColorScheme("multicolored")).toBe(true);
+  expect(isMapEditColorScheme("rainbow")).toBe(false);
+  expect(isMapEditColorScheme(null)).toBe(false);
   expect(
     isSettingsDocument({
       id: DEFAULT_SETTINGS_ID,
@@ -183,6 +191,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
       recentMapCount: 5,
       notAtHomeStaleDays: 90,
       notAtHomeVisibility: "all",
+      mapEditColorScheme: "multicolored",
     }),
   ).toBe(true);
   expect(isSettingsDocument({ id: DEFAULT_SETTINGS_ID, theme: "dark", congregationId: "  " })).toBe(
@@ -199,6 +208,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     recentMapCount: 5,
     notAtHomeStaleDays: 90,
     notAtHomeVisibility: "all",
+    mapEditColorScheme: "multicolored",
   });
   expect(toSettingsPatch({ id: "custom", theme: "light" })).toEqual({ theme: "light" });
   expect(
@@ -213,6 +223,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         recentMapCount: 5,
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
+        mapEditColorScheme: "multicolored",
       },
       {
         id: DEFAULT_SETTINGS_ID,
@@ -224,6 +235,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         recentMapCount: 5,
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
+        mapEditColorScheme: "multicolored",
       },
     ),
   ).toBe(true);
@@ -239,6 +251,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         recentMapCount: 5,
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
+        mapEditColorScheme: "multicolored",
       },
       {
         id: DEFAULT_SETTINGS_ID,
@@ -250,6 +263,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         recentMapCount: 5,
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
+        mapEditColorScheme: "multicolored",
       },
     ),
   ).toBe(false);
@@ -265,6 +279,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         recentMapCount: 5,
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
+        mapEditColorScheme: "multicolored",
       },
       {
         id: DEFAULT_SETTINGS_ID,
@@ -276,6 +291,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         recentMapCount: 5,
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
+        mapEditColorScheme: "multicolored",
       },
     ),
   ).toBe(true);
@@ -291,6 +307,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         recentMapCount: 5,
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
+        mapEditColorScheme: "multicolored",
       },
       {
         id: DEFAULT_SETTINGS_ID,
@@ -302,6 +319,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         recentMapCount: 5,
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
+        mapEditColorScheme: "multicolored",
       },
     ),
   ).toBe(false);
@@ -399,6 +417,7 @@ test("initializes LocalStorage Collection store with default system theme and up
       recentMapCount: 5,
       notAtHomeStaleDays: 90,
       notAtHomeVisibility: "all",
+      mapEditColorScheme: "multicolored",
     });
     expect(store.collection.get(DEFAULT_SETTINGS_ID)?.theme).toBe("system");
 
@@ -447,6 +466,7 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       theme: "dark",
       recentMapCount: 3,
       recentSelectedMaps: { "congregation-1": ["map-2", "map-1"] },
+      mapEditColorScheme: "multicolored",
     });
     const binary = await exportSettingsBinary(sourceStore);
     expect(binary).toBeInstanceOf(Uint8Array);
@@ -463,6 +483,7 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       recentMapCount: 3,
       notAtHomeStaleDays: 90,
       notAtHomeVisibility: "all",
+      mapEditColorScheme: "multicolored",
     });
 
     const imported = await importSettingsBinary(binary, targetStore);
@@ -476,6 +497,7 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       recentMapCount: 3,
       notAtHomeStaleDays: 90,
       notAtHomeVisibility: "all",
+      mapEditColorScheme: "multicolored",
     });
     expect((await targetStore.getSettings()).theme).toBe("dark");
 
@@ -500,6 +522,7 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       recentMapCount: 5,
       notAtHomeStaleDays: 90,
       notAtHomeVisibility: "all",
+      mapEditColorScheme: "multicolored",
     });
   } finally {
     await sourceStore.close();
@@ -525,6 +548,7 @@ test("rejects invalid binary payloads", () => {
     recentMapCount: 5,
     notAtHomeStaleDays: 90,
     notAtHomeVisibility: "all",
+    mapEditColorScheme: "multicolored",
   });
   const corrupted = new Uint8Array(valid);
   corrupted[corrupted.length - 1] = 0x00;
@@ -547,6 +571,9 @@ test("rejects invalid binary payloads", () => {
   expect(() => decodeSettingsBinary(makeBinaryPayload({ recentMapCount: 11 }))).toThrow(
     "Invalid settings binary: invalid recentMapCount value",
   );
+  expect(() => decodeSettingsBinary(makeBinaryPayload({ mapEditColorScheme: "rainbow" }))).toThrow(
+    "Invalid settings binary: invalid mapEditColorScheme value",
+  );
   expect(() => decodeSettingsBinary(makeBinaryPayload({}))).toThrow(
     "Invalid settings binary: no valid settings found",
   );
@@ -564,6 +591,7 @@ test("rejects invalid binary payloads", () => {
     recentMapCount: 5,
     notAtHomeStaleDays: 90,
     notAtHomeVisibility: "all",
+    mapEditColorScheme: "multicolored",
   });
 });
 
@@ -745,6 +773,7 @@ test("recovers from malformed or corrupt data in storage and falls back to defau
         recentMapCount: 5,
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
+        mapEditColorScheme: "multicolored",
       });
     } finally {
       await store.close();

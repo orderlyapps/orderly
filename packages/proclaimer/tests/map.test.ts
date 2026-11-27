@@ -27,6 +27,7 @@ import {
   isValidMapViewState,
   mapBlocksToGeoJSON,
   mapBlockToFeature,
+  mapEditFeatureColor,
   mapEditFeatureId,
   mapEditVerticesToGeoJSON,
   mapMasterRowSchema,
@@ -35,6 +36,8 @@ import {
   mapMasterToGeoJSON,
   mapRowToEditFeatures,
   MasterMapLayer,
+  MAP_EDIT_MULTICOLOR_PALETTE,
+  MAP_PRIMARY_COLOR,
   MAPBOX_DARK_STYLE,
   MAPBOX_LIGHT_STYLE,
   MAP_DEFAULT_ZOOM,
@@ -84,6 +87,7 @@ import {
   type NotAtHomeMarker,
   type NotAtHomeRow,
 } from "../src/feature/map/index.ts";
+import { MapEditColorSchemeSelect } from "../src/feature/map/MapSettingsModal.tsx";
 
 test("validates coordinates, tokens, zoom bounds, and style resolution", () => {
   expect(MAPBOX_LIGHT_STYLE.version).toBe(8);
@@ -500,6 +504,28 @@ test("renders a fallback message when no access token is configured", () => {
   expect(custom).toContain("No token configured");
 });
 
+test("shows edit color scheme settings only when map editing is permitted", () => {
+  const noop = () => {};
+  const hidden = renderToStaticMarkup(
+    createElement(MapEditColorSchemeSelect, {
+      visible: false,
+      value: "multicolored",
+      onChange: noop,
+    }),
+  );
+  expect(hidden).not.toContain("ion-select");
+
+  const visible = renderToStaticMarkup(
+    createElement(MapEditColorSchemeSelect, {
+      visible: true,
+      value: "multicolored",
+      onChange: noop,
+    }),
+  );
+  expect(visible).toContain("ion-select");
+  expect(visible).toContain("Multicolored");
+});
+
 test("converts not-at-home view rows to markers grouped by address", () => {
   const row = (overrides: Partial<NotAtHomeRow>): NotAtHomeRow => ({
     id: "nah-1",
@@ -749,6 +775,36 @@ test("filters not-at-home features by the hide_old and hide_new visibility optio
   expect(hideNew.map((feature) => feature.id).sort()).toEqual(["stale", "write"]);
 });
 
+test("assigns multicolored edit colors from the final map-name character", () => {
+  expect(MAP_EDIT_MULTICOLOR_PALETTE).toHaveLength(10);
+  expect(new Set(MAP_EDIT_MULTICOLOR_PALETTE).size).toBe(10);
+  expect(mapEditFeatureColor({ mapName: "04-01" }, "standard")).toBe(MAP_PRIMARY_COLOR);
+  expect(mapEditFeatureColor({ mapName: "04-01" }, "multicolored")).toBe(
+    MAP_EDIT_MULTICOLOR_PALETTE[0],
+  );
+  expect(mapEditFeatureColor({ mapName: "07-02" }, "multicolored")).toBe(
+    MAP_EDIT_MULTICOLOR_PALETTE[1],
+  );
+  expect(mapEditFeatureColor({ mapName: "01-20" }, "multicolored")).toBe(
+    MAP_EDIT_MULTICOLOR_PALETTE[9],
+  );
+  expect(mapEditFeatureColor({ mapName: "20-09a" }, "multicolored")).toBe(
+    MAP_EDIT_MULTICOLOR_PALETTE[0],
+  );
+  expect(mapEditFeatureColor({ mapName: "20-13C " }, "multicolored")).toBe(
+    MAP_EDIT_MULTICOLOR_PALETTE[2],
+  );
+  expect(mapEditFeatureColor({ mapName: "20-31j" }, "multicolored")).toBe(
+    MAP_EDIT_MULTICOLOR_PALETTE[9],
+  );
+  expect(mapEditFeatureColor({ mapName: "04-01" }, "multicolored")).toBe(
+    mapEditFeatureColor({ mapName: "04-01" }, "multicolored"),
+  );
+  expect(mapEditFeatureColor({ mapId: "04-01" }, "multicolored")).toBe(MAP_PRIMARY_COLOR);
+  expect(mapEditFeatureColor({ mapName: "Custom" }, "multicolored")).toBe(MAP_PRIMARY_COLOR);
+  expect(mapEditFeatureColor({}, "multicolored")).toBe(MAP_PRIMARY_COLOR);
+});
+
 test("builds editable features from map borders, blocks, faces, and the master border", () => {
   const ring = [
     [151.0, -33.9],
@@ -794,7 +850,12 @@ test("builds editable features from map borders, blocks, faces, and the master b
   );
 
   const border = features.find((feature) => feature.id === "border:map-1")!;
-  expect(border.properties).toEqual({ mode: "polygon", kind: "border", mapId: "map-1" });
+  expect(border.properties).toEqual({
+    mode: "polygon",
+    kind: "border",
+    mapId: "map-1",
+    mapName: "Map 1",
+  });
   expect(border.geometry).toEqual({ type: "Polygon", coordinates: [ring] });
 
   // Open block rings are closed for the editable polygon.
@@ -814,6 +875,7 @@ test("builds editable features from map borders, blocks, faces, and the master b
     mode: "linestring",
     kind: "face",
     mapId: "map-1",
+    mapName: "Map 1",
     blockId: "f-1",
   });
 
@@ -1112,6 +1174,8 @@ test("exposes every editable feature vertex as a point for edit mode", () => {
     feature: "border:map-1",
     index: 0,
     selected: false,
+    color: MAP_PRIMARY_COLOR,
+    zIndex: 1,
   });
   const selectedVertices = mapEditVerticesToGeoJSON([
     {
@@ -1120,6 +1184,30 @@ test("exposes every editable feature vertex as a point for edit mode", () => {
     },
   ]);
   expect(selectedVertices.features[0].properties.selected).toBe(true);
+  expect(selectedVertices.features[0].properties.zIndex).toBe(21);
+  expect(mapEditVerticesToGeoJSON(features, "multicolored").features[0].properties.color).toBe(
+    mapEditFeatureColor({ mapName: "Map 1" }, "multicolored"),
+  );
+
+  const mapSelectedVertices = mapEditVerticesToGeoJSON(features, "standard", "map-1");
+  expect(mapSelectedVertices.features.map((point) => point.properties.zIndex)).toEqual([
+    11, 11, 11, 13, 13,
+  ]);
+  const featureSelectedVertices = mapEditVerticesToGeoJSON(
+    [
+      {
+        ...features[0],
+        properties: { ...features[0].properties, selected: true },
+      },
+      features[1],
+    ],
+    "standard",
+    "map-1",
+  );
+  expect(featureSelectedVertices.features.at(-1)?.properties).toMatchObject({
+    feature: "border:map-1",
+    zIndex: 31,
+  });
 
   expect(mapEditVerticesToGeoJSON([]).features).toHaveLength(0);
   expect(
