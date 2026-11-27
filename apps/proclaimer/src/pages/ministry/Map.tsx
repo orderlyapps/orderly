@@ -11,13 +11,7 @@ import {
   IonToolbar,
   useIonAlert,
 } from "@ionic/react";
-import {
-  checkmarkOutline,
-  createOutline,
-  mapOutline,
-  optionsOutline,
-  settingsOutline,
-} from "ionicons/icons";
+import { checkmarkOutline, createOutline, mapOutline, settingsOutline } from "ionicons/icons";
 import {
   MAP_VIEW_STATE_STORAGE_KEY,
   MapEditLayer,
@@ -44,7 +38,6 @@ const hasSavedView = () =>
 const Map = () => {
   const [mapsOpen, setMapsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [presentAlert] = useIonAlert();
   const { settings, updateSettings } = useSettings();
@@ -76,12 +69,10 @@ const Map = () => {
                 <IonIcon slot="icon-only" icon={editing ? checkmarkOutline : createOutline} />
               </IonButton>
             )}
-            {canEditMap && editing && (
-              <IonButton onClick={() => setEditOpen(true)} aria-label="Edit map details">
-                <IonIcon slot="icon-only" icon={optionsOutline} />
-              </IonButton>
-            )}
-            <IonButton onClick={() => setMapsOpen(true)} aria-label="Select map">
+            <IonButton
+              onClick={() => setMapsOpen(true)}
+              aria-label={editing ? "Edit maps" : "Select map"}
+            >
               <IonIcon slot="icon-only" icon={mapOutline} />
             </IonButton>
             <IonButton onClick={() => setSettingsOpen(true)} aria-label="Map settings">
@@ -114,39 +105,47 @@ const Map = () => {
             />
           ) : null}
         </MapView>
-        <MapEditModal isOpen={editOpen} onDidDismiss={() => setEditOpen(false)} />
         <MapSettingsModal
           isOpen={settingsOpen}
           onDidDismiss={() => setSettingsOpen(false)}
           showEditColorScheme={canEditMap}
         />
-        <MapsListModal
-          isOpen={mapsOpen}
-          onDidDismiss={() => setMapsOpen(false)}
-          selectedMap={selectedMap}
-          recentMapKeys={settings.recentSelectedMaps[congregationId] ?? []}
-          recentMapCount={settings.recentMapCount}
-          onSelect={(key) => {
-            setMapsOpen(false);
-            if (!congregationId) {
-              return;
-            }
-            void updateSettings({
-              selectedMaps: {
-                ...settings.selectedMaps,
-                [congregationId]: key,
-              },
-              recentSelectedMaps: recordRecentMapSelection(
-                settings.recentSelectedMaps,
-                congregationId,
-                key,
-                selectedMap,
-              ),
-            }).catch((error: unknown) => {
-              console.warn("Failed to persist selected map", error);
-            });
-          }}
-        />
+        {editing ? (
+          <MapEditModal
+            isOpen={mapsOpen}
+            onDidDismiss={() => setMapsOpen(false)}
+            congregationId={congregationId}
+          />
+        ) : (
+          <MapsListModal
+            isOpen={mapsOpen}
+            onDidDismiss={() => setMapsOpen(false)}
+            congregationId={congregationId}
+            selectedMap={selectedMap}
+            recentMapKeys={settings.recentSelectedMaps[congregationId] ?? []}
+            recentMapCount={settings.recentMapCount}
+            onSelect={(key) => {
+              setMapsOpen(false);
+              if (!congregationId) {
+                return;
+              }
+              void updateSettings({
+                selectedMaps: {
+                  ...settings.selectedMaps,
+                  [congregationId]: key,
+                },
+                recentSelectedMaps: recordRecentMapSelection(
+                  settings.recentSelectedMaps,
+                  congregationId,
+                  key,
+                  selectedMap,
+                ),
+              }).catch((error: unknown) => {
+                console.warn("Failed to persist selected map", error);
+              });
+            }}
+          />
+        )}
       </IonContent>
     </IonPage>
   );
