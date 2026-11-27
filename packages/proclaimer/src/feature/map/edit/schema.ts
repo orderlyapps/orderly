@@ -117,6 +117,190 @@ export type MapEditVertexCollection = {
   features: MapEditVertexFeature[];
 };
 
+export interface MapEditVertexDragGeometry {
+  staticLineStrings: number[][][];
+  previous: number[] | null;
+  next: number[] | null;
+}
+
+export interface MapEditDragPreviewStyle {
+  color: string;
+  fillOpacity: number;
+  lineOpacity: number;
+  lineWidth: number;
+  selected: boolean;
+}
+
+export type MapEditDragPreviewFeature = {
+  type: "Feature";
+  geometry:
+    | { type: "Point"; coordinates: number[] }
+    | { type: "LineString"; coordinates: number[][] }
+    | { type: "Polygon"; coordinates: number[][][] };
+  properties: MapEditDragPreviewStyle;
+};
+
+export type MapEditDragPreviewCollection = {
+  type: "FeatureCollection";
+  features: MapEditDragPreviewFeature[];
+};
+
+function clonePosition(position: number[]): number[] {
+  return [...position];
+}
+
+function emptyDragPreviewCollection(): MapEditDragPreviewCollection {
+  return { type: "FeatureCollection", features: [] };
+}
+
+// Splits the geometry around a dragged vertex. The static line strings are
+// everything except the incident edge or edges; the returned endpoints are
+// reconnected to the live position on every pointer frame.
+export function splitMapEditVertexDragGeometry(
+  geometry: MapEditGeometry,
+  index: number,
+): MapEditVertexDragGeometry | null {
+  if (geometry.type === "Polygon") {
+    const ring = geometry.coordinates[0];
+    if (!ring || ring.length < 4) {
+      return null;
+    }
+    const positions = ring.slice(0, -1);
+    const vertexIndex = index === ring.length - 1 ? 0 : index;
+    if (vertexIndex < 0 || vertexIndex >= positions.length) {
+      return null;
+    }
+    const count = positions.length;
+    const staticLine: number[][] = [];
+    for (let step = 1; step < count; step += 1) {
+      staticLine.push(clonePosition(positions[(vertexIndex + step) % count]));
+    }
+    return {
+      staticLineStrings: [staticLine],
+      previous: clonePosition(positions[(vertexIndex - 1 + count) % count]),
+      next: clonePosition(positions[(vertexIndex + 1) % count]),
+    };
+  }
+
+  const coordinates = geometry.coordinates;
+  if (index < 0 || index >= coordinates.length) {
+    return null;
+  }
+  const staticLineStrings: number[][][] = [];
+  const before = coordinates.slice(0, index).map(clonePosition);
+  const after = coordinates.slice(index + 1).map(clonePosition);
+  if (before.length >= 2) {
+    staticLineStrings.push(before);
+  }
+  if (after.length >= 2) {
+    staticLineStrings.push(after);
+  }
+  return {
+    staticLineStrings,
+    previous: index > 0 ? clonePosition(coordinates[index - 1]) : null,
+    next: index < coordinates.length - 1 ? clonePosition(coordinates[index + 1]) : null,
+  };
+}
+
+export function mapEditVertexDragLine(
+  dragGeometry: MapEditVertexDragGeometry,
+  position: [number, number],
+): number[][] {
+  const line: number[][] = [];
+  if (dragGeometry.previous) {
+    line.push(clonePosition(dragGeometry.previous));
+  }
+  line.push(clonePosition(position));
+  if (dragGeometry.next) {
+    line.push(clonePosition(dragGeometry.next));
+  }
+  return line;
+}
+
+// Matches the effective Terra Draw polygon/linestring styling, including the
+// selected-feature overrides configured in createTerraDraw.
+export function mapEditDragPreviewStyle(
+  properties: MapEditFeatureProperties,
+  colorScheme: MapEditColorScheme = "standard",
+): MapEditDragPreviewStyle {
+  const selected = properties.selected === true;
+  const color = mapEditFeatureColor(properties, colorScheme);
+  if (properties.mode === MAP_EDIT_POLYGON_MODE) {
+    return {
+      color,
+      selected,
+      fillOpacity: selected ? 0.18 : properties.kind === "master" ? 0 : 0.05,
+      lineOpacity: selected ? 0.95 : properties.kind === "master" ? 0.4 : 0.95,
+      lineWidth: selected ? 3 : 2,
+    };
+  }
+  return {
+    color,
+    selected,
+    fillOpacity: 0,
+    lineOpacity: 0.95,
+    lineWidth: selected ? 3 : 2,
+  };
+}
+
+export function mapEditDragPreviewStaticGeoJSON(
+  dragGeometry: MapEditVertexDragGeometry,
+  style: MapEditDragPreviewStyle,
+): MapEditDragPreviewCollection {
+  return {
+    type: "FeatureCollection",
+    features: dragGeometry.staticLineStrings.map((coordinates) => ({
+      type: "Feature",
+      geometry: { type: "LineString", coordinates },
+      properties: { ...style },
+    })),
+  };
+}
+
+export function mapEditDragPreviewDetailGeoJSON(
+  dragGeometry: MapEditVertexDragGeometry,
+  position: [number, number],
+  style: MapEditDragPreviewStyle,
+): MapEditDragPreviewCollection {
+  const collection = emptyDragPreviewCollection();
+  const line = mapEditVertexDragLine(dragGeometry, position);
+  if (line.length >= 2) {
+    collection.features.push({
+      type: "Feature",
+      geometry: { type: "LineString", coordinates: line },
+      properties: { ...style },
+    });
+  }
+  collection.features.push({
+    type: "Feature",
+    geometry: { type: "Point", coordinates: [...position] },
+    properties: { ...style },
+  });
+  return collection;
+}
+
+export function mapEditDragPreviewFillGeoJSON(
+  geometry: MapEditGeometry,
+  style: MapEditDragPreviewStyle,
+): MapEditDragPreviewCollection {
+  if (geometry.type !== "Polygon" || style.fillOpacity <= 0) {
+    return emptyDragPreviewCollection();
+  }
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        geometry: {
+          type: "Polygon",
+          coordinates: geometry.coordinates.map((ring) => ring.map(clonePosition)),
+        },
+        properties: { ...style },
+      },
+    ],
+  };
+}
+
 export function mapEditFeatureId(
   kind: MapEditFeatureKind,
   mapId?: string,

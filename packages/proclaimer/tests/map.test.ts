@@ -27,8 +27,13 @@ import {
   isValidMapViewState,
   mapBlocksToGeoJSON,
   mapBlockToFeature,
+  mapEditDragPreviewDetailGeoJSON,
+  mapEditDragPreviewFillGeoJSON,
+  mapEditDragPreviewStaticGeoJSON,
+  mapEditDragPreviewStyle,
   mapEditFeatureColor,
   mapEditFeatureId,
+  mapEditVertexDragLine,
   mapEditVerticesToGeoJSON,
   mapMasterRowSchema,
   mapMasterToBounds,
@@ -71,6 +76,7 @@ import {
   sortMapEditFeaturesForSelection,
   sortMapRowsByRecency,
   sortMapTags,
+  splitMapEditVertexDragGeometry,
   toMapboxCenter,
   useMapPolygons,
   useMapTagAssignments,
@@ -1217,4 +1223,288 @@ test("exposes every editable feature vertex as a point for edit mode", () => {
   ).toHaveLength(0);
 
   expect(typeof MapEditLayer).toBe("function");
+});
+
+test("splits polygon drag geometry around interior and closing vertices", () => {
+  const polygon = {
+    type: "Polygon" as const,
+    coordinates: [
+      [
+        [0, 0],
+        [1, 0],
+        [1, 1],
+        [0, 1],
+        [0, 0],
+      ],
+    ],
+  };
+
+  const interior = splitMapEditVertexDragGeometry(polygon, 1)!;
+  expect(interior).toEqual({
+    staticLineStrings: [
+      [
+        [1, 1],
+        [0, 1],
+        [0, 0],
+      ],
+    ],
+    previous: [0, 0],
+    next: [1, 1],
+  });
+  expect(mapEditVertexDragLine(interior, [2, 2])).toEqual([
+    [0, 0],
+    [2, 2],
+    [1, 1],
+  ]);
+
+  const first = splitMapEditVertexDragGeometry(polygon, 0)!;
+  expect(first).toEqual({
+    staticLineStrings: [
+      [
+        [1, 0],
+        [1, 1],
+        [0, 1],
+      ],
+    ],
+    previous: [0, 1],
+    next: [1, 0],
+  });
+  // The ring's duplicated closing coordinate is the same editable vertex as
+  // index zero, not a separate static/dynamic endpoint.
+  expect(splitMapEditVertexDragGeometry(polygon, 4)).toEqual(first);
+
+  const triangle = {
+    type: "Polygon" as const,
+    coordinates: [
+      [
+        [0, 0],
+        [1, 0],
+        [0, 1],
+        [0, 0],
+      ],
+    ],
+  };
+  expect(splitMapEditVertexDragGeometry(triangle, 1)?.staticLineStrings).toEqual([
+    [
+      [0, 1],
+      [0, 0],
+    ],
+  ]);
+  expect(splitMapEditVertexDragGeometry(polygon, -1)).toBe(null);
+  expect(splitMapEditVertexDragGeometry(polygon, 5)).toBe(null);
+  expect(
+    splitMapEditVertexDragGeometry(
+      {
+        type: "Polygon",
+        coordinates: [
+          [
+            [0, 0],
+            [1, 0],
+          ],
+        ],
+      },
+      0,
+    ),
+  ).toBe(null);
+});
+
+test("splits linestring drag geometry into independent static chains", () => {
+  const line = {
+    type: "LineString" as const,
+    coordinates: [
+      [0, 0],
+      [1, 0],
+      [2, 0],
+      [3, 0],
+      [4, 0],
+    ],
+  };
+
+  const interior = splitMapEditVertexDragGeometry(line, 2)!;
+  expect(interior).toEqual({
+    staticLineStrings: [
+      [
+        [0, 0],
+        [1, 0],
+      ],
+      [
+        [3, 0],
+        [4, 0],
+      ],
+    ],
+    previous: [1, 0],
+    next: [3, 0],
+  });
+  expect(mapEditVertexDragLine(interior, [2, 2])).toEqual([
+    [1, 0],
+    [2, 2],
+    [3, 0],
+  ]);
+
+  const first = splitMapEditVertexDragGeometry(line, 0)!;
+  expect(first.previous).toBe(null);
+  expect(first.next).toEqual([1, 0]);
+  expect(first.staticLineStrings).toEqual([
+    [
+      [1, 0],
+      [2, 0],
+      [3, 0],
+      [4, 0],
+    ],
+  ]);
+  expect(mapEditVertexDragLine(first, [0, 2])).toEqual([
+    [0, 2],
+    [1, 0],
+  ]);
+
+  const last = splitMapEditVertexDragGeometry(line, 4)!;
+  expect(last.previous).toEqual([3, 0]);
+  expect(last.next).toBe(null);
+  expect(last.staticLineStrings).toEqual([
+    [
+      [0, 0],
+      [1, 0],
+      [2, 0],
+      [3, 0],
+    ],
+  ]);
+  expect(mapEditVertexDragLine(last, [4, 2])).toEqual([
+    [3, 0],
+    [4, 2],
+  ]);
+
+  expect(splitMapEditVertexDragGeometry(line, -1)).toBe(null);
+  expect(splitMapEditVertexDragGeometry(line, 5)).toBe(null);
+});
+
+test("builds drag preview collections and Terra Draw-equivalent styles", () => {
+  const split = {
+    staticLineStrings: [
+      [
+        [1, 0],
+        [1, 1],
+      ],
+    ],
+    previous: [0, 1],
+    next: [1, 0],
+  };
+  const standardMaster = mapEditDragPreviewStyle(
+    { mode: "polygon", kind: "master", selected: true },
+    "standard",
+  );
+  expect(standardMaster).toEqual({
+    color: MAP_PRIMARY_COLOR,
+    fillOpacity: 0.18,
+    lineOpacity: 0.95,
+    lineWidth: 3,
+    selected: true,
+  });
+  expect(mapEditDragPreviewStyle({ mode: "polygon", kind: "master" }, "standard")).toMatchObject({
+    fillOpacity: 0,
+    lineOpacity: 0.4,
+    lineWidth: 2,
+    selected: false,
+  });
+  expect(
+    mapEditDragPreviewStyle(
+      { mode: "polygon", kind: "border", mapId: "map-1", mapName: "Map 1" },
+      "multicolored",
+    ),
+  ).toMatchObject({
+    color: MAP_EDIT_MULTICOLOR_PALETTE[0],
+    fillOpacity: 0.05,
+    lineOpacity: 0.95,
+    lineWidth: 2,
+  });
+  expect(
+    mapEditDragPreviewStyle(
+      {
+        mode: "polygon",
+        kind: "block",
+        mapId: "map-1",
+        mapName: "Map 1",
+        blockId: "block-1",
+        selected: true,
+      },
+      "multicolored",
+    ),
+  ).toMatchObject({ fillOpacity: 0.18, lineWidth: 3, selected: true });
+  expect(
+    mapEditDragPreviewStyle(
+      {
+        mode: "linestring",
+        kind: "face",
+        mapId: "map-1",
+        mapName: "Map 1",
+        blockId: "face-1",
+      },
+      "multicolored",
+    ),
+  ).toMatchObject({ fillOpacity: 0, lineOpacity: 0.95, lineWidth: 2 });
+  expect(
+    mapEditDragPreviewStyle(
+      {
+        mode: "linestring",
+        kind: "face",
+        mapId: "map-1",
+        mapName: "Map 1",
+        blockId: "face-1",
+        selected: true,
+      },
+      "standard",
+    ),
+  ).toMatchObject({ lineWidth: 3, selected: true });
+
+  const staticData = mapEditDragPreviewStaticGeoJSON(split, standardMaster);
+  expect(staticData.features).toHaveLength(1);
+  expect(staticData.features[0].geometry).toEqual({
+    type: "LineString",
+    coordinates: [
+      [1, 0],
+      [1, 1],
+    ],
+  });
+  expect(staticData.features[0].properties).toEqual(standardMaster);
+
+  const detail = mapEditDragPreviewDetailGeoJSON(split, [2, 2], standardMaster);
+  expect(detail.features.map((feature) => feature.geometry.type)).toEqual(["LineString", "Point"]);
+  expect(detail.features[0].geometry).toEqual({
+    type: "LineString",
+    coordinates: [
+      [0, 1],
+      [2, 2],
+      [1, 0],
+    ],
+  });
+  expect(detail.features[1].geometry).toEqual({ type: "Point", coordinates: [2, 2] });
+
+  const geometry = {
+    type: "Polygon" as const,
+    coordinates: [
+      [
+        [0, 0],
+        [1, 0],
+        [1, 1],
+        [0, 0],
+      ],
+    ],
+  };
+  const fill = mapEditDragPreviewFillGeoJSON(geometry, standardMaster);
+  expect(fill.features).toHaveLength(1);
+  expect(fill.features[0].geometry).toEqual(geometry);
+  expect(
+    mapEditDragPreviewFillGeoJSON(geometry, { ...standardMaster, fillOpacity: 0 }).features,
+  ).toHaveLength(0);
+  expect(
+    mapEditDragPreviewFillGeoJSON(
+      {
+        type: "LineString",
+        coordinates: [
+          [0, 0],
+          [1, 0],
+        ],
+      },
+      standardMaster,
+    ).features,
+  ).toHaveLength(0);
 });

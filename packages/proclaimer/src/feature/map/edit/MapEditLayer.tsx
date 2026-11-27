@@ -33,20 +33,32 @@ import { useMapPolygons } from "../maps/hooks.ts";
 import type { MapCollection } from "../maps/collection.ts";
 import { MAP_PRIMARY_COLOR, MAP_SELECTED_COLOR, type MapRow } from "../maps/schema.ts";
 import {
+  createMapEditDragPreviewRenderer,
+  type MapEditDragPreviewRenderer,
+} from "./dragPreview.ts";
+import {
   applyMapEditFeatureToMaster,
   applyMapEditFeatureToRow,
   asMapEditFeature,
   buildMapEditFeatures,
   MAP_EDIT_SELECT_FLAGS,
   MAP_EDIT_SELECT_MODE,
+  mapEditDragPreviewDetailGeoJSON,
+  mapEditDragPreviewFillGeoJSON,
+  mapEditDragPreviewStaticGeoJSON,
+  mapEditDragPreviewStyle,
   mapEditFeatureColor,
   mapEditVerticesToGeoJSON,
   nextMapEditSelectionIndex,
   removeMapEditVertex,
   replaceMapEditVertex,
   sortMapEditFeaturesForSelection,
+  splitMapEditVertexDragGeometry,
   type MapEditFeature,
+  type MapEditGeometry,
   type MapEditVertexCollection,
+  type MapEditVertexDragGeometry,
+  type MapEditDragPreviewStyle,
 } from "./schema.ts";
 
 export interface MapEditLayerProps {
@@ -139,6 +151,7 @@ const EDIT_POINT_MIN_ZOOM = 13;
 const EDIT_POINT_MAX_ZOOM = 18;
 const EDIT_VERTEX_OVERLAY_HIT_Z_INDEX = 100;
 const EDIT_VERTEX_SELECTION_POINT_HIT_Z_INDEX = 20;
+const DRAG_FILL_UPDATE_MS = 66;
 
 const stopNativePropagationBeforeMapbox = (event: { nativeEvent: Event }) => {
   event.nativeEvent.stopPropagation();
@@ -211,34 +224,22 @@ interface EditContext {
 
 interface VertexDragState {
   pointerId: number;
+  target: HTMLElement;
   featureId: string | number;
   index: number;
   startClientX: number;
   startClientY: number;
   startCoordinates: [number, number];
+  position: [number, number];
+  geometry: MapEditGeometry;
+  split: MapEditVertexDragGeometry;
+  style: MapEditDragPreviewStyle;
+  fillUpdatedAt: number;
   moved: boolean;
 }
 
 function roundCoordinate(value: number): number {
   return Math.round(value * 1e9) / 1e9;
-}
-
-function setFeatureVertexPosition(
-  draw: TerraDraw,
-  featureId: string | number,
-  index: number,
-  position: [number, number],
-): boolean {
-  const feature = asMapEditFeature(draw.getSnapshotFeature(featureId) ?? {});
-  if (!feature) {
-    return false;
-  }
-  const geometry = replaceMapEditVertex(feature.geometry, index, position);
-  if (!geometry) {
-    return false;
-  }
-  draw.updateFeatureGeometry(featureId, geometry);
-  return true;
 }
 
 function deleteFeatureVertex(draw: TerraDraw, featureId: string | number, index: number): boolean {
@@ -401,9 +402,14 @@ export function MapEditLayer({
   } | null>(null);
   const drawRef = useRef<TerraDraw | null>(null);
   const vertexDragRef = useRef<VertexDragState | null>(null);
+  const dragPreviewRef = useRef<MapEditDragPreviewRenderer | null>(null);
+  const [draggingVertex, setDraggingVertex] = useState<{
+    featureId: string | number;
+    index: number;
+  } | null>(null);
   const dragPanRestoreRef = useRef<{ map: MapboxMap; wasEnabled: boolean } | null>(null);
   // pointermove can fire several times per frame; the latest position is
-  // coalesced into one store update per animation frame.
+  // coalesced into one lightweight preview update per animation frame.
   const dragFrameRef = useRef<number | null>(null);
   const dragPendingRef = useRef<{ x: number; y: number } | null>(null);
   // During a drag the handles are positioned imperatively — waiting for the
@@ -411,6 +417,32 @@ export function MapEditLayer({
   // pointer by a frame or more.
   const handleMarkerRef = useRef<MapboxMarker | null>(null);
   const deleteMarkerRef = useRef<MapboxMarker | null>(null);
+
+  const cancelActiveDrag = () => {
+    if (dragFrameRef.current !== null) {
+      cancelAnimationFrame(dragFrameRef.current);
+      dragFrameRef.current = null;
+    }
+    dragPendingRef.current = null;
+    const drag = vertexDragRef.current;
+    vertexDragRef.current = null;
+    if (drag) {
+      try {
+        if (drag.target.hasPointerCapture(drag.pointerId)) {
+          drag.target.releasePointerCapture(drag.pointerId);
+        }
+      } catch {
+        // The element may already have been removed from the document.
+      }
+    }
+    dragPreviewRef.current?.clear();
+    setDraggingVertex(null);
+    const restore = dragPanRestoreRef.current;
+    dragPanRestoreRef.current = null;
+    if (restore?.wasEnabled) {
+      restore.map.dragPan.enable();
+    }
+  };
 
   useEffect(() => {
     drawRef.current = draw;
@@ -432,6 +464,8 @@ export function MapEditLayer({
     }
     let cancelled = false;
     let instance: TerraDraw | null = null;
+    const previewRenderer = createMapEditDragPreviewRenderer(mapboxMap);
+    dragPreviewRef.current = previewRenderer;
 
     // Tap a vertex dot to arm it (red); its Delete button or the Delete key
     // removes that coordinate — the touch-friendly counterpart to Terra Draw's
@@ -561,6 +595,7 @@ export function MapEditLayer({
       if (!armed || !draw) {
         return;
       }
+      cancelActiveDrag();
       try {
         if (deleteFeatureVertex(draw, armed.featureId, armed.index)) {
           setArmed(null);
@@ -631,6 +666,10 @@ export function MapEditLayer({
         return;
       }
       creating = true;
+      // A rebuild must not preserve hidden Terra Draw layers or an in-flight
+      // preview from the previous editor instance.
+      cancelActiveDrag();
+      previewRenderer.destroy();
       // A style swap drops the adapter's sources, so rebuild from scratch.
       try {
         instance?.stop();
@@ -685,6 +724,7 @@ export function MapEditLayer({
         });
         instance.start();
         applyZoomScaledPointStyling(mapboxMap);
+        previewRenderer.ensureLayers();
         moveVertexOverlayToTop(mapboxMap);
         instance.setMode(MAP_EDIT_SELECT_MODE);
         setDraw(instance);
@@ -735,12 +775,10 @@ export function MapEditLayer({
     window.addEventListener("keydown", onKeyDown);
     return () => {
       cancelled = true;
+      cancelActiveDrag();
+      previewRenderer.destroy();
+      dragPreviewRef.current = null;
       vertexDragRef.current = null;
-      const restore = dragPanRestoreRef.current;
-      dragPanRestoreRef.current = null;
-      if (restore?.wasEnabled) {
-        restore.map.dragPan.enable();
-      }
       mapboxMap.off("style.load", create);
       mapboxMap.off("idle", onIdle);
       mapboxMap.off("click", onMapClick);
@@ -882,9 +920,8 @@ export function MapEditLayer({
 
   const updateDraggedVertex = (clientX: number, clientY: number) => {
     const drag = vertexDragRef.current;
-    const instance = drawRef.current;
     const mapboxMap = mapRef?.getMap();
-    if (!drag || !instance || !mapboxMap) {
+    if (!drag || !drawRef.current || !mapboxMap) {
       return;
     }
     const start = mapboxMap.project({
@@ -895,19 +932,20 @@ export function MapEditLayer({
       start.x + clientX - drag.startClientX,
       start.y + clientY - drag.startClientY,
     ]);
+    const position: [number, number] = [roundCoordinate(next.lng), roundCoordinate(next.lat)];
+    drag.position = position;
+    drag.moved = true;
     handleMarkerRef.current?.setLngLat(next);
     deleteMarkerRef.current?.setLngLat(next);
-    try {
-      if (
-        setFeatureVertexPosition(instance, drag.featureId, drag.index, [
-          roundCoordinate(next.lng),
-          roundCoordinate(next.lat),
-        ])
-      ) {
-        drag.moved = true;
+    const preview = dragPreviewRef.current;
+    preview?.updateDetail(mapEditDragPreviewDetailGeoJSON(drag.split, position, drag.style));
+    const now = performance.now();
+    if (drag.style.fillOpacity > 0 && now - drag.fillUpdatedAt >= DRAG_FILL_UPDATE_MS) {
+      const geometry = replaceMapEditVertex(drag.geometry, drag.index, position);
+      if (geometry) {
+        preview?.updateFill(mapEditDragPreviewFillGeoJSON(geometry, drag.style));
+        drag.fillUpdatedAt = now;
       }
-    } catch (error) {
-      console.error(`MapEditLayer: failed to move vertex on ${String(drag.featureId)}`, error);
     }
   };
 
@@ -920,6 +958,7 @@ export function MapEditLayer({
     if (!armed || !instance) {
       return;
     }
+    cancelActiveDrag();
     try {
       if (deleteFeatureVertex(instance, armed.featureId, armed.index)) {
         armedVertexRef.current = null;
@@ -947,17 +986,53 @@ export function MapEditLayer({
     }
     event.preventDefault();
     event.stopPropagation();
+    const instance = drawRef.current;
+    const preview = dragPreviewRef.current;
+    if (!instance || !preview) {
+      return;
+    }
+    const feature = asMapEditFeature(instance.getSnapshotFeature(armedVertex.featureId) ?? {});
+    const split = feature
+      ? splitMapEditVertexDragGeometry(feature.geometry, armedVertex.index)
+      : null;
+    if (!feature || !split) {
+      return;
+    }
+    const position: [number, number] = [
+      roundCoordinate(armedVertexPosition[0]),
+      roundCoordinate(armedVertexPosition[1]),
+    ];
+    const style = mapEditDragPreviewStyle(feature.properties, colorScheme);
+    try {
+      preview.start({
+        feature,
+        staticData: mapEditDragPreviewStaticGeoJSON(split, style),
+        fillData: mapEditDragPreviewFillGeoJSON(feature.geometry, style),
+        detailData: mapEditDragPreviewDetailGeoJSON(split, position, style),
+      });
+    } catch (error) {
+      console.error(`MapEditLayer: failed to start vertex drag on ${String(feature.id)}`, error);
+      preview.clear();
+      return;
+    }
     disableMapDragPan();
     event.currentTarget.setPointerCapture(event.pointerId);
     vertexDragRef.current = {
       pointerId: event.pointerId,
+      target: event.currentTarget,
       featureId: armedVertex.featureId,
       index: armedVertex.index,
       startClientX: event.clientX,
       startClientY: event.clientY,
-      startCoordinates: armedVertexPosition,
+      startCoordinates: position,
+      position,
+      geometry: feature.geometry,
+      split,
+      style,
+      fillUpdatedAt: performance.now(),
       moved: false,
     };
+    setDraggingVertex({ featureId: armedVertex.featureId, index: armedVertex.index });
   };
 
   const onVertexHandlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -1000,14 +1075,32 @@ export function MapEditLayer({
     if (pending) {
       updateDraggedVertex(event.clientX, event.clientY);
     }
+    const finalGeometry = replaceMapEditVertex(drag.geometry, drag.index, drag.position);
+    if (finalGeometry) {
+      dragPreviewRef.current?.updateFill(mapEditDragPreviewFillGeoJSON(finalGeometry, drag.style));
+    }
     vertexDragRef.current = null;
     restoreMapDragPan();
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     const instance = drawRef.current;
-    if (drag.moved && instance) {
-      persistFeature(instance, drag.featureId, contextRef.current);
+    let committed = false;
+    if (drag.moved && instance && finalGeometry) {
+      try {
+        instance.updateFeatureGeometry(drag.featureId, finalGeometry);
+        persistFeature(instance, drag.featureId, contextRef.current);
+        committed = true;
+      } catch (error) {
+        console.error(`MapEditLayer: failed to commit vertex on ${String(drag.featureId)}`, error);
+        contextRef.current.onError?.("The vertex could not be moved.");
+      }
+    }
+    if (committed) {
+      dragPreviewRef.current?.clearWhenSettled(() => setDraggingVertex(null));
+    } else {
+      dragPreviewRef.current?.clear();
+      setDraggingVertex(null);
     }
   };
 
@@ -1020,6 +1113,11 @@ export function MapEditLayer({
     "all",
     ["==", ["get", "feature"], armedVertex?.featureId ?? ""],
     ["==", ["get", "index"], armedVertex?.index ?? -1],
+  ];
+  const draggingMatch: Expression = [
+    "all",
+    ["==", ["get", "feature"], draggingVertex?.featureId ?? ""],
+    ["==", ["get", "index"], draggingVertex?.index ?? -1],
   ];
 
   return (
@@ -1049,8 +1147,9 @@ export function MapEditLayer({
               SELECTED_VERTEX_COLOR,
               VERTEX_COLOR,
             ] as Expression,
-            "circle-opacity": 0.9,
+            "circle-opacity": ["case", draggingMatch, 0, 0.9] as Expression,
             "circle-stroke-color": ["case", armedMatch, VERTEX_COLOR, ["get", "color"]],
+            "circle-stroke-opacity": ["case", draggingMatch, 0, 1] as Expression,
             "circle-stroke-width": [
               "interpolate",
               ["exponential", 1.2],
