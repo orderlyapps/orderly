@@ -13,6 +13,7 @@ import {
   createSettingsStore,
   DARK_PALETTE_CLASS,
   DataSettingsSection,
+  DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
   decodeSettingsBinary,
   DEFAULT_SETTINGS_ID,
   downloadSettingsBinary,
@@ -22,6 +23,8 @@ import {
   importSettingsBinary,
   importSettingsBinaryFile,
   isCongregationId,
+  isEmergencyContactsShowArchived,
+  isEmergencyContactsVisibleTypes,
   isMapEditColorScheme,
   isNotAtHomeStaleDays,
   isNotAtHomeVisibility,
@@ -78,6 +81,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     "notAtHomeStaleDays",
     "notAtHomeVisibility",
     "mapEditColorScheme",
+    "emergencyContactsVisibleTypes",
+    "emergencyContactsShowArchived",
   ]);
   expect(THEME_LABELS).toEqual({ light: "Light", dark: "Dark", system: "System" });
   expect(THEME_OPTIONS).toEqual([
@@ -102,6 +107,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     notAtHomeStaleDays: 90,
     notAtHomeVisibility: "all",
     mapEditColorScheme: "multicolored",
+    emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+    emergencyContactsShowArchived: false,
   });
   expect(normalizeSettingsDocument({ id: "", theme: "dark" })).toEqual({
     id: DEFAULT_SETTINGS_ID,
@@ -114,6 +121,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     notAtHomeStaleDays: 90,
     notAtHomeVisibility: "all",
     mapEditColorScheme: "multicolored",
+    emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+    emergencyContactsShowArchived: false,
   });
   const overlongId = "a".repeat(SETTINGS_ID_MAX_LENGTH + 1);
   expect(isValidSettingsId(DEFAULT_SETTINGS_ID)).toBe(true);
@@ -180,6 +189,13 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
   expect(isMapEditColorScheme("multicolored")).toBe(true);
   expect(isMapEditColorScheme("rainbow")).toBe(false);
   expect(isMapEditColorScheme(null)).toBe(false);
+  expect(isEmergencyContactsVisibleTypes([])).toBe(true);
+  expect(isEmergencyContactsVisibleTypes(["publisher", "inactive"])).toBe(true);
+  expect(isEmergencyContactsVisibleTypes(["invalid"])).toBe(false);
+  expect(isEmergencyContactsVisibleTypes(null)).toBe(false);
+  expect(isEmergencyContactsShowArchived(true)).toBe(true);
+  expect(isEmergencyContactsShowArchived(false)).toBe(true);
+  expect(isEmergencyContactsShowArchived("true")).toBe(false);
   expect(
     isSettingsDocument({
       id: DEFAULT_SETTINGS_ID,
@@ -192,6 +208,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
       notAtHomeStaleDays: 90,
       notAtHomeVisibility: "all",
       mapEditColorScheme: "multicolored",
+      emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+      emergencyContactsShowArchived: false,
     }),
   ).toBe(true);
   expect(isSettingsDocument({ id: DEFAULT_SETTINGS_ID, theme: "dark", congregationId: "  " })).toBe(
@@ -209,6 +227,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     notAtHomeStaleDays: 90,
     notAtHomeVisibility: "all",
     mapEditColorScheme: "multicolored",
+    emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+    emergencyContactsShowArchived: false,
   });
   expect(toSettingsPatch({ id: "custom", theme: "light" })).toEqual({ theme: "light" });
   expect(
@@ -224,6 +244,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
         mapEditColorScheme: "multicolored",
+        emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+        emergencyContactsShowArchived: false,
       },
       {
         id: DEFAULT_SETTINGS_ID,
@@ -236,6 +258,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
         mapEditColorScheme: "multicolored",
+        emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+        emergencyContactsShowArchived: false,
       },
     ),
   ).toBe(true);
@@ -252,6 +276,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
         mapEditColorScheme: "multicolored",
+        emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+        emergencyContactsShowArchived: false,
       },
       {
         id: DEFAULT_SETTINGS_ID,
@@ -264,6 +290,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
         mapEditColorScheme: "multicolored",
+        emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+        emergencyContactsShowArchived: false,
       },
     ),
   ).toBe(false);
@@ -280,6 +308,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
         mapEditColorScheme: "multicolored",
+        emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+        emergencyContactsShowArchived: false,
       },
       {
         id: DEFAULT_SETTINGS_ID,
@@ -292,6 +322,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
         mapEditColorScheme: "multicolored",
+        emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+        emergencyContactsShowArchived: false,
       },
     ),
   ).toBe(true);
@@ -308,6 +340,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
         mapEditColorScheme: "multicolored",
+        emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+        emergencyContactsShowArchived: false,
       },
       {
         id: DEFAULT_SETTINGS_ID,
@@ -320,6 +354,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
         mapEditColorScheme: "multicolored",
+        emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+        emergencyContactsShowArchived: false,
       },
     ),
   ).toBe(false);
@@ -418,6 +454,8 @@ test("initializes LocalStorage Collection store with default system theme and up
       notAtHomeStaleDays: 90,
       notAtHomeVisibility: "all",
       mapEditColorScheme: "multicolored",
+      emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+      emergencyContactsShowArchived: false,
     });
     expect(store.collection.get(DEFAULT_SETTINGS_ID)?.theme).toBe("system");
 
@@ -467,6 +505,8 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       recentMapCount: 3,
       recentSelectedMaps: { "congregation-1": ["map-2", "map-1"] },
       mapEditColorScheme: "multicolored",
+      emergencyContactsVisibleTypes: ["publisher", "inactive"],
+      emergencyContactsShowArchived: true,
     });
     const binary = await exportSettingsBinary(sourceStore);
     expect(binary).toBeInstanceOf(Uint8Array);
@@ -484,6 +524,8 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       notAtHomeStaleDays: 90,
       notAtHomeVisibility: "all",
       mapEditColorScheme: "multicolored",
+      emergencyContactsVisibleTypes: ["publisher", "inactive"],
+      emergencyContactsShowArchived: true,
     });
 
     const imported = await importSettingsBinary(binary, targetStore);
@@ -498,11 +540,19 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       notAtHomeStaleDays: 90,
       notAtHomeVisibility: "all",
       mapEditColorScheme: "multicolored",
+      emergencyContactsVisibleTypes: ["publisher", "inactive"],
+      emergencyContactsShowArchived: true,
     });
     expect((await targetStore.getSettings()).theme).toBe("dark");
 
     const blob = new Blob([binary], { type: "application/octet-stream" });
-    await sourceStore.updateSettings({ theme: "light", recentMapCount: 5, recentSelectedMaps: {} });
+    await sourceStore.updateSettings({
+      theme: "light",
+      recentMapCount: 5,
+      recentSelectedMaps: {},
+      emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+      emergencyContactsShowArchived: false,
+    });
     const lightBinary = await exportSettingsBinary(sourceStore);
     const lightBlob = new Blob([lightBinary], { type: "application/octet-stream" });
 
@@ -523,6 +573,8 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       notAtHomeStaleDays: 90,
       notAtHomeVisibility: "all",
       mapEditColorScheme: "multicolored",
+      emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+      emergencyContactsShowArchived: false,
     });
   } finally {
     await sourceStore.close();
@@ -549,6 +601,8 @@ test("rejects invalid binary payloads", () => {
     notAtHomeStaleDays: 90,
     notAtHomeVisibility: "all",
     mapEditColorScheme: "multicolored",
+    emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+    emergencyContactsShowArchived: false,
   });
   const corrupted = new Uint8Array(valid);
   corrupted[corrupted.length - 1] = 0x00;
@@ -592,6 +646,8 @@ test("rejects invalid binary payloads", () => {
     notAtHomeStaleDays: 90,
     notAtHomeVisibility: "all",
     mapEditColorScheme: "multicolored",
+    emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+    emergencyContactsShowArchived: false,
   });
 });
 
@@ -774,6 +830,8 @@ test("recovers from malformed or corrupt data in storage and falls back to defau
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
         mapEditColorScheme: "multicolored",
+        emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+        emergencyContactsShowArchived: false,
       });
     } finally {
       await store.close();

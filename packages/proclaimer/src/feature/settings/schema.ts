@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { publisherTypeSchema, type PublisherType } from "../publisher/index.ts";
+
 export const THEME_MODES = ["light", "dark", "system"] as const;
 
 export const themeModeSchema = z.enum(THEME_MODES);
@@ -49,6 +51,16 @@ export const mapEditColorSchemeSchema = z.enum(MAP_EDIT_COLOR_SCHEMES);
 
 export type MapEditColorScheme = z.infer<typeof mapEditColorSchemeSchema>;
 
+export const emergencyContactsVisibleTypesSchema = z.array(publisherTypeSchema);
+
+export const emergencyContactsShowArchivedSchema = z.boolean();
+
+export type EmergencyContactsVisibleTypes = PublisherType[];
+
+export const DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES: EmergencyContactsVisibleTypes = [
+  ...publisherTypeSchema.options,
+];
+
 export const NOT_AT_HOME_STALE_DAYS_MAX = 365;
 
 export const notAtHomeStaleDaysSchema = z.number().int().min(0).max(NOT_AT_HOME_STALE_DAYS_MAX);
@@ -76,6 +88,8 @@ const SETTINGS_FIELD_SCHEMAS = {
   notAtHomeStaleDays: notAtHomeStaleDaysSchema,
   notAtHomeVisibility: notAtHomeVisibilitySchema,
   mapEditColorScheme: mapEditColorSchemeSchema,
+  emergencyContactsVisibleTypes: emergencyContactsVisibleTypesSchema,
+  emergencyContactsShowArchived: emergencyContactsShowArchivedSchema,
 } as const;
 
 export const settingsDocumentSchema = z.object({
@@ -104,6 +118,8 @@ export const DEFAULT_SETTINGS: SettingsDocument = {
   notAtHomeStaleDays: 90,
   notAtHomeVisibility: "all",
   mapEditColorScheme: "multicolored",
+  emergencyContactsVisibleTypes: [...DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES],
+  emergencyContactsShowArchived: false,
 };
 
 export function isThemeMode(value: unknown): value is ThemeMode {
@@ -163,6 +179,16 @@ export function isMapEditColorScheme(value: unknown): value is MapEditColorSchem
   return mapEditColorSchemeSchema.safeParse(value).success;
 }
 
+export function isEmergencyContactsVisibleTypes(
+  value: unknown,
+): value is EmergencyContactsVisibleTypes {
+  return emergencyContactsVisibleTypesSchema.safeParse(value).success;
+}
+
+export function isEmergencyContactsShowArchived(value: unknown): value is boolean {
+  return emergencyContactsShowArchivedSchema.safeParse(value).success;
+}
+
 export function isValidSettingsId(value: unknown): value is string {
   return settingsIdSchema.safeParse(value).success;
 }
@@ -216,7 +242,7 @@ export function toSettingsPatch(value: Partial<SettingsDocument>): SettingsPatch
   return patch;
 }
 
-function areStringArraysEqual(a: string[], b: string[]): boolean {
+function areStringArraysEqual(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
@@ -248,6 +274,9 @@ export function areSettingsEqual(a: SettingsDocument, b: SettingsDocument): bool
     }
     if (key === "recentSelectedMaps") {
       return areRecentSelectedMapsEqual(a[key], b[key]);
+    }
+    if (key === "emergencyContactsVisibleTypes") {
+      return areStringArraysEqual(a[key], b[key]);
     }
     return a[key] === b[key];
   });

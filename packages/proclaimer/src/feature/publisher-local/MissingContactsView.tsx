@@ -13,6 +13,8 @@ import {
   IonList,
   IonModal,
   IonNote,
+  IonSelect,
+  IonSelectOption,
   IonSpinner,
   IonTitle,
   IonToolbar,
@@ -23,10 +25,12 @@ import { addCircleOutline, checkmark } from "ionicons/icons";
 import {
   familyHeadOptions,
   isPublisherRowId,
+  publisherTypeOptions,
   PublisherSelect,
   usePublishers,
   type PublisherCollection,
 } from "../publisher/index.ts";
+import { useSettings } from "../settings/hooks.ts";
 import { AddContactDetailModal } from "./ContactDetailModal.tsx";
 import { getPublisherLocalCollection, type PublisherLocalCollection } from "./collection.ts";
 import { addContactDetail, type ContactDetailInput } from "./edit.ts";
@@ -36,6 +40,9 @@ import {
   type MissingContactField,
   type MissingContactItem,
 } from "./missing.ts";
+
+const TYPE_FILTER_OPTIONS = publisherTypeOptions();
+const ARCHIVED_FILTER_VALUE = "__archived";
 
 export interface MissingContactsViewProps {
   congregationId?: string | null;
@@ -55,6 +62,7 @@ export function MissingContactsView({
   } | null>(null);
   const [familyHeadPublisherId, setFamilyHeadPublisherId] = useState<string | null>(null);
   const [presentAlert] = useIonAlert();
+  const { settings, setSetting } = useSettings();
   const localCollection = collection ?? getPublisherLocalCollection();
   const {
     records,
@@ -70,9 +78,12 @@ export function MissingContactsView({
     collection: publishersCollection,
   } = usePublishers(congregationId, publisherCollection);
 
+  const visibleTypes = settings.emergencyContactsVisibleTypes;
+  const showArchived = settings.emergencyContactsShowArchived;
+  const selectedFilters = showArchived ? [...visibleTypes, ARCHIVED_FILTER_VALUE] : visibleTypes;
   const items = useMemo(
-    () => buildMissingContactItems({ publishers, records }),
-    [publishers, records],
+    () => buildMissingContactItems({ publishers, records, visibleTypes, showArchived }),
+    [publishers, records, visibleTypes, showArchived],
   );
 
   const familyHeadPublisher = publishers.find((p) => p.id === familyHeadPublisherId);
@@ -141,9 +152,45 @@ export function MissingContactsView({
     );
   }
 
+  const filterControl = (
+    <IonItem>
+      <IonSelect
+        label="Publisher types shown"
+        labelPlacement="stacked"
+        interface="alert"
+        multiple
+        value={selectedFilters}
+        onIonChange={(event) => {
+          const value = event.detail.value;
+          const next = Array.isArray(value) ? value : [];
+          const nextVisibleTypes = next.filter((item) => item !== ARCHIVED_FILTER_VALUE);
+          const nextShowArchived = next.includes(ARCHIVED_FILTER_VALUE);
+          void setSetting("emergencyContactsVisibleTypes", nextVisibleTypes).catch(
+            (error: unknown) => {
+              console.warn("Failed to persist emergency contacts type filter", error);
+            },
+          );
+          void setSetting("emergencyContactsShowArchived", nextShowArchived).catch(
+            (error: unknown) => {
+              console.warn("Failed to persist emergency contacts archived filter", error);
+            },
+          );
+        }}
+      >
+        {TYPE_FILTER_OPTIONS.map((option) => (
+          <IonSelectOption key={option.value} value={option.value}>
+            {option.label}
+          </IonSelectOption>
+        ))}
+        <IonSelectOption value={ARCHIVED_FILTER_VALUE}>Archived</IonSelectOption>
+      </IonSelect>
+    </IonItem>
+  );
+
   if (items.length === 0) {
     return (
       <div className="ion-padding" style={{ textAlign: "center" }}>
+        <IonList>{filterControl}</IonList>
         <IonNote color="medium" style={{ display: "block" }}>
           All publishers have complete details.
         </IonNote>
@@ -153,6 +200,7 @@ export function MissingContactsView({
 
   return (
     <div className="ion-padding">
+      <IonList>{filterControl}</IonList>
       <IonNote style={{ display: "block", marginBottom: "0.5rem", textAlign: "center" }}>
         {items.length} publisher{items.length !== 1 ? "s" : ""}{" "}
         {items.length !== 1 ? "have" : "has"} missing details:

@@ -677,6 +677,60 @@ test("buildMissingContactItems omits complete, archived, and removed publishers"
   expect(items).toEqual([]);
 });
 
+test("buildMissingContactItems can include archived publishers", () => {
+  const input = {
+    publishers: [
+      {
+        id: "pub-1",
+        first_name: "Amy",
+        last_name: "Adams",
+        congregation_id: "c1",
+        type: "publisher" as const,
+        archived_at: "2024-01-01",
+      },
+      {
+        id: "pub-2",
+        first_name: "Bob",
+        last_name: "Brown",
+        congregation_id: "c1",
+        type: "publisher" as const,
+      },
+    ],
+    records: [],
+    visibleTypes: ["publisher" as const],
+  };
+
+  expect(buildMissingContactItems(input).map((i) => i.publisher_id)).toEqual(["pub-2"]);
+  expect(
+    buildMissingContactItems({ ...input, showArchived: true }).map((i) => i.publisher_id),
+  ).toEqual(["pub-1", "pub-2"]);
+});
+
+test("buildMissingContactItems only shows selected publisher types", () => {
+  const items = buildMissingContactItems({
+    publishers: [
+      {
+        id: "pub-1",
+        first_name: "Amy",
+        last_name: "Adams",
+        congregation_id: "c1",
+        type: "inactive",
+      },
+      {
+        id: "pub-2",
+        first_name: "Bob",
+        last_name: "Brown",
+        congregation_id: "c1",
+        type: "publisher",
+      },
+    ],
+    records: [],
+    visibleTypes: ["publisher"],
+  });
+
+  expect(items.map((i) => i.publisher_id)).toEqual(["pub-2"]);
+});
+
 test("buildMissingContactItems sorts publishers by last then first name", () => {
   const items = buildMissingContactItems({
     publishers: [

@@ -3,6 +3,7 @@ import {
   isArchived,
   isRemoved,
   type Publisher,
+  type PublisherType,
 } from "../publisher/index.ts";
 import type { PublisherLocal } from "./schema.ts";
 
@@ -33,6 +34,8 @@ export interface MissingContactItem {
 export interface BuildMissingContactItemsInput {
   publishers: Publisher[];
   records: PublisherLocal[];
+  visibleTypes?: readonly PublisherType[];
+  showArchived?: boolean;
 }
 
 /**
@@ -44,11 +47,19 @@ export interface BuildMissingContactItemsInput {
 export function buildMissingContactItems({
   publishers,
   records,
+  visibleTypes,
+  showArchived = false,
 }: BuildMissingContactItemsInput): MissingContactItem[] {
+  const visibleTypeSet = visibleTypes ? new Set(visibleTypes) : null;
   const recordMap = new Map(records.map((r) => [r.publisher_id, r]));
   const items: MissingContactItem[] = [];
   for (const publisher of publishers) {
-    if (!publisher.id || isArchived(publisher) || isRemoved(publisher)) {
+    if (
+      !publisher.id ||
+      (!showArchived && isArchived(publisher)) ||
+      isRemoved(publisher) ||
+      (visibleTypeSet && (!publisher.type || !visibleTypeSet.has(publisher.type)))
+    ) {
       continue;
     }
     const record = recordMap.get(publisher.id);
