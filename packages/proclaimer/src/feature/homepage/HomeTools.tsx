@@ -30,6 +30,11 @@ export function HomeTools({ congregationId, permissions, standing }: HomeToolsPr
       visible: resolved.hasSecretary || resolved.isSuperAdmin,
     },
     {
+      label: "Elders",
+      routerLink: "/elders",
+      visible: resolved.hasElder || resolved.isSuperAdmin,
+    },
+    {
       label: "Data Import",
       routerLink: "/data-import",
       visible: resolvedStanding.isElderOrMinisterialServant || resolved.isSuperAdmin,

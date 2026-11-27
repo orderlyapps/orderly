@@ -788,7 +788,19 @@ test("shows the tools section for super admins", () => {
   );
   expect(markup).toContain("Tools");
   expect(markup).toContain("Secretary");
+  expect(markup).toContain("Elders");
   expect(markup).toContain("Data Import");
+});
+
+test("shows the elders tool for elder permission", () => {
+  const markup = renderToStaticMarkup(
+    createElement(HomeTools, {
+      permissions: permissions({ hasElder: true }),
+      standing: standing(),
+    }),
+  );
+  expect(markup).toContain("Elders");
+  expect(markup).toContain("/elders");
 });
 
 test("shows the data import tool for elders and ministerial servants", () => {
@@ -819,6 +831,7 @@ test("hides the tools section without any tool permission", () => {
   );
   expect(markup).not.toContain("Tools");
   expect(markup).not.toContain("Secretary");
+  expect(markup).not.toContain("Elders");
 });
 
 test("hides the tools section while permissions are loading", () => {
