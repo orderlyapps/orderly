@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 
 import { IonNote } from "@ionic/react";
 import Map, { GeolocateControl, NavigationControl } from "react-map-gl/mapbox";
@@ -55,6 +55,41 @@ export const MapView = ({
 }: MapViewProps) => {
   const { accessToken } = options;
   const { mapRef, mapKey, error, isConfigured, resolvedStyle, mapProps } = useMapView(options);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !isConfigured) {
+      return;
+    }
+
+    let frame = 0;
+    const resize = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => mapRef.current?.resize());
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(container);
+
+    const page = container.closest("ion-page");
+    const mutationObserver = page
+      ? new MutationObserver(() => {
+          if (!page.classList.contains("ion-page-hidden")) {
+            resize();
+          }
+        })
+      : null;
+    if (page) {
+      mutationObserver?.observe(page, { attributeFilter: ["class"], attributes: true });
+    }
+
+    resize();
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      mutationObserver?.disconnect();
+    };
+  }, [isConfigured, mapRef]);
 
   if (!isConfigured || !accessToken) {
     return (
@@ -65,7 +100,7 @@ export const MapView = ({
   }
 
   return (
-    <div style={containerStyle}>
+    <div ref={containerRef} style={containerStyle}>
       <Map
         key={mapKey}
         ref={mapRef}
