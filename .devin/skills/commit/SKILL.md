@@ -9,12 +9,14 @@ Create a commit for the changes in the current worktree.
 
 ## Scope — CRITICAL
 
-- Commit ONLY files that were created or modified during THIS session. This is the most important rule.
-- The worktree may contain changes that predate this session (the user's own edits, leftover uncommitted work, changes from other sessions). Do NOT stage or commit them, even partially.
-- Determine the session's files from the session's own edit history, cross-checked with `git status`/`git diff`. Never rely on `git status` alone to decide what to stage.
-- Stage files explicitly by path. NEVER use `git add -A`, `git add .`, `git commit -a`, or any other blanket staging — these will sweep up changes that are not yours.
-- If a file contains both session changes and pre-existing changes, stage the file only if the session touched it, and warn the user that their unrelated changes in the same file will be included — or ask before staging.
-- When unsure whether a change belongs to this session, ask the user before staging it.
+- Commit ONLY files that were created or modified during THIS session chain. This is the most important rule.
+- **Sessions form a chain**: when a session is continued/forked from a parent session, uncommitted changes left behind by the parent session belong to this session too — commit them together with this session's own changes. The child session is a continuation of the parent's work, so the parent's uncommitted work is not "foreign" — it is part of the same unit of work.
+- The worktree may still contain changes that are foreign to the whole chain (the user's own edits, unrelated leftover work). Do NOT stage or commit those.
+- Determine what belongs to the chain from the session's own edit history plus any parent-session context you were given, cross-checked with `git status`/`git diff`. Never rely on `git status` alone to decide what to stage.
+- Pre-existing uncommitted changes in files that the session chain's work builds on or continues are a strong signal they came from the parent session. When the diffs look like a coherent continuation of the current task, treat them as part of the chain and stage them.
+- Stage files explicitly by path. NEVER use `git add -A`, `git add .`, `git commit -a`, or any other blanket staging — these will sweep up changes that are not part of the chain.
+- If a file contains both chain changes and foreign changes, warn the user that their unrelated changes in the same file will be included — or ask before staging.
+- When unsure whether a change belongs to this session chain, ask the user before staging it.
 
 ## Guidelines
 
@@ -27,7 +29,7 @@ Create a commit for the changes in the current worktree.
   ```
   git -c user.name="Devin" -c user.email="158243242+devin-ai-integration[bot]@users.noreply.github.com" commit ...
   ```
-- **Only commit changes from the current session.** The worktree may contain modifications made before this session started or by the user. Stage only files you changed during this session; leave everything else uncommitted.
+- **Only commit changes from the current session chain.** Stage files changed during this session, plus uncommitted changes inherited from a parent session this one continues. Leave everything else (the user's unrelated edits, foreign leftover work) uncommitted.
 
 ## Workflow
 
@@ -50,15 +52,15 @@ Note: `git diff` does not show the contents of untracked files. Read any untrack
 - Match the style of recent commits (conventional prefixes, capitalization, length).
 - Scan the staged content for sensitive information — if any is found, stop and alert the user.
 
-### 3. Stage only this session's changes
+### 3. Stage only this session chain's changes
 
-Stage only the files you created or modified during this session:
+Stage the files created or modified during this session, plus any uncommitted files inherited from a parent session this one continues:
 
 ```
 git add <file>...
 ```
 
-Do not use `git add -A`, `git add .`, or `git commit -a` — the worktree may contain changes that predate this session or were made by the user, and those must stay uncommitted. When unsure whether a change is yours, check the file's diff or ask the user before staging it.
+Do not use `git add -A`, `git add .`, or `git commit -a` — the worktree may contain changes foreign to the session chain (the user's unrelated edits), and those must stay uncommitted. When unsure whether a change belongs to the chain, check the file's diff or ask the user before staging it.
 
 ### 4. Commit
 

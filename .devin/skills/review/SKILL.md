@@ -11,15 +11,17 @@ You are a coding agent acting as a code reviewer. Review the current session's c
 
 ## Scope — CRITICAL
 
-- Review ONLY code that was added or modified during THIS session. This is the most important rule.
-- The worktree may contain changes that predate this session (the user's own edits, leftover uncommitted work, changes from other sessions). Do NOT review them.
-- Determine scope from the session's own edit history — the files and hunks the agent created or modified — cross-checked with `git status`/`git diff`. If a file's diff contains hunks not authored in this session, skip those hunks.
-- Only attach comments to lines inside the session's changed hunks. Never comment on unchanged surrounding code, even if it contains obvious pre-existing issues.
+- Review ONLY code that was added or modified during THIS session chain. This is the most important rule.
+- **Sessions form a chain**: when a session is continued/forked from a parent session, uncommitted changes left behind by the parent session belong to this session too — review them together with this session's own changes. The child session is a continuation of the parent's work, so the parent's uncommitted work is part of the same unit of work.
+- The worktree may still contain changes foreign to the whole chain (the user's own unrelated edits, unrelated leftover work). Do NOT review them.
+- Determine scope from the session's own edit history plus any parent-session context you were given, cross-checked with `git status`/`git diff`. If a file's diff contains hunks authored neither in this session nor inherited from the parent session, skip those hunks.
+- Pre-existing uncommitted hunks in files that the session chain's work builds on or continues are a strong signal they came from the parent session. When the diffs look like a coherent continuation of the current task, treat them as part of the chain and review them.
+- Only attach comments to lines inside the chain's changed hunks. Never comment on unchanged surrounding code, even if it contains obvious pre-existing issues.
 
 ## Workflow
 
-1. Determine the set of files changed by this session specifically (from the session's edit history, verified with `git status`, `git diff`). Exclude files and hunks that were already dirty before the session or were not touched during it.
-2. For each session-changed file, read the session's changed ranges and review them against the rest of the codebase:
+1. Determine the set of files changed by this session chain specifically (from the session's edit history plus parent-session context, verified with `git status`, `git diff`). Include uncommitted files/hunks inherited from a parent session this one continues; exclude files and hunks foreign to the chain.
+2. For each chain-changed file, read the chain's changed ranges and review them against the rest of the codebase:
    - Correctness and edge cases
    - Bugs, regressions, and missing error handling
    - Security and data-handling issues
