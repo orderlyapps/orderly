@@ -211,17 +211,88 @@ export const mapSearchable = (value: string) =>
     .replace(/[^\p{L}\p{N}]/gu, "")
     .toLowerCase();
 
-// Sorts rows alphabetically by name, then keeps those whose name or details
-// contain the alphanumeric-normalized query.
-export function filterMapRows(rows: MapRow[], query: string): MapRow[] {
-  const sorted = [...rows].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }),
-  );
-  const needle = mapSearchable(query);
-  if (!needle) {
-    return sorted;
+// Resolves up to `recentCount` recently selected keys that still correspond
+// to rows, preserving reverse-chronological order.
+export function recentMapRowKeys(
+  rows: MapRow[],
+  recentKeys: readonly string[] = [],
+  recentCount = 0,
+): string[] {
+  const rowKeys = new Set(rows.map((row) => mapRowKey(row)));
+  const limit = Math.max(0, recentCount);
+  const keys: string[] = [];
+  for (const key of recentKeys) {
+    if (keys.length >= limit) {
+      break;
+    }
+    if (rowKeys.has(key) && !keys.includes(key)) {
+      keys.push(key);
+    }
   }
-  return sorted.filter((row) => mapSearchable(`${row.name} ${row.details ?? ""}`).includes(needle));
+  return keys;
+}
+
+// Sorts rows alphabetically by name, with up to `recentCount` recently
+// selected maps first in reverse-chronological order.
+export function sortMapRowsByRecency(
+  rows: MapRow[],
+  recentKeys: readonly string[] = [],
+  recentCount = 0,
+): MapRow[] {
+  const recentRank = new Map(
+    recentMapRowKeys(rows, recentKeys, recentCount).map((key, index) => [key, index]),
+  );
+  return [...rows].sort((a, b) => {
+    const aRank = recentRank.get(mapRowKey(a));
+    const bRank = recentRank.get(mapRowKey(b));
+    if (aRank !== undefined || bRank !== undefined) {
+      if (aRank === undefined) {
+        return 1;
+      }
+      if (bRank === undefined) {
+        return -1;
+      }
+      if (aRank !== bRank) {
+        return aRank - bRank;
+      }
+    }
+    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+  });
+}
+
+// Keeps rows whose name or details contain the alphanumeric-normalized query.
+// Optional recency inputs lift matching recently selected rows to the top.
+export function filterMapRows(
+  rows: MapRow[],
+  query: string,
+  recentKeys: readonly string[] = [],
+  recentCount = 0,
+): MapRow[] {
+  const needle = mapSearchable(query);
+  const filtered = needle
+    ? rows.filter((row) => mapSearchable(`${row.name} ${row.details ?? ""}`).includes(needle))
+    : rows;
+  return sortMapRowsByRecency(filtered, recentKeys, recentCount);
+}
+
+// Builds the map picker sections. `allRows` intentionally includes every
+// matching row, even when it also appears in `recentRows`.
+export function buildMapRowListSections(
+  rows: MapRow[],
+  query: string,
+  recentKeys: readonly string[] = [],
+  recentCount = 0,
+): { recentRows: MapRow[]; allRows: MapRow[] } {
+  const allRows = filterMapRows(rows, query);
+  const keys = recentMapRowKeys(allRows, recentKeys, recentCount);
+  if (keys.length === 0) {
+    return { recentRows: [], allRows };
+  }
+  const recentRank = new Map(keys.map((key, index) => [key, index]));
+  const recentRows = allRows
+    .filter((row) => recentRank.has(mapRowKey(row)))
+    .sort((a, b) => (recentRank.get(mapRowKey(a)) ?? 0) - (recentRank.get(mapRowKey(b)) ?? 0));
+  return { recentRows, allRows };
 }
 
 // Sorts blocks/faces alphabetically for editing lists, matching the numeric

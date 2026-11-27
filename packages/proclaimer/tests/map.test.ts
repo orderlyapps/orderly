@@ -12,6 +12,7 @@ import {
   boundaryToLabelPoint,
   boundaryToPolygonCoords,
   buildMapEditFeatures,
+  buildMapRowListSections,
   buildNotAtHomeFeatures,
   clampMapZoom,
   DEFAULT_MAP_CENTER,
@@ -57,6 +58,7 @@ import {
   notAtHomeRowToMarker,
   NotAtHomesLayer,
   readMapViewState,
+  recentMapRowKeys,
   removeMapBlock,
   removeMapEditVertex,
   renameMapBlock,
@@ -64,6 +66,7 @@ import {
   resolveMapStyle,
   sortMapBlocks,
   sortMapEditFeaturesForSelection,
+  sortMapRowsByRecency,
   sortMapTags,
   toMapboxCenter,
   useMapPolygons,
@@ -445,6 +448,45 @@ test("filters and sorts map rows by alphanumeric name search", () => {
   // A query with no alphanumeric characters applies no filter.
   expect(filterMapRows(rows, "#-!")).toHaveLength(4);
   expect(filterMapRows(rows, "zzz")).toHaveLength(0);
+
+  // Recent selections lead in reverse-chronological order, limited to the
+  // configured count; the rest stay alphabetically sorted.
+  expect(ids(filterMapRows(rows, "", ["missing-map", "map-3", "map-10", "map-2"], 2))).toEqual([
+    "map-3",
+    "map-10",
+    "map-1",
+    "map-2",
+  ]);
+  expect(ids(filterMapRows(rows, "map", ["map-3", "map-10"], 2))).toEqual([
+    "map-3",
+    "map-10",
+    "map-2",
+  ]);
+  expect(ids(sortMapRowsByRecency(rows, ["map-3"], 0))).toEqual([
+    "map-1",
+    "map-2",
+    "map-10",
+    "map-3",
+  ]);
+
+  expect(recentMapRowKeys(rows, ["missing-map", "map-3", "map-10", "map-2"], 2)).toEqual([
+    "map-3",
+    "map-10",
+  ]);
+  const sections = buildMapRowListSections(
+    rows,
+    "",
+    ["missing-map", "map-3", "map-10", "map-2"],
+    2,
+  );
+  expect(ids(sections.recentRows)).toEqual(["map-3", "map-10"]);
+  // The all-maps section is not a complement of the recent section: recently
+  // selected rows remain listed alphabetically with every other map.
+  expect(ids(sections.allRows)).toEqual(["map-1", "map-2", "map-10", "map-3"]);
+
+  const searchedSections = buildMapRowListSections(rows, "map", ["map-3", "map-10"], 1);
+  expect(ids(searchedSections.recentRows)).toEqual(["map-3"]);
+  expect(ids(searchedSections.allRows)).toEqual(["map-2", "map-10", "map-3"]);
 });
 
 test("renders a fallback message when no access token is configured", () => {

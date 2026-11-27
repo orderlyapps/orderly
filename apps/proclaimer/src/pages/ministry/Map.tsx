@@ -29,6 +29,7 @@ import {
   MasterMapLayer,
   NotAtHomesLayer,
   readMapViewState,
+  recordRecentMapSelection,
   useMasterMap,
   usePermissions,
   useSettings,
@@ -46,7 +47,7 @@ const Map = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [presentAlert] = useIonAlert();
-  const { settings, setSetting } = useSettings();
+  const { settings, updateSettings } = useSettings();
   const congregationId = settings.congregationId.trim();
   const selectedMap = settings.selectedMaps[congregationId] || null;
   const { bounds: masterBounds } = useMasterMap(congregationId);
@@ -118,14 +119,24 @@ const Map = () => {
           isOpen={mapsOpen}
           onDidDismiss={() => setMapsOpen(false)}
           selectedMap={selectedMap}
+          recentMapKeys={settings.recentSelectedMaps[congregationId] ?? []}
+          recentMapCount={settings.recentMapCount}
           onSelect={(key) => {
             setMapsOpen(false);
             if (!congregationId) {
               return;
             }
-            void setSetting("selectedMaps", {
-              ...settings.selectedMaps,
-              [congregationId]: key,
+            void updateSettings({
+              selectedMaps: {
+                ...settings.selectedMaps,
+                [congregationId]: key,
+              },
+              recentSelectedMaps: recordRecentMapSelection(
+                settings.recentSelectedMaps,
+                congregationId,
+                key,
+                selectedMap,
+              ),
             }).catch((error: unknown) => {
               console.warn("Failed to persist selected map", error);
             });

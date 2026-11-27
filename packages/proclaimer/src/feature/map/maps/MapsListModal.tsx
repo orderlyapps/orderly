@@ -18,9 +18,10 @@ import {
 } from "@ionic/react";
 import { checkmarkOutline, imageOutline, mapOutline } from "ionicons/icons";
 
+import { MonthHeader } from "../../../components/MonthHeader.tsx";
 import { useMapPolygons } from "./hooks.ts";
 import { MapImageModal } from "./MapImageModal.tsx";
-import { filterMapRows, mapRowKey, type MapRow } from "./schema.ts";
+import { buildMapRowListSections, mapRowKey, type MapRow } from "./schema.ts";
 
 export interface MapsListModalProps {
   isOpen: boolean;
@@ -28,6 +29,8 @@ export interface MapsListModalProps {
   onSelect: (mapKey: string) => void;
   congregationId?: string;
   selectedMap?: string | null;
+  recentMapKeys?: readonly string[];
+  recentMapCount?: number;
 }
 
 export function MapsListModal({
@@ -36,16 +39,52 @@ export function MapsListModal({
   onSelect,
   congregationId,
   selectedMap = null,
+  recentMapKeys = [],
+  recentMapCount = 0,
 }: MapsListModalProps) {
   const { maps, isLoading, error } = useMapPolygons(congregationId);
   const [query, setQuery] = useState("");
   const [viewingMap, setViewingMap] = useState<MapRow | null>(null);
 
-  const visibleMaps = useMemo(() => filterMapRows(maps, query), [maps, query]);
+  const effectiveRecentMapKeys = useMemo(
+    () => (recentMapKeys.length > 0 ? recentMapKeys : selectedMap ? [selectedMap] : []),
+    [recentMapKeys, selectedMap],
+  );
+  const sections = useMemo(
+    () => buildMapRowListSections(maps, query, effectiveRecentMapKeys, recentMapCount),
+    [maps, query, effectiveRecentMapKeys, recentMapCount],
+  );
 
   const handleDidDismiss = () => {
     setQuery("");
     onDidDismiss();
+  };
+
+  const renderMapItem = (map: MapRow, index: number) => {
+    const key = mapRowKey(map);
+    return (
+      <IonItem key={`${key}:${index}`} button detail={false} onClick={() => onSelect(key)}>
+        <IonLabel>
+          <h2>{map.name}</h2>
+          {map.details ? <p>{map.details}</p> : null}
+        </IonLabel>
+        {key === selectedMap ? <IonIcon slot="end" icon={checkmarkOutline} /> : null}
+        {map.url ? (
+          <IonButton
+            slot="end"
+            fill="clear"
+            aria-label={`View ${map.name} image`}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setViewingMap(map);
+            }}
+          >
+            <IonIcon slot="icon-only" icon={imageOutline} />
+          </IonButton>
+        ) : null}
+      </IonItem>
+    );
   };
 
   return (
@@ -91,44 +130,25 @@ export function MapsListModal({
               )}
             </div>
           ) : (
-            <IonList>
-              {visibleMaps.length === 0 ? (
-                <IonItem lines="none">
-                  <IonNote>No maps found</IonNote>
-                </IonItem>
+            <>
+              {sections.recentRows.length > 0 ? (
+                <>
+                  <MonthHeader label="Recent Maps" />
+                  <IonList style={{ marginTop: 4 }}>
+                    {sections.recentRows.map(renderMapItem)}
+                  </IonList>
+                </>
               ) : null}
-              {visibleMaps.map((map, index) => {
-                const key = mapRowKey(map);
-                return (
-                  <IonItem
-                    key={`${key}:${index}`}
-                    button
-                    detail={false}
-                    onClick={() => onSelect(key)}
-                  >
-                    <IonLabel>
-                      <h2>{map.name}</h2>
-                      {map.details ? <p>{map.details}</p> : null}
-                    </IonLabel>
-                    {key === selectedMap ? <IonIcon slot="end" icon={checkmarkOutline} /> : null}
-                    {map.url ? (
-                      <IonButton
-                        slot="end"
-                        fill="clear"
-                        aria-label={`View ${map.name} image`}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          setViewingMap(map);
-                        }}
-                      >
-                        <IonIcon slot="icon-only" icon={imageOutline} />
-                      </IonButton>
-                    ) : null}
+              <MonthHeader label="All Maps" />
+              <IonList style={{ marginTop: 4 }}>
+                {sections.allRows.length === 0 ? (
+                  <IonItem lines="none">
+                    <IonNote>No maps found</IonNote>
                   </IonItem>
-                );
-              })}
-            </IonList>
+                ) : null}
+                {sections.allRows.map(renderMapItem)}
+              </IonList>
+            </>
           )}
         </IonContent>
       </IonModal>

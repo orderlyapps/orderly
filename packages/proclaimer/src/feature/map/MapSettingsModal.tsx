@@ -15,7 +15,7 @@ import {
 } from "@ionic/react";
 
 import { useSettings } from "../settings/hooks.ts";
-import { isNotAtHomeVisibility } from "../settings/schema.ts";
+import { isNotAtHomeVisibility, RECENT_MAP_COUNT_CHOICES } from "../settings/schema.ts";
 import { NOT_AT_HOME_STALE_DAY_CHOICES } from "./not-at-homes/schema.ts";
 
 export interface MapSettingsModalProps {
@@ -35,6 +35,11 @@ const VISIBILITY_OPTIONS = [
   { label: "Hide Old", value: "hide_old" },
   { label: "Hide New", value: "hide_new" },
 ] as const;
+
+const RECENT_COUNT_OPTIONS = RECENT_MAP_COUNT_CHOICES.map((count) => ({
+  label: count === 0 ? "None" : `${count} ${count === 1 ? "map" : "maps"}`,
+  value: count,
+}));
 
 export function MapSettingsModal({ isOpen, onDidDismiss }: MapSettingsModalProps) {
   const { settings, setSetting } = useSettings();
@@ -63,6 +68,28 @@ export function MapSettingsModal({ isOpen, onDidDismiss }: MapSettingsModalProps
       </IonHeader>
       <IonContent>
         <IonList>
+          <IonItem>
+            <IonSelect
+              label="Recent Maps Shown"
+              value={settings.recentMapCount}
+              interface="popover"
+              onIonChange={(event) => {
+                const value = event.detail.value;
+                if (typeof value !== "number") {
+                  return;
+                }
+                void setSetting("recentMapCount", value).catch((error: unknown) => {
+                  console.warn("Failed to persist recent map count", error);
+                });
+              }}
+            >
+              {RECENT_COUNT_OPTIONS.map((option) => (
+                <IonSelectOption key={option.value} value={option.value}>
+                  {option.label}
+                </IonSelectOption>
+              ))}
+            </IonSelect>
+          </IonItem>
           <IonItem>
             <IonSelect
               label="Mark Not At Homes Purple After"

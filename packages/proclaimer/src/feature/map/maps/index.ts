@@ -10,6 +10,7 @@ export { MapsLayer, type MapsLayerProps } from "./MapsLayer.tsx";
 export { MapsListModal, type MapsListModalProps } from "./MapsListModal.tsx";
 export {
   boundariesToBounds,
+  buildMapRowListSections,
   boundaryToBounds,
   boundaryToLabelPoint,
   boundaryToPolygonCoords,
@@ -32,8 +33,10 @@ export {
   mapRowKey,
   mapRowSchema,
   removeMapBlock,
+  recentMapRowKeys,
   renameMapBlock,
   sortMapBlocks,
+  sortMapRowsByRecency,
   mapRowsToBounds,
   mapRowsToGeoJSON,
   mapRowToFeature,

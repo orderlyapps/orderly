@@ -47,11 +47,26 @@ export const NOT_AT_HOME_STALE_DAYS_MAX = 365;
 
 export const notAtHomeStaleDaysSchema = z.number().int().min(0).max(NOT_AT_HOME_STALE_DAYS_MAX);
 
+export const RECENT_MAP_COUNT_CHOICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+
+export const RECENT_MAP_COUNT_MAX = Math.max(...RECENT_MAP_COUNT_CHOICES);
+
+export const RECENT_SELECTED_MAPS_MAX_LENGTH = RECENT_MAP_COUNT_MAX;
+
+export const recentMapCountSchema = z.number().int().min(0).max(RECENT_MAP_COUNT_MAX);
+
+export const recentSelectedMapsSchema = z.record(
+  z.string().min(1).max(CONGREGATION_ID_MAX_LENGTH),
+  z.array(selectedMapSchema).max(RECENT_SELECTED_MAPS_MAX_LENGTH),
+);
+
 const SETTINGS_FIELD_SCHEMAS = {
   theme: themeModeSchema,
   congregationId: congregationIdSchema,
   publisherId: publisherIdSchema,
   selectedMaps: selectedMapsSchema,
+  recentSelectedMaps: recentSelectedMapsSchema,
+  recentMapCount: recentMapCountSchema,
   notAtHomeStaleDays: notAtHomeStaleDaysSchema,
   notAtHomeVisibility: notAtHomeVisibilitySchema,
 } as const;
@@ -77,6 +92,8 @@ export const DEFAULT_SETTINGS: SettingsDocument = {
   congregationId: "",
   publisherId: "",
   selectedMaps: {},
+  recentSelectedMaps: {},
+  recentMapCount: 5,
   notAtHomeStaleDays: 90,
   notAtHomeVisibility: "all",
 };
@@ -99,6 +116,31 @@ export function isSelectedMap(value: unknown): value is string {
 
 export function isSelectedMaps(value: unknown): value is Record<string, string> {
   return selectedMapsSchema.safeParse(value).success;
+}
+
+export function isRecentMapCount(value: unknown): value is number {
+  return recentMapCountSchema.safeParse(value).success;
+}
+
+export function isRecentSelectedMaps(value: unknown): value is Record<string, string[]> {
+  return recentSelectedMapsSchema.safeParse(value).success;
+}
+
+export function recordRecentMapSelection(
+  recentSelectedMaps: Record<string, string[]>,
+  congregationId: string,
+  mapKey: string,
+  seedKey?: string | null,
+): Record<string, string[]> {
+  const stored = recentSelectedMaps[congregationId] ?? [];
+  const existing = stored.length > 0 ? stored : seedKey ? [seedKey] : [];
+  return {
+    ...recentSelectedMaps,
+    [congregationId]: [mapKey, ...existing.filter((key) => key !== mapKey)].slice(
+      0,
+      RECENT_SELECTED_MAPS_MAX_LENGTH,
+    ),
+  };
 }
 
 export function isNotAtHomeStaleDays(value: unknown): value is number {
@@ -162,17 +204,39 @@ export function toSettingsPatch(value: Partial<SettingsDocument>): SettingsPatch
   return patch;
 }
 
+function areStringArraysEqual(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
 function areSelectedMapsEqual(a: Record<string, string>, b: Record<string, string>): boolean {
   const aKeys = Object.keys(a);
   const bKeys = Object.keys(b);
   return aKeys.length === bKeys.length && aKeys.every((key) => a[key] === b[key]);
 }
 
+function areRecentSelectedMapsEqual(
+  a: Record<string, string[]>,
+  b: Record<string, string[]>,
+): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  return (
+    aKeys.length === bKeys.length &&
+    aKeys.every((key) => Array.isArray(b[key]) && areStringArraysEqual(a[key] ?? [], b[key] ?? []))
+  );
+}
+
 export function areSettingsEqual(a: SettingsDocument, b: SettingsDocument): boolean {
   if (a.id !== b.id) {
     return false;
   }
-  return SETTINGS_KEYS.every((key) =>
-    key === "selectedMaps" ? areSelectedMapsEqual(a[key], b[key]) : a[key] === b[key],
-  );
+  return SETTINGS_KEYS.every((key) => {
+    if (key === "selectedMaps") {
+      return areSelectedMapsEqual(a[key], b[key]);
+    }
+    if (key === "recentSelectedMaps") {
+      return areRecentSelectedMapsEqual(a[key], b[key]);
+    }
+    return a[key] === b[key];
+  });
 }

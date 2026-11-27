@@ -25,6 +25,8 @@ import {
   isNotAtHomeStaleDays,
   isNotAtHomeVisibility,
   isPublisherId,
+  isRecentMapCount,
+  isRecentSelectedMaps,
   isSelectedMap,
   isSelectedMaps,
   isSettingsDocument,
@@ -32,6 +34,8 @@ import {
   isValidSettingsId,
   normalizeSettingsDocument,
   PublisherSettingsSection,
+  RECENT_MAP_COUNT_CHOICES,
+  recordRecentMapSelection,
   resetDefaultSettingsStoreForTesting,
   SETTINGS_BINARY_EXTENSION,
   SETTINGS_BINARY_FILENAME,
@@ -68,6 +72,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     "congregationId",
     "publisherId",
     "selectedMaps",
+    "recentSelectedMaps",
+    "recentMapCount",
     "notAtHomeStaleDays",
     "notAtHomeVisibility",
   ]);
@@ -89,6 +95,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     congregationId: "",
     publisherId: "",
     selectedMaps: {},
+    recentSelectedMaps: {},
+    recentMapCount: 5,
     notAtHomeStaleDays: 90,
     notAtHomeVisibility: "all",
   });
@@ -98,6 +106,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     congregationId: "",
     publisherId: "",
     selectedMaps: {},
+    recentSelectedMaps: {},
+    recentMapCount: 5,
     notAtHomeStaleDays: 90,
     notAtHomeVisibility: "all",
   });
@@ -122,6 +132,35 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
   expect(isSelectedMaps({ "congregation-1": "" })).toBe(false);
   expect(isSelectedMaps({ "": "map-1" })).toBe(false);
   expect(isSelectedMaps("map-1")).toBe(false);
+  expect(RECENT_MAP_COUNT_CHOICES).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  expect(isRecentMapCount(5)).toBe(true);
+  expect(isRecentMapCount(0)).toBe(true);
+  expect(isRecentMapCount(10)).toBe(true);
+  expect(isRecentMapCount(-1)).toBe(false);
+  expect(isRecentMapCount(11)).toBe(false);
+  expect(isRecentMapCount(1.5)).toBe(false);
+  expect(isRecentMapCount("5")).toBe(false);
+  expect(isRecentSelectedMaps({})).toBe(true);
+  expect(isRecentSelectedMaps({ "congregation-1": ["map-2", "map-1"] })).toBe(true);
+  expect(isRecentSelectedMaps({ "congregation-1": ["map-1", ""] })).toBe(false);
+  expect(isRecentSelectedMaps({ "congregation-1": "map-1" })).toBe(false);
+  expect(isRecentSelectedMaps({ "": ["map-1"] })).toBe(false);
+  expect(recordRecentMapSelection({}, "congregation-1", "map-1")).toEqual({
+    "congregation-1": ["map-1"],
+  });
+  expect(
+    recordRecentMapSelection({ "congregation-1": ["map-1", "map-2"] }, "congregation-1", "map-2"),
+  ).toEqual({ "congregation-1": ["map-2", "map-1"] });
+  expect(recordRecentMapSelection({}, "congregation-1", "map-2", "map-1")).toEqual({
+    "congregation-1": ["map-2", "map-1"],
+  });
+  expect(
+    recordRecentMapSelection(
+      { "congregation-1": Array.from({ length: 10 }, (_, index) => `map-${index}`) },
+      "congregation-1",
+      "map-new",
+    )["congregation-1"],
+  ).toHaveLength(10);
   expect(isNotAtHomeStaleDays(90)).toBe(true);
   expect(isNotAtHomeStaleDays(0)).toBe(true);
   expect(isNotAtHomeStaleDays(-1)).toBe(false);
@@ -140,6 +179,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
       congregationId: "",
       publisherId: "",
       selectedMaps: {},
+      recentSelectedMaps: {},
+      recentMapCount: 5,
       notAtHomeStaleDays: 90,
       notAtHomeVisibility: "all",
     }),
@@ -154,6 +195,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     congregationId: "",
     publisherId: "",
     selectedMaps: {},
+    recentSelectedMaps: {},
+    recentMapCount: 5,
     notAtHomeStaleDays: 90,
     notAtHomeVisibility: "all",
   });
@@ -166,6 +209,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         congregationId: "",
         publisherId: "",
         selectedMaps: {},
+        recentSelectedMaps: {},
+        recentMapCount: 5,
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
       },
@@ -175,6 +220,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         congregationId: "",
         publisherId: "",
         selectedMaps: {},
+        recentSelectedMaps: {},
+        recentMapCount: 5,
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
       },
@@ -188,6 +235,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         congregationId: "",
         publisherId: "",
         selectedMaps: {},
+        recentSelectedMaps: {},
+        recentMapCount: 5,
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
       },
@@ -197,6 +246,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         congregationId: "",
         publisherId: "",
         selectedMaps: {},
+        recentSelectedMaps: {},
+        recentMapCount: 5,
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
       },
@@ -210,6 +261,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         congregationId: "",
         publisherId: "",
         selectedMaps: { "congregation-1": "map-1" },
+        recentSelectedMaps: {},
+        recentMapCount: 5,
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
       },
@@ -219,6 +272,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         congregationId: "",
         publisherId: "",
         selectedMaps: { "congregation-1": "map-1" },
+        recentSelectedMaps: {},
+        recentMapCount: 5,
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
       },
@@ -232,6 +287,8 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         congregationId: "",
         publisherId: "",
         selectedMaps: { "congregation-1": "map-1" },
+        recentSelectedMaps: {},
+        recentMapCount: 5,
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
       },
@@ -241,11 +298,28 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         congregationId: "",
         publisherId: "",
         selectedMaps: { "congregation-1": "map-2" },
+        recentSelectedMaps: {},
+        recentMapCount: 5,
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
       },
     ),
   ).toBe(false);
+
+  const recentBase = normalizeSettingsDocument({ theme: "dark" });
+  expect(
+    areSettingsEqual(
+      { ...recentBase, recentSelectedMaps: { "congregation-1": ["map-2", "map-1"] } },
+      { ...recentBase, recentSelectedMaps: { "congregation-1": ["map-2", "map-1"] } },
+    ),
+  ).toBe(true);
+  expect(
+    areSettingsEqual(
+      { ...recentBase, recentSelectedMaps: { "congregation-1": ["map-2", "map-1"] } },
+      { ...recentBase, recentSelectedMaps: { "congregation-1": ["map-1", "map-2"] } },
+    ),
+  ).toBe(false);
+  expect(areSettingsEqual({ ...recentBase, recentMapCount: 3 }, recentBase)).toBe(false);
 
   expect(typeof SettingsView).toBe("function");
   expect(typeof SettingsSection).toBe("function");
@@ -321,6 +395,8 @@ test("initializes LocalStorage Collection store with default system theme and up
       congregationId: "",
       publisherId: "",
       selectedMaps: {},
+      recentSelectedMaps: {},
+      recentMapCount: 5,
       notAtHomeStaleDays: 90,
       notAtHomeVisibility: "all",
     });
@@ -367,7 +443,11 @@ test("exports settings to a binary Uint8Array and imports into another store", a
   const targetStore = await createSettingsStore({ name: nextStoreName() });
 
   try {
-    await sourceStore.setTheme("dark");
+    await sourceStore.updateSettings({
+      theme: "dark",
+      recentMapCount: 3,
+      recentSelectedMaps: { "congregation-1": ["map-2", "map-1"] },
+    });
     const binary = await exportSettingsBinary(sourceStore);
     expect(binary).toBeInstanceOf(Uint8Array);
     expect(binary.byteLength).toBeGreaterThan(7);
@@ -379,6 +459,8 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       congregationId: "",
       publisherId: "",
       selectedMaps: {},
+      recentSelectedMaps: { "congregation-1": ["map-2", "map-1"] },
+      recentMapCount: 3,
       notAtHomeStaleDays: 90,
       notAtHomeVisibility: "all",
     });
@@ -390,13 +472,15 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       congregationId: "",
       publisherId: "",
       selectedMaps: {},
+      recentSelectedMaps: { "congregation-1": ["map-2", "map-1"] },
+      recentMapCount: 3,
       notAtHomeStaleDays: 90,
       notAtHomeVisibility: "all",
     });
     expect((await targetStore.getSettings()).theme).toBe("dark");
 
     const blob = new Blob([binary], { type: "application/octet-stream" });
-    await sourceStore.setTheme("light");
+    await sourceStore.updateSettings({ theme: "light", recentMapCount: 5, recentSelectedMaps: {} });
     const lightBinary = await exportSettingsBinary(sourceStore);
     const lightBlob = new Blob([lightBinary], { type: "application/octet-stream" });
 
@@ -412,6 +496,8 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       congregationId: "",
       publisherId: "",
       selectedMaps: {},
+      recentSelectedMaps: {},
+      recentMapCount: 5,
       notAtHomeStaleDays: 90,
       notAtHomeVisibility: "all",
     });
@@ -435,6 +521,8 @@ test("rejects invalid binary payloads", () => {
     congregationId: "",
     publisherId: "",
     selectedMaps: {},
+    recentSelectedMaps: {},
+    recentMapCount: 5,
     notAtHomeStaleDays: 90,
     notAtHomeVisibility: "all",
   });
@@ -456,6 +544,9 @@ test("rejects invalid binary payloads", () => {
   expect(() => decodeSettingsBinary(makeBinaryPayload({ theme: "invalid" }))).toThrow(
     "Invalid settings binary: invalid theme value",
   );
+  expect(() => decodeSettingsBinary(makeBinaryPayload({ recentMapCount: 11 }))).toThrow(
+    "Invalid settings binary: invalid recentMapCount value",
+  );
   expect(() => decodeSettingsBinary(makeBinaryPayload({}))).toThrow(
     "Invalid settings binary: no valid settings found",
   );
@@ -469,6 +560,8 @@ test("rejects invalid binary payloads", () => {
     congregationId: "",
     publisherId: "",
     selectedMaps: {},
+    recentSelectedMaps: {},
+    recentMapCount: 5,
     notAtHomeStaleDays: 90,
     notAtHomeVisibility: "all",
   });
@@ -648,6 +741,8 @@ test("recovers from malformed or corrupt data in storage and falls back to defau
         congregationId: "",
         publisherId: "",
         selectedMaps: {},
+        recentSelectedMaps: {},
+        recentMapCount: 5,
         notAtHomeStaleDays: 90,
         notAtHomeVisibility: "all",
       });
