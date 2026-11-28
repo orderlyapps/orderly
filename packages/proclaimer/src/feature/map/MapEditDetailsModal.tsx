@@ -1,8 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import {
-  IonAccordion,
-  IonAccordionGroup,
   IonButton,
   IonButtons,
   IonContent,
@@ -11,30 +9,19 @@ import {
   IonItem,
   IonItemGroup,
   IonLabel,
-  IonList,
   IonListHeader,
   IonModal,
   IonNote,
-  IonSearchbar,
   IonSpinner,
   IonTitle,
   IonToolbar,
   useIonActionSheet,
   useIonAlert,
 } from "@ionic/react";
-import {
-  checkmarkOutline,
-  createOutline,
-  imageOutline,
-  mapOutline,
-  trashOutline,
-} from "ionicons/icons";
+import { createOutline, trashOutline } from "ionicons/icons";
 
-import { MonthHeader } from "../../components/MonthHeader.tsx";
 import { useMapPolygons } from "./maps/hooks.ts";
-import { MapImageModal } from "./maps/MapImageModal.tsx";
 import {
-  buildMapRowListSections,
   mapRowKey,
   removeMapBlock,
   renameMapBlock,
@@ -46,54 +33,35 @@ import { mapTagAssignmentKey } from "./tags/collection.ts";
 import { useMapTagAssignments, useMapTags } from "./tags/hooks.ts";
 import { findMapTagByName, sortMapTags, type MapTagRow } from "./tags/schema.ts";
 
-export interface MapEditModalProps {
+export interface MapEditDetailsModalProps {
   isOpen: boolean;
   onDidDismiss: () => void;
-  onSelect: (mapKey: string) => void;
   congregationId?: string;
   selectedMap?: string | null;
-  recentMapKeys?: readonly string[];
-  recentMapCount?: number;
 }
 
 const blockTypeLabel = (block: MapBlock) => (block.type === "face" ? "Face" : "Block");
 
-export function MapEditModal({
+export function MapEditDetailsModal({
   isOpen,
   onDidDismiss,
-  onSelect,
   congregationId,
   selectedMap: selectedMapKey = null,
-  recentMapKeys = [],
-  recentMapCount = 0,
-}: MapEditModalProps) {
+}: MapEditDetailsModalProps) {
   const { maps, isLoading, error, collection } = useMapPolygons(congregationId);
   const [presentAlert] = useIonAlert();
   const [presentActionSheet] = useIonActionSheet();
-  const [query, setQuery] = useState("");
-  const [openKey, setOpenKey] = useState<string | null>(null);
-  const [viewingMap, setViewingMap] = useState<MapRow | null>(null);
 
-  const effectiveRecentMapKeys = useMemo(
-    () => (recentMapKeys.length > 0 ? recentMapKeys : selectedMapKey ? [selectedMapKey] : []),
-    [recentMapKeys, selectedMapKey],
-  );
-  const sections = useMemo(
-    () => buildMapRowListSections(maps, query, effectiveRecentMapKeys, recentMapCount),
-    [maps, query, effectiveRecentMapKeys, recentMapCount],
-  );
-  const openMap = maps.find((map) => mapRowKey(map) === openKey) ?? null;
+  const map = maps.find((row) => mapRowKey(row) === selectedMapKey) ?? null;
   const { tags, collection: tagCollection } = useMapTags(congregationId);
-  const { assignments, collection: assignmentCollection } = useMapTagAssignments(
-    openMap?.id ?? null,
-  );
+  const { assignments, collection: assignmentCollection } = useMapTagAssignments(map?.id ?? null);
   const blocks = useMemo(
-    () => sortMapBlocks(openMap?.blocks?.filter((block) => block.type === "block")),
-    [openMap],
+    () => sortMapBlocks(map?.blocks?.filter((block) => block.type === "block")),
+    [map],
   );
   const faces = useMemo(
-    () => sortMapBlocks(openMap?.blocks?.filter((block) => block.type === "face")),
-    [openMap],
+    () => sortMapBlocks(map?.blocks?.filter((block) => block.type === "face")),
+    [map],
   );
   const assignedTagIds = useMemo(
     () => new Set(assignments.map((assignment) => assignment.tag_id)),
@@ -104,13 +72,6 @@ export function MapEditModal({
     [tags, assignedTagIds],
   );
 
-  const handleDidDismiss = () => {
-    setQuery("");
-    setOpenKey(null);
-    setViewingMap(null);
-    onDidDismiss();
-  };
-
   const showSaveFailed = (failureMessage: string) => {
     void presentAlert({
       header: "Save Failed",
@@ -119,23 +80,23 @@ export function MapEditModal({
     });
   };
 
-  const updateMap = (map: MapRow, mutate: (draft: MapRow) => void, failureMessage: string) => {
-    if (!collection || !map.id) {
+  const updateMap = (row: MapRow, mutate: (draft: MapRow) => void, failureMessage: string) => {
+    if (!collection || !row.id) {
       showSaveFailed(failureMessage);
       return;
     }
     try {
-      const tx = collection.update(map.id, mutate);
+      const tx = collection.update(row.id, mutate);
       void tx.isPersisted.promise.catch(() => showSaveFailed(failureMessage));
     } catch {
       showSaveFailed(failureMessage);
     }
   };
 
-  const promptRenameMap = (map: MapRow) => {
+  const promptRenameMap = (row: MapRow) => {
     void presentAlert({
       header: "Rename Map",
-      inputs: [{ name: "name", type: "text", value: map.name, placeholder: "Map name" }],
+      inputs: [{ name: "name", type: "text", value: row.name, placeholder: "Map name" }],
       buttons: [
         { text: "Cancel", role: "cancel" },
         {
@@ -145,9 +106,9 @@ export function MapEditModal({
             if (!name) {
               return false;
             }
-            if (name !== map.name) {
+            if (name !== row.name) {
               updateMap(
-                map,
+                row,
                 (draft) => {
                   draft.name = name;
                 },
@@ -160,14 +121,14 @@ export function MapEditModal({
     });
   };
 
-  const promptEditDetails = (map: MapRow) => {
+  const promptEditDetails = (row: MapRow) => {
     void presentAlert({
       header: "Edit Details",
       inputs: [
         {
           name: "details",
           type: "textarea",
-          value: map.details ?? "",
+          value: row.details ?? "",
           placeholder: "Map details",
         },
       ],
@@ -177,9 +138,9 @@ export function MapEditModal({
           text: "Save",
           handler: (data: Record<string, string>) => {
             const details = (data.details ?? "").trim();
-            if (details !== (map.details ?? "").trim()) {
+            if (details !== (row.details ?? "").trim()) {
               updateMap(
-                map,
+                row,
                 (draft) => {
                   draft.details = details || null;
                 },
@@ -193,24 +154,24 @@ export function MapEditModal({
   };
 
   const assignTag = (
-    map: MapRow,
+    row: MapRow,
     tag: MapTagRow,
     failureMessage = "The tag could not be added.",
   ) => {
-    if (!assignmentCollection || !map.id || !tag.id) {
+    if (!assignmentCollection || !row.id || !tag.id) {
       showSaveFailed(failureMessage);
       return;
     }
     try {
-      const tx = assignmentCollection.insert({ map_id: map.id, tag_id: tag.id });
+      const tx = assignmentCollection.insert({ map_id: row.id, tag_id: tag.id });
       void tx.isPersisted.promise.catch(() => showSaveFailed(failureMessage));
     } catch {
       showSaveFailed(failureMessage);
     }
   };
 
-  const createAndAssignTag = async (map: MapRow, name: string) => {
-    if (!tagCollection || !map.id) {
+  const createAndAssignTag = async (row: MapRow, name: string) => {
+    if (!tagCollection || !row.id) {
       showSaveFailed("The tag could not be created.");
       return;
     }
@@ -218,7 +179,7 @@ export function MapEditModal({
     // for a refetch of the tag row.
     const tag: MapTagRow = {
       id: crypto.randomUUID(),
-      congregation_id: map.congregation_id,
+      congregation_id: row.congregation_id,
       name,
     };
     try {
@@ -229,28 +190,28 @@ export function MapEditModal({
       return;
     }
     assignTag(
-      map,
+      row,
       tag,
       `${name} was created but could not be added. It can be added from Add Tag.`,
     );
   };
 
-  const confirmRemoveTag = (map: MapRow, tag: MapTagRow) => {
+  const confirmRemoveTag = (row: MapRow, tag: MapTagRow) => {
     void presentAlert({
       header: "Remove Tag",
-      message: `Remove ${tag.name} from ${map.name}?`,
+      message: `Remove ${tag.name} from ${row.name}?`,
       buttons: [
         { text: "Cancel", role: "cancel" },
         {
           text: "Remove",
           role: "destructive",
           handler: () => {
-            if (!assignmentCollection || !map.id || !tag.id) {
+            if (!assignmentCollection || !row.id || !tag.id) {
               showSaveFailed("The tag could not be removed.");
               return;
             }
             try {
-              const tx = assignmentCollection.delete(mapTagAssignmentKey(map.id, tag.id));
+              const tx = assignmentCollection.delete(mapTagAssignmentKey(row.id, tag.id));
               void tx.isPersisted.promise.catch(() =>
                 showSaveFailed("The tag could not be removed."),
               );
@@ -263,7 +224,7 @@ export function MapEditModal({
     });
   };
 
-  const promptNewTag = (map: MapRow) => {
+  const promptNewTag = (row: MapRow) => {
     void presentAlert({
       header: "New Tag",
       inputs: [{ name: "name", type: "text", placeholder: "Tag name" }],
@@ -281,22 +242,22 @@ export function MapEditModal({
               if (existing.id && assignedTagIds.has(existing.id)) {
                 void presentAlert({
                   header: "Tag Already Added",
-                  message: `${existing.name} is already on ${map.name}.`,
+                  message: `${existing.name} is already on ${row.name}.`,
                   buttons: ["OK"],
                 });
               } else {
-                assignTag(map, existing);
+                assignTag(row, existing);
               }
               return;
             }
-            void createAndAssignTag(map, name);
+            void createAndAssignTag(row, name);
           },
         },
       ],
     });
   };
 
-  const promptAddTag = (map: MapRow) => {
+  const promptAddTag = (row: MapRow) => {
     const available = sortMapTags(tags.filter((tag) => tag.id && !assignedTagIds.has(tag.id)));
     void presentActionSheet({
       header: "Add Tag",
@@ -304,13 +265,13 @@ export function MapEditModal({
         ...available.map((tag) => ({
           text: tag.name,
           handler: () => {
-            assignTag(map, tag);
+            assignTag(row, tag);
           },
         })),
         {
           text: "New Tag",
           handler: () => {
-            promptNewTag(map);
+            promptNewTag(row);
           },
         },
         { text: "Cancel", role: "cancel" },
@@ -318,7 +279,7 @@ export function MapEditModal({
     });
   };
 
-  const promptRenameBlock = (map: MapRow, block: MapBlock) => {
+  const promptRenameBlock = (row: MapRow, block: MapBlock) => {
     const label = blockTypeLabel(block);
     void presentAlert({
       header: `Rename ${label}`,
@@ -334,7 +295,7 @@ export function MapEditModal({
             }
             if (name !== block.name) {
               updateMap(
-                map,
+                row,
                 (draft) => {
                   draft.blocks = renameMapBlock(draft.blocks, block.id, name);
                 },
@@ -347,7 +308,7 @@ export function MapEditModal({
     });
   };
 
-  const confirmDeleteBlock = (map: MapRow, block: MapBlock) => {
+  const confirmDeleteBlock = (row: MapRow, block: MapBlock) => {
     const label = blockTypeLabel(block);
     void presentAlert({
       header: `Delete ${label}`,
@@ -359,7 +320,7 @@ export function MapEditModal({
           role: "destructive",
           handler: () => {
             updateMap(
-              map,
+              row,
               (draft) => {
                 draft.blocks = removeMapBlock(draft.blocks, block.id);
               },
@@ -371,7 +332,7 @@ export function MapEditModal({
     });
   };
 
-  const blockGroup = (map: MapRow, title: string, items: MapBlock[]) => (
+  const blockGroup = (row: MapRow, title: string, items: MapBlock[]) => (
     <IonItemGroup>
       <IonListHeader>
         <IonLabel>{title}</IonLabel>
@@ -388,7 +349,7 @@ export function MapEditModal({
               slot="end"
               fill="clear"
               aria-label={`Rename ${block.name}`}
-              onClick={() => promptRenameBlock(map, block)}
+              onClick={() => promptRenameBlock(row, block)}
             >
               <IonIcon slot="icon-only" icon={createOutline} />
             </IonButton>
@@ -396,7 +357,7 @@ export function MapEditModal({
               slot="end"
               fill="clear"
               aria-label={`Delete ${block.name}`}
-              onClick={() => confirmDeleteBlock(map, block)}
+              onClick={() => confirmDeleteBlock(row, block)}
             >
               <IonIcon slot="icon-only" icon={trashOutline} color="danger" />
             </IonButton>
@@ -406,13 +367,8 @@ export function MapEditModal({
     </IonItemGroup>
   );
 
-  const renderMapInputs = (map: MapRow) => (
+  const mapInputs = map ? (
     <>
-      <div style={{ padding: "1rem 1rem 0" }}>
-        <IonButton expand="block" onClick={() => onSelect(mapRowKey(map))}>
-          Select Map
-        </IonButton>
-      </div>
       <IonItemGroup>
         <IonListHeader>
           <IonLabel>Map</IonLabel>
@@ -470,148 +426,39 @@ export function MapEditModal({
       {blockGroup(map, "Blocks", blocks)}
       {blockGroup(map, "Faces", faces)}
     </>
-  );
-
-  const renderRecentMapItem = (map: MapRow, index: number) => {
-    const key = mapRowKey(map);
-    return (
-      <IonItem key={`${key}:${index}`} button detail={false} onClick={() => onSelect(key)}>
-        <IonLabel>
-          <h2>{map.name}</h2>
-          {map.details ? <p>{map.details}</p> : null}
-        </IonLabel>
-        {key === selectedMapKey ? <IonIcon slot="end" icon={checkmarkOutline} /> : null}
-        {map.url ? (
-          <IonButton
-            slot="end"
-            fill="clear"
-            aria-label={`View ${map.name} image`}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              setViewingMap(map);
-            }}
-          >
-            <IonIcon slot="icon-only" icon={imageOutline} />
-          </IonButton>
-        ) : null}
-      </IonItem>
-    );
-  };
+  ) : null;
 
   return (
-    <>
-      <IonModal isOpen={isOpen} onDidDismiss={handleDidDismiss}>
-        <IonHeader>
-          <IonToolbar>
-            <IonTitle>Edit Map</IonTitle>
-            <IonButtons slot="end">
-              <IonButton onClick={handleDidDismiss}>Close</IonButton>
-            </IonButtons>
-          </IonToolbar>
-          <IonToolbar>
-            <IonSearchbar
-              value={query}
-              placeholder="Search maps"
-              onIonInput={(event) => {
-                setQuery(event.detail.value ?? "");
-              }}
-            />
-          </IonToolbar>
-        </IonHeader>
-        <IonContent>
-          {maps.length === 0 && isLoading ? (
-            <div style={{ display: "flex", justifyContent: "center", padding: "48px 16px" }}>
-              <IonSpinner />
-            </div>
-          ) : maps.length === 0 ? (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 8,
-                padding: "48px 16px",
-              }}
-            >
-              <IonIcon icon={mapOutline} style={{ fontSize: 32, opacity: 0.4 }} />
-              {error ? (
-                <IonNote color="danger">{error.message}</IonNote>
-              ) : (
-                <IonNote color="medium">No maps available</IonNote>
-              )}
-            </div>
-          ) : (
-            <>
-              {sections.recentRows.length > 0 ? (
-                <>
-                  <MonthHeader label="Recent Maps" />
-                  <IonList style={{ marginTop: 4 }}>
-                    {sections.recentRows.map(renderRecentMapItem)}
-                  </IonList>
-                </>
-              ) : null}
-              <MonthHeader label="All Maps" />
-              {sections.allRows.length === 0 ? (
-                <IonList style={{ marginTop: 4 }}>
-                  <IonItem lines="none">
-                    <IonNote>No maps found</IonNote>
-                  </IonItem>
-                </IonList>
-              ) : (
-                <IonAccordionGroup
-                  onIonChange={(event) => {
-                    const value = event.detail.value;
-                    setOpenKey(typeof value === "string" ? value : null);
-                  }}
-                >
-                  {sections.allRows.map((map, index) => {
-                    const key = mapRowKey(map);
-                    return (
-                      <IonAccordion key={`${key}:${index}`} value={key}>
-                        <IonItem slot="header">
-                          <IonLabel className="ion-text-wrap">
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                              }}
-                            >
-                              <span
-                                style={
-                                  key === openKey
-                                    ? { fontWeight: "bold", fontSize: "1.1rem" }
-                                    : undefined
-                                }
-                              >
-                                {map.name}
-                              </span>
-                              {key === selectedMapKey ? (
-                                <IonIcon icon={checkmarkOutline} style={{ marginInlineEnd: 8 }} />
-                              ) : null}
-                            </div>
-                            {map.details ? <p>{map.details}</p> : null}
-                          </IonLabel>
-                        </IonItem>
-                        <div slot="content" style={{ paddingBottom: "2.5rem" }}>
-                          {key === openKey ? renderMapInputs(map) : null}
-                        </div>
-                      </IonAccordion>
-                    );
-                  })}
-                </IonAccordionGroup>
-              )}
-            </>
-          )}
-        </IonContent>
-      </IonModal>
-      <MapImageModal
-        isOpen={viewingMap !== null}
-        onDidDismiss={() => setViewingMap(null)}
-        url={viewingMap?.url ?? null}
-        title={viewingMap?.name}
-      />
-    </>
+    <IonModal isOpen={isOpen} onDidDismiss={onDidDismiss}>
+      <IonHeader>
+        <IonToolbar>
+          <IonTitle>{map ? `Edit ${map.name}` : "Edit Map"}</IonTitle>
+          <IonButtons slot="end">
+            <IonButton onClick={onDidDismiss}>Close</IonButton>
+          </IonButtons>
+        </IonToolbar>
+      </IonHeader>
+      <IonContent>
+        {!selectedMapKey ? (
+          <IonItem lines="none">
+            <IonNote color="medium">No map selected</IonNote>
+          </IonItem>
+        ) : isLoading && !map ? (
+          <div style={{ display: "flex", justifyContent: "center", padding: "48px 16px" }}>
+            <IonSpinner />
+          </div>
+        ) : error && !map ? (
+          <IonItem lines="none">
+            <IonNote color="danger">{error.message}</IonNote>
+          </IonItem>
+        ) : !map ? (
+          <IonItem lines="none">
+            <IonNote color="medium">The selected map is unavailable</IonNote>
+          </IonItem>
+        ) : (
+          mapInputs
+        )}
+      </IonContent>
+    </IonModal>
   );
 }

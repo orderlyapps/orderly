@@ -112,3 +112,11 @@ http://ionicframework.com/docs/theming/ */
     padding-inline: calc((100% - 640px) / 2);
   }
 }
+
+@media (max-width: 640px) {
+  ion-app:not(.ios-theme-vertical-bars) ion-fab.ios.fab-vertical-bottom.map-edit-details-fab {
+    bottom: calc(
+      var(--ios-theme-floating-safe-area-bottom, var(--ios26-floating-safe-area-bottom)) + 72px
+    );
+  }
+}

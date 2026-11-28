@@ -54,7 +54,7 @@ import {
   mapRowsToGeoJSON,
   nextMapEditSelectionIndex,
   MapEditLayer,
-  MapEditModal,
+  MapEditDetailsModal,
   MapsLayer,
   MapSettingsModal,
   mapTagAssignmentKey,
@@ -577,7 +577,7 @@ test("converts not-at-home view rows to markers grouped by address", () => {
   expect(typeof NotAtHomesLayer).toBe("function");
   expect(typeof useNotAtHomes).toBe("function");
   expect(typeof MapSettingsModal).toBe("function");
-  expect(typeof MapEditModal).toBe("function");
+  expect(typeof MapEditDetailsModal).toBe("function");
 });
 
 test("sorts, renames, and removes map blocks and faces", () => {

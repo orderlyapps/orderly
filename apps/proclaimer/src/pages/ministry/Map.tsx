@@ -5,6 +5,8 @@ import {
   IonButton,
   IonButtons,
   IonContent,
+  IonFab,
+  IonFabButton,
   IonHeader,
   IonIcon,
   IonPage,
@@ -14,8 +16,8 @@ import {
 import { checkmarkOutline, createOutline, mapOutline, settingsOutline } from "ionicons/icons";
 import {
   MAP_VIEW_STATE_STORAGE_KEY,
+  MapEditDetailsModal,
   MapEditLayer,
-  MapEditModal,
   MapSettingsModal,
   MapsLayer,
   MapsListModal,
@@ -39,6 +41,7 @@ const Map = () => {
   const [mapsOpen, setMapsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [mapEditDetailsOpen, setMapEditDetailsOpen] = useState(false);
   const [selectedMapFitKey, setSelectedMapFitKey] = useState(0);
   const [optimisticSelectedMap, setOptimisticSelectedMap] = useState<{
     congregationId: string;
@@ -65,6 +68,19 @@ const Map = () => {
       setOptimisticSelectedMap(null);
     }
   }, [optimisticSelectedMap, settings.selectedMaps]);
+
+  useEffect(() => {
+    if (!editing) {
+      setMapEditDetailsOpen(false);
+    }
+  }, [editing]);
+
+  const toggleEditing = () => {
+    if (!editing) {
+      setSelectedMapFitKey((current) => current + 1);
+    }
+    setEditing((current) => !current);
+  };
 
   const showSaveFailed = (message: string) => {
     void presentAlert({ header: "Save Failed", message, buttons: ["OK"] });
@@ -108,17 +124,14 @@ const Map = () => {
           <IonButtons slot="end">
             {canEditMap && (
               <IonButton
-                onClick={() => setEditing((current) => !current)}
+                onClick={toggleEditing}
                 aria-label={editing ? "Finish editing" : "Edit map"}
                 color={editing ? "primary" : undefined}
               >
                 <IonIcon slot="icon-only" icon={editing ? checkmarkOutline : createOutline} />
               </IonButton>
             )}
-            <IonButton
-              onClick={() => setMapsOpen(true)}
-              aria-label={editing ? "Edit maps" : "Select map"}
-            >
+            <IonButton onClick={() => setMapsOpen(true)} aria-label="Select map">
               <IonIcon slot="icon-only" icon={mapOutline} />
             </IonButton>
             <IonButton onClick={() => setSettingsOpen(true)} aria-label="Map settings">
@@ -152,32 +165,38 @@ const Map = () => {
             />
           ) : null}
         </MapView>
+        {editing ? (
+          <IonFab slot="fixed" vertical="bottom" horizontal="end" className="map-edit-details-fab">
+            <IonFabButton
+              onClick={() => setMapEditDetailsOpen(true)}
+              aria-label="Edit selected map details"
+            >
+              <IonIcon icon={createOutline} />
+            </IonFabButton>
+          </IonFab>
+        ) : null}
         <MapSettingsModal
           isOpen={settingsOpen}
           onDidDismiss={() => setSettingsOpen(false)}
           showEditColorScheme={canEditMap}
         />
+        <MapsListModal
+          isOpen={mapsOpen}
+          onDidDismiss={() => setMapsOpen(false)}
+          congregationId={congregationId}
+          selectedMap={selectedMap}
+          recentMapKeys={settings.recentSelectedMaps[congregationId] ?? []}
+          recentMapCount={settings.recentMapCount}
+          onSelect={selectMap}
+        />
         {editing ? (
-          <MapEditModal
-            isOpen={mapsOpen}
-            onDidDismiss={() => setMapsOpen(false)}
+          <MapEditDetailsModal
+            isOpen={mapEditDetailsOpen}
+            onDidDismiss={() => setMapEditDetailsOpen(false)}
             congregationId={congregationId}
             selectedMap={selectedMap}
-            recentMapKeys={settings.recentSelectedMaps[congregationId] ?? []}
-            recentMapCount={settings.recentMapCount}
-            onSelect={selectMap}
           />
-        ) : (
-          <MapsListModal
-            isOpen={mapsOpen}
-            onDidDismiss={() => setMapsOpen(false)}
-            congregationId={congregationId}
-            selectedMap={selectedMap}
-            recentMapKeys={settings.recentSelectedMaps[congregationId] ?? []}
-            recentMapCount={settings.recentMapCount}
-            onSelect={selectMap}
-          />
-        )}
+        ) : null}
       </IonContent>
     </IonPage>
   );
