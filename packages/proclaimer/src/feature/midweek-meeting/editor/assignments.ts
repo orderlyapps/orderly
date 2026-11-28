@@ -137,6 +137,24 @@ export interface PublisherAssignmentStats {
   /** Whole weeks between the current week and the publisher's nearest
    *  assignment (past or future) of the tracked participation types. */
   weeksAwayClosest: number | null;
+  /** Whole weeks between the current week and the publisher's nearest
+   *  assignment (past or future) of the exact type being assigned. */
+  weeksAwaySameType: number | null;
+}
+
+function closestWeeksAway(weekIds: string[] | undefined, currentWeekId: string): number | null {
+  let closest: number | null = null;
+  for (const weekId of weekIds ?? []) {
+    // An assignment in the current week doesn't count toward "weeks away".
+    if (weekId === currentWeekId) {
+      continue;
+    }
+    const weeksAway = Math.abs(weeksBetween(weekId, currentWeekId));
+    if (closest === null || weeksAway < closest) {
+      closest = weeksAway;
+    }
+  }
+  return closest;
 }
 
 /** Weeks-away stats per publisher for the given participation types. */
@@ -144,6 +162,7 @@ export function computeAssignmentStats(
   assignments: MidweekMeetingAssignment[],
   statTypes: MidweekParticipationId[],
   currentWeekId: string,
+  sameType?: MidweekParticipationId,
 ): Map<string, PublisherAssignmentStats> {
   const relevantIds = new Set<string>();
   for (const type of statTypes) {
@@ -151,31 +170,36 @@ export function computeAssignmentStats(
       relevantIds.add(id);
     }
   }
+  const sameTypeIds = new Set<string>(sameType ? participationAssignmentIds[sameType] : []);
 
   const weekIdsByPublisher = new Map<string, string[]>();
+  const sameTypeWeekIdsByPublisher = new Map<string, string[]>();
   for (const assignment of assignments) {
-    if (!relevantIds.has(assignment.assignment_id)) {
-      continue;
+    if (relevantIds.has(assignment.assignment_id)) {
+      const list = weekIdsByPublisher.get(assignment.participant_id) ?? [];
+      list.push(assignment.week_id);
+      weekIdsByPublisher.set(assignment.participant_id, list);
     }
-    const list = weekIdsByPublisher.get(assignment.participant_id) ?? [];
-    list.push(assignment.week_id);
-    weekIdsByPublisher.set(assignment.participant_id, list);
+    if (sameTypeIds.has(assignment.assignment_id)) {
+      const list = sameTypeWeekIdsByPublisher.get(assignment.participant_id) ?? [];
+      list.push(assignment.week_id);
+      sameTypeWeekIdsByPublisher.set(assignment.participant_id, list);
+    }
   }
 
   const stats = new Map<string, PublisherAssignmentStats>();
-  for (const [publisherId, weekIds] of weekIdsByPublisher) {
-    let weeksAwayClosest: number | null = null;
-    for (const weekId of weekIds) {
-      // An assignment in the current week doesn't count toward "weeks away".
-      if (weekId === currentWeekId) {
-        continue;
-      }
-      const weeksAway = Math.abs(weeksBetween(weekId, currentWeekId));
-      if (weeksAwayClosest === null || weeksAway < weeksAwayClosest) {
-        weeksAwayClosest = weeksAway;
-      }
-    }
-    stats.set(publisherId, { publisherId, weeksAwayClosest });
+  for (const publisherId of new Set([
+    ...weekIdsByPublisher.keys(),
+    ...sameTypeWeekIdsByPublisher.keys(),
+  ])) {
+    stats.set(publisherId, {
+      publisherId,
+      weeksAwayClosest: closestWeeksAway(weekIdsByPublisher.get(publisherId), currentWeekId),
+      weeksAwaySameType: closestWeeksAway(
+        sameTypeWeekIdsByPublisher.get(publisherId),
+        currentWeekId,
+      ),
+    });
   }
   return stats;
 }
@@ -188,6 +212,17 @@ export function statLabelFor(
     return undefined;
   }
   const weeksAway = stats.get(publisherId)?.weeksAwayClosest;
+  return weeksAway != null ? `${weeksAway}w` : undefined;
+}
+
+export function sameTypeStatLabelFor(
+  publisherId: string | undefined,
+  stats: Map<string, PublisherAssignmentStats>,
+): string | undefined {
+  if (!publisherId) {
+    return undefined;
+  }
+  const weeksAway = stats.get(publisherId)?.weeksAwaySameType;
   return weeksAway != null ? `${weeksAway}w` : undefined;
 }
 

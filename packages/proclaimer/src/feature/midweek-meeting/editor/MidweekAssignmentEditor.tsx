@@ -112,8 +112,13 @@ export function MidweekAssignmentEditor({
 
   const stats = useMemo(
     () =>
-      computeAssignmentStats(assignments, activeSettings.settings.statParticipationTypes, weekId),
-    [assignments, activeSettings.settings.statParticipationTypes, weekId],
+      computeAssignmentStats(
+        assignments,
+        activeSettings.settings.statParticipationTypes,
+        weekId,
+        activeParticipationId,
+      ),
+    [assignments, activeSettings.settings.statParticipationTypes, weekId, activeParticipationId],
   );
 
   const modalParticipationId =

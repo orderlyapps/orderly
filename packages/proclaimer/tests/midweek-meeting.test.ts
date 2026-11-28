@@ -492,6 +492,23 @@ test("computeAssignmentStats finds the nearest assignment in either direction", 
   expect(combined.get("pub-2")?.weeksAwayClosest).toBe(1);
 });
 
+test("computeAssignmentStats tracks the exact assignment type independently", () => {
+  const assignments = [
+    { ...assignment("chairman_1", "pub-1"), week_id: "2025-10-06" },
+    { ...assignment("chairman_2", "pub-1"), week_id: "2025-10-27" },
+    { ...assignment("chairman_3", "pub-2"), week_id: "2025-10-20" },
+  ];
+
+  const chairmanStats = computeAssignmentStats(assignments, ["living"], "2025-11-03", "chairman");
+  expect(chairmanStats.get("pub-1")?.weeksAwayClosest).toBeNull();
+  expect(chairmanStats.get("pub-1")?.weeksAwaySameType).toBe(4);
+  expect(chairmanStats.has("pub-2")).toBe(false);
+
+  const counselorStats = computeAssignmentStats(assignments, ["living"], "2025-11-03", "counselor");
+  expect(counselorStats.get("pub-1")?.weeksAwaySameType).toBe(1);
+  expect(counselorStats.get("pub-2")?.weeksAwaySameType).toBe(2);
+});
+
 test("eligiblePublishers filters by participation, archive and gender", () => {
   const roster: Publisher[] = [
     { ...publishers[0], gender: "male" },

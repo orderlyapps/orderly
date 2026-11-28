@@ -1,10 +1,15 @@
-import { IonChip, IonItem, IonLabel, IonList, IonNote } from "@ionic/react";
+import { IonItem, IonLabel, IonList } from "@ionic/react";
 
 import type { Publisher } from "../../publisher/schema.ts";
 import { getPublisherDisplayName } from "../../publisher/schema.ts";
 import type { MidweekParticipationId } from "../schema.ts";
 import type { GenderFilter, PublisherAssignmentStats } from "./assignments.ts";
-import { eligiblePublishers, sortPublishersByStats, statLabelFor } from "./assignments.ts";
+import {
+  eligiblePublishers,
+  sameTypeStatLabelFor,
+  sortPublishersByStats,
+  statLabelFor,
+} from "./assignments.ts";
 
 export interface PublisherListProps {
   publishers: Publisher[];
@@ -16,6 +21,13 @@ export interface PublisherListProps {
   participationTypes: Map<string, Set<MidweekParticipationId>>;
   weekAssignmentIds?: Set<string>;
 }
+
+const statsGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "40px 40px",
+  gap: 8,
+  textAlign: "right",
+} as const;
 
 export function PublisherList({
   publishers,
@@ -45,8 +57,23 @@ export function PublisherList({
     <>
       <IonList inset>
         <IonItem lines="none">
-          <IonLabel>{filtered.length} participants</IonLabel>
-          <IonNote slot="end">{publishers.length} total</IonNote>
+          <IonLabel>
+            {filtered.length} participants{" "}
+            <span style={{ color: "var(--ion-color-medium)", fontSize: 13 }}>
+              · {publishers.length} total
+            </span>
+          </IonLabel>
+          <div
+            slot="end"
+            style={{
+              ...statsGridStyle,
+              color: "var(--ion-color-medium)",
+              fontSize: 12,
+            }}
+          >
+            <span>This</span>
+            <span>Any</span>
+          </div>
         </IonItem>
       </IonList>
       <IonList inset>
@@ -54,7 +81,8 @@ export function PublisherList({
           const publisherId = publisher.id ?? "";
           const selected = selectedId === publisherId;
           const hasWeekAssignment = weekAssignmentIds?.has(publisherId) ?? false;
-          const statLabel = statLabelFor(publisherId, stats);
+          const anyStatLabel = statLabelFor(publisherId, stats) ?? "—";
+          const thisStatLabel = sameTypeStatLabelFor(publisherId, stats) ?? "—";
           return (
             <IonItem
               key={publisherId}
@@ -69,7 +97,10 @@ export function PublisherList({
               >
                 {getPublisherDisplayName(publisher)}
               </IonLabel>
-              {statLabel && <IonChip color="medium">{statLabel}</IonChip>}
+              <div slot="end" style={{ ...statsGridStyle, fontSize: 14 }}>
+                <span>{thisStatLabel}</span>
+                <span>{anyStatLabel}</span>
+              </div>
             </IonItem>
           );
         })}

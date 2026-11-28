@@ -100,7 +100,7 @@ export function School2Manager({ weekId, congregationId, canEdit }: School2Manag
     (publisher) => publisher.id === counselorAssignment?.participant_id,
   );
   const stats = useMemo(
-    () => computeAssignmentStats(assignments, ["counselor"], weekId),
+    () => computeAssignmentStats(assignments, ["counselor"], weekId, "counselor"),
     [assignments, weekId],
   );
   const participationTypes = useMemo(
