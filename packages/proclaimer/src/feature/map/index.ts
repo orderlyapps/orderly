@@ -4,7 +4,11 @@ export * from "./master/index.ts";
 export * from "./not-at-homes/index.ts";
 export * from "./tags/index.ts";
 export { useMapView, type UseMapViewOptions, type UseMapViewResult } from "./hooks.ts";
-export { MapEditDetailsModal, type MapEditDetailsModalProps } from "./MapEditDetailsModal.tsx";
+export {
+  MapEditDetailsModal,
+  type MapEditDetailsModalProps,
+  type MapEditDetailsNewFeature,
+} from "./MapEditDetailsModal.tsx";
 export { MapSettingsModal, type MapSettingsModalProps } from "./MapSettingsModal.tsx";
 export { MapView, type MapViewProps } from "./MapView.tsx";
 export {

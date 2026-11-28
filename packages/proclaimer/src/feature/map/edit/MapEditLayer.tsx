@@ -41,19 +41,24 @@ import {
   applyMapEditFeatureToRow,
   asMapEditFeature,
   buildMapEditFeatures,
+  MAP_EDIT_LINE_MODE,
+  MAP_EDIT_POLYGON_MODE,
   MAP_EDIT_SELECT_FLAGS,
   MAP_EDIT_SELECT_MODE,
   mapEditDragPreviewDetailGeoJSON,
   mapEditDragPreviewFillGeoJSON,
   mapEditDragPreviewStaticGeoJSON,
   mapEditDragPreviewStyle,
+  mapEditDrawingCanFinish,
   mapEditFeatureColor,
+  mapEditNewBlockFromGeometry,
   mapEditVerticesToGeoJSON,
   nextMapEditSelectionIndex,
   removeMapEditVertex,
   replaceMapEditVertex,
   sortMapEditFeaturesForSelection,
   splitMapEditVertexDragGeometry,
+  type MapEditCreateFeatureRequest,
   type MapEditFeature,
   type MapEditGeometry,
   type MapEditVertexCollection,
@@ -66,6 +71,8 @@ export interface MapEditLayerProps {
   /** Key (id or name) of the map whose blocks and faces are editable. */
   selectedMap?: string | null;
   colorScheme?: MapEditColorScheme;
+  createFeature?: MapEditCreateFeatureRequest | null;
+  onCreateFeatureEnd?: () => void;
   onError?: (message: string) => void;
 }
 
@@ -135,6 +142,50 @@ const vertexDeleteButtonStyle: CSSProperties = {
   background: MAP_SELECTED_COLOR,
   boxShadow: "0 2px 8px rgba(0, 0, 0, 0.35)",
   color: VERTEX_COLOR,
+  cursor: "pointer",
+  fontFamily: "inherit",
+  fontSize: 13,
+  fontWeight: 600,
+  pointerEvents: "auto",
+  touchAction: "manipulation",
+};
+
+const createPanelStyle: CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  bottom:
+    "calc(60px + var(--ios-theme-floating-safe-area-bottom, var(--ios26-floating-safe-area-bottom, 0px)) + 0.75rem)",
+  zIndex: 2,
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  boxSizing: "border-box",
+  width: "min(560px, calc(100vw - 24px))",
+  padding: "8px 10px",
+  transform: "translateX(-50%)",
+  borderRadius: 12,
+  background: "var(--ion-background-color, #fff)",
+  boxShadow: "0 2px 10px rgba(0, 0, 0, 0.35)",
+  color: "var(--ion-text-color, #000)",
+  fontFamily: "inherit",
+  fontSize: 13,
+  pointerEvents: "none",
+};
+
+const createPanelTextStyle: CSSProperties = {
+  display: "flex",
+  flex: 1,
+  flexDirection: "column",
+  gap: 2,
+  minWidth: 0,
+};
+
+const createPanelButtonStyle: CSSProperties = {
+  flex: "0 0 auto",
+  height: 32,
+  padding: "0 12px",
+  border: 0,
+  borderRadius: 999,
   cursor: "pointer",
   fontFamily: "inherit",
   fontSize: 13,
@@ -219,6 +270,7 @@ interface EditContext {
   collection: MapCollection | null;
   master: MapMasterRow | null;
   masterCollection: MapMasterCollection | null;
+  onCreateFeatureEnd?: () => void;
   onError?: (message: string) => void;
 }
 
@@ -339,8 +391,8 @@ function createTerraDraw(map: MapboxMap, colorScheme: MapEditColorScheme): Terra
           selectedLineStringWidth: 3,
         },
       }),
-      // The polygon and linestring modes are never activated for drawing; they
-      // own the store features so the select mode can edit them.
+      // The polygon and linestring modes own the store features so select mode
+      // can edit them; the feature-creation workflow also activates them for drawing.
       new TerraDrawPolygonMode({
         styles: {
           fillColor: featureColor,
@@ -374,6 +426,8 @@ export function MapEditLayer({
   congregationId,
   selectedMap = null,
   colorScheme = "standard",
+  createFeature = null,
+  onCreateFeatureEnd,
   onError,
 }: MapEditLayerProps) {
   const { current: mapRef } = useMap();
@@ -386,9 +440,10 @@ export function MapEditLayer({
     collection,
     master,
     masterCollection,
+    onCreateFeatureEnd,
     onError,
   });
-  contextRef.current = { maps, collection, master, masterCollection, onError };
+  contextRef.current = { maps, collection, master, masterCollection, onCreateFeatureEnd, onError };
   const selectedMapRef = useRef(selectedMap);
   selectedMapRef.current = selectedMap;
   const skippedRowsRef = useRef<Set<string>>(new Set());
@@ -417,6 +472,10 @@ export function MapEditLayer({
   // pointer by a frame or more.
   const handleMarkerRef = useRef<MapboxMarker | null>(null);
   const deleteMarkerRef = useRef<MapboxMarker | null>(null);
+  const [activeCreateFeature, setActiveCreateFeature] =
+    useState<MapEditCreateFeatureRequest | null>(null);
+  const activeCreateFeatureRef = useRef<MapEditCreateFeatureRequest | null>(null);
+  const [canFinishCreateFeature, setCanFinishCreateFeature] = useState(false);
 
   const cancelActiveDrag = () => {
     if (dragFrameRef.current !== null) {
@@ -442,6 +501,71 @@ export function MapEditLayer({
     if (restore?.wasEnabled) {
       restore.map.dragPan.enable();
     }
+  };
+
+  const clearActiveCreateFeature = () => {
+    activeCreateFeatureRef.current = null;
+    setActiveCreateFeature(null);
+    setCanFinishCreateFeature(false);
+    contextRef.current.onCreateFeatureEnd?.();
+  };
+
+  const finishCreateFeature = (instance: TerraDraw, id: string | number) => {
+    const request = activeCreateFeatureRef.current;
+    if (!request) {
+      return;
+    }
+    const label = request.type === "face" ? "face" : "block";
+    const failureMessage = `The new ${label} could not be saved.`;
+    const feature = instance.getSnapshotFeature(id);
+    const block = mapEditNewBlockFromGeometry(request, feature?.geometry);
+    try {
+      instance.removeFeatures([id]);
+    } catch (error) {
+      console.error(`MapEditLayer: failed to remove finished ${label} drawing`, error);
+    }
+
+    const { maps, collection } = contextRef.current;
+    const row = maps.find((entry) => entry.id === request.mapId);
+    if (!block || !collection || !row?.id) {
+      contextRef.current.onError?.(failureMessage);
+    } else {
+      try {
+        const tx = collection.update(row.id, (draft) => {
+          draft.blocks = [...(draft.blocks ?? []), block];
+        });
+        void tx.isPersisted.promise.catch(() => contextRef.current.onError?.(failureMessage));
+      } catch (error) {
+        console.error(`MapEditLayer: failed to save new ${label}`, error);
+        contextRef.current.onError?.(failureMessage);
+      }
+    }
+
+    try {
+      if (instance.getMode() !== MAP_EDIT_SELECT_MODE) {
+        instance.setMode(MAP_EDIT_SELECT_MODE);
+      }
+    } catch (error) {
+      console.error("MapEditLayer: failed to restore select mode after drawing", error);
+    }
+    clearActiveCreateFeature();
+  };
+
+  const cancelCreateFeature = () => {
+    if (!activeCreateFeatureRef.current) {
+      return;
+    }
+    const instance = drawRef.current;
+    if (instance) {
+      try {
+        if (instance.getMode() !== MAP_EDIT_SELECT_MODE) {
+          instance.setMode(MAP_EDIT_SELECT_MODE);
+        }
+      } catch (error) {
+        console.error("MapEditLayer: failed to cancel feature drawing", error);
+      }
+    }
+    clearActiveCreateFeature();
   };
 
   useEffect(() => {
@@ -611,7 +735,7 @@ export function MapEditLayer({
 
     const onMapClick = (event: MapMouseEvent) => {
       const draw = instance;
-      if (!draw || event.originalEvent.detail > 1) {
+      if (!draw || event.originalEvent.detail > 1 || activeCreateFeatureRef.current) {
         return;
       }
       const hit = vertexAt(event.point);
@@ -666,9 +790,12 @@ export function MapEditLayer({
         return;
       }
       creating = true;
-      // A rebuild must not preserve hidden Terra Draw layers or an in-flight
-      // preview from the previous editor instance.
+      // A rebuild must not preserve hidden Terra Draw layers, an in-flight
+      // preview, or a half-drawn new feature from the previous editor instance.
       cancelActiveDrag();
+      if (activeCreateFeatureRef.current) {
+        clearActiveCreateFeature();
+      }
       previewRenderer.destroy();
       // A style swap drops the adapter's sources, so rebuild from scratch.
       try {
@@ -705,13 +832,21 @@ export function MapEditLayer({
         armedVertexRef.current = null;
         instance = createTerraDraw(mapboxMap, colorScheme);
         instance.on("change", () => {
-          setVertices(
-            mapEditVerticesToGeoJSON(
-              instance?.getSnapshot() ?? [],
-              colorScheme,
-              selectedMapRef.current,
-            ),
-          );
+          const snapshot = instance?.getSnapshot() ?? [];
+          setVertices(mapEditVerticesToGeoJSON(snapshot, colorScheme, selectedMapRef.current));
+          const createRequest = activeCreateFeatureRef.current;
+          if (createRequest) {
+            const createMode =
+              createRequest.type === "block" ? MAP_EDIT_POLYGON_MODE : MAP_EDIT_LINE_MODE;
+            const drawing = snapshot.find(
+              (feature) =>
+                feature.properties?.["mode"] === createMode &&
+                feature.properties?.["currentlyDrawing"] === true,
+            );
+            setCanFinishCreateFeature(
+              drawing ? mapEditDrawingCanFinish(createRequest.type, drawing.geometry) : false,
+            );
+          }
           // Defer — calling triggerRepaint synchronously inside a store change
           // re-renders mapbox reentrantly mid-mutation, which can crash the
           // frame ("reading 'r'" on an undefined paint uniform).
@@ -719,7 +854,11 @@ export function MapEditLayer({
         });
         instance.on("finish", (id) => {
           if (instance) {
-            persistFeature(instance, id, contextRef.current);
+            if (activeCreateFeatureRef.current) {
+              finishCreateFeature(instance, id);
+            } else {
+              persistFeature(instance, id, contextRef.current);
+            }
           }
         });
         instance.start();
@@ -794,6 +933,35 @@ export function MapEditLayer({
       }
     };
   }, [mapRef, colorScheme]);
+
+  useEffect(() => {
+    if (!draw) {
+      return;
+    }
+    if (!createFeature) {
+      cancelCreateFeature();
+      return;
+    }
+    if (activeCreateFeatureRef.current?.key === createFeature.key) {
+      return;
+    }
+    cancelActiveDrag();
+    armedVertexRef.current = null;
+    setArmedVertex(null);
+    try {
+      draw.setMode(createFeature.type === "block" ? MAP_EDIT_POLYGON_MODE : MAP_EDIT_LINE_MODE);
+      activeCreateFeatureRef.current = createFeature;
+      setActiveCreateFeature(createFeature);
+      setCanFinishCreateFeature(false);
+    } catch (error) {
+      console.error("MapEditLayer: failed to start feature drawing", error);
+      activeCreateFeatureRef.current = null;
+      setActiveCreateFeature(null);
+      setCanFinishCreateFeature(false);
+      contextRef.current.onError?.("Feature drawing could not be started.");
+      contextRef.current.onCreateFeatureEnd?.();
+    }
+  }, [draw, createFeature]);
 
   useEffect(() => {
     if (!draw) {
@@ -1104,6 +1272,24 @@ export function MapEditLayer({
     }
   };
 
+  const onCreateFinishClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    stopNativePropagationBeforeMapbox(event);
+    event.preventDefault();
+    event.stopPropagation();
+    if (!canFinishCreateFeature) {
+      return;
+    }
+    const canvas = mapRef?.getMap().getCanvas();
+    canvas?.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", bubbles: true }));
+  };
+
+  const onCreateCancelClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    stopNativePropagationBeforeMapbox(event);
+    event.preventDefault();
+    event.stopPropagation();
+    cancelCreateFeature();
+  };
+
   // Matches the armed vertex in the overlay data (feature id + ring index).
   // Always a data-driven expression — flipping the paint between a literal and
   // an expression switches the bucket's program configuration (constant ↔
@@ -1209,6 +1395,48 @@ export function MapEditLayer({
             </div>
           </div>
         </Marker>
+      ) : null}
+      {activeCreateFeature ? (
+        <div style={createPanelStyle}>
+          <div style={createPanelTextStyle}>
+            <strong>
+              New {activeCreateFeature.type}: {activeCreateFeature.name}
+            </strong>
+            <span>
+              {activeCreateFeature.type === "block"
+                ? "Tap the map to add corners, then finish the shape."
+                : "Tap the map to add points, then finish the line."}
+            </span>
+          </div>
+          <button
+            type="button"
+            aria-label="Finish drawing"
+            disabled={!canFinishCreateFeature}
+            style={{
+              ...createPanelButtonStyle,
+              background: MAP_PRIMARY_COLOR,
+              color: VERTEX_COLOR,
+              opacity: canFinishCreateFeature ? 1 : 0.45,
+            }}
+            {...vertexControlCaptureProps}
+            onClickCapture={onCreateFinishClick}
+          >
+            Finish
+          </button>
+          <button
+            type="button"
+            aria-label="Cancel drawing"
+            style={{
+              ...createPanelButtonStyle,
+              background: "rgba(127, 127, 127, 0.18)",
+              color: "inherit",
+            }}
+            {...vertexControlCaptureProps}
+            onClickCapture={onCreateCancelClick}
+          >
+            Cancel
+          </button>
+        </div>
       ) : null}
     </>
   );

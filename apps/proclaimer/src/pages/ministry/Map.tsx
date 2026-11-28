@@ -29,6 +29,8 @@ import {
   useMasterMap,
   usePermissions,
   useSettings,
+  type MapEditCreateFeatureRequest,
+  type MapEditDetailsNewFeature,
 } from "proclaimer-core";
 
 import { mapboxAccessToken } from "../../config";
@@ -42,6 +44,7 @@ const Map = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [mapEditDetailsOpen, setMapEditDetailsOpen] = useState(false);
+  const [createFeature, setCreateFeature] = useState<MapEditCreateFeatureRequest | null>(null);
   const [selectedMapFitKey, setSelectedMapFitKey] = useState(0);
   const [optimisticSelectedMap, setOptimisticSelectedMap] = useState<{
     congregationId: string;
@@ -72,6 +75,7 @@ const Map = () => {
   useEffect(() => {
     if (!editing) {
       setMapEditDetailsOpen(false);
+      setCreateFeature(null);
     }
   }, [editing]);
 
@@ -86,8 +90,19 @@ const Map = () => {
     void presentAlert({ header: "Save Failed", message, buttons: ["OK"] });
   };
 
+  const startFeatureCreation = (feature: MapEditDetailsNewFeature) => {
+    setMapEditDetailsOpen(false);
+    setSelectedMapFitKey((current) => current + 1);
+    setCreateFeature({
+      ...feature,
+      key: crypto.randomUUID(),
+      blockId: crypto.randomUUID(),
+    });
+  };
+
   const selectMap = (key: string) => {
     setMapsOpen(false);
+    setCreateFeature(null);
     if (!congregationId) {
       return;
     }
@@ -161,11 +176,13 @@ const Map = () => {
               congregationId={congregationId}
               selectedMap={selectedMap}
               colorScheme={settings.mapEditColorScheme}
+              createFeature={createFeature}
+              onCreateFeatureEnd={() => setCreateFeature(null)}
               onError={showSaveFailed}
             />
           ) : null}
         </MapView>
-        {editing ? (
+        {editing && !createFeature ? (
           <IonFab slot="fixed" vertical="bottom" horizontal="end" className="map-edit-details-fab">
             <IonFabButton
               onClick={() => setMapEditDetailsOpen(true)}
@@ -195,6 +212,7 @@ const Map = () => {
             onDidDismiss={() => setMapEditDetailsOpen(false)}
             congregationId={congregationId}
             selectedMap={selectedMap}
+            onAddFeature={startFeatureCreation}
           />
         ) : null}
       </IonContent>

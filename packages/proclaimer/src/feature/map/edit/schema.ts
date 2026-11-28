@@ -4,7 +4,9 @@ import {
   boundaryToPolygonCoords,
   ensureClosedRing,
   MAP_PRIMARY_COLOR,
+  mapBoundarySchema,
   mapRowKey,
+  type MapBlock,
   type MapBoundary,
   type MapRow,
 } from "../maps/schema.ts";
@@ -86,6 +88,68 @@ export function mapEditFeatureColor(
 export type MapEditGeometry =
   | { type: "Polygon"; coordinates: number[][][] }
   | { type: "LineString"; coordinates: number[][] };
+
+export type MapEditCreateFeatureType = MapBlock["type"];
+
+// Everything the drawing workflow needs to turn a finished Terra Draw geometry
+// into a block or face on the selected map. `key` identifies one drawing
+// attempt; `blockId` is the id the saved block/face will keep.
+export interface MapEditCreateFeatureRequest {
+  key: string;
+  mapId: string;
+  blockId: string;
+  type: MapEditCreateFeatureType;
+  name: string;
+}
+
+function cloneValidBoundary(coordinates: unknown): MapBoundary | null {
+  const parsed = mapBoundarySchema.safeParse(coordinates);
+  return parsed.success ? parsed.data.map(([lng, lat]) => [lng, lat] as [number, number]) : null;
+}
+
+function geometryCoordinates(geometry: unknown, type: MapEditCreateFeatureType): unknown {
+  if (type === "block") {
+    const polygon = geometry as { type?: unknown; coordinates?: unknown } | null | undefined;
+    return polygon?.type === "Polygon" && Array.isArray(polygon.coordinates)
+      ? polygon.coordinates[0]
+      : null;
+  }
+  const line = geometry as { type?: unknown; coordinates?: unknown } | null | undefined;
+  return line?.type === "LineString" ? line.coordinates : null;
+}
+
+// Converts a finished drawing into the stored block/face shape. Blocks keep
+// Terra Draw's closed polygon ring; faces keep the line's coordinates.
+export function mapEditNewBlockFromGeometry(
+  request: Pick<MapEditCreateFeatureRequest, "blockId" | "type" | "name">,
+  geometry: unknown,
+): MapBlock | null {
+  const coordinates = cloneValidBoundary(geometryCoordinates(geometry, request.type));
+  const minimumLength = request.type === "block" ? 4 : 2;
+  if (!coordinates || coordinates.length < minimumLength) {
+    return null;
+  }
+  return {
+    id: request.blockId,
+    name: request.name,
+    type: request.type,
+    coordinates,
+  };
+}
+
+// Terra Draw keeps a live/provisional coordinate in the geometry while drawing.
+// These lengths are the points at which finishing would leave a valid triangle
+// or two-point line after that coordinate is removed.
+export function mapEditDrawingCanFinish(
+  type: MapEditCreateFeatureType,
+  geometry: unknown,
+): boolean {
+  const coordinates = geometryCoordinates(geometry, type);
+  if (!Array.isArray(coordinates)) {
+    return false;
+  }
+  return coordinates.length >= (type === "block" ? 5 : 3);
+}
 
 // `mode` is required by Terra Draw's store validation; `kind`, `mapId`, and
 // `blockId` map the feature back to the row it was built from. `mapName`

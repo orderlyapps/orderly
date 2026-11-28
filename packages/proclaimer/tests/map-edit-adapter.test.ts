@@ -20,6 +20,8 @@ import {
   mapEditDragPreviewFillGeoJSON,
   mapEditDragPreviewStaticGeoJSON,
   mapEditDragPreviewStyle,
+  mapEditDrawingCanFinish,
+  mapEditNewBlockFromGeometry,
   splitMapEditVertexDragGeometry,
   type MapEditFeature,
 } from "../src/feature/map/edit/schema.ts";
@@ -44,10 +46,18 @@ function makeMockMap() {
   const layerLayout = new Map<string, Map<string, unknown>>();
   const listeners = new Map<string, Set<() => void>>();
   const onceListeners = new Map<string, Set<() => void>>();
+  const canvasListeners = new Map<string, Set<(event: unknown) => void>>();
   const canvas = {
     style: { cursor: "", removeProperty: () => {} },
-    addEventListener: () => {},
-    removeEventListener: () => {},
+    addEventListener: (type: string, listener: (event: unknown) => void) => {
+      const entries = canvasListeners.get(type) ?? new Set<(event: unknown) => void>();
+      entries.add(listener);
+      canvasListeners.set(type, entries);
+    },
+    removeEventListener: (type: string, listener: (event: unknown) => void) => {
+      canvasListeners.get(type)?.delete(listener);
+    },
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }),
     setPointerCapture: () => {},
     releasePointerCapture: () => {},
   };
@@ -146,6 +156,11 @@ function makeMockMap() {
       onceListeners.get(event)?.clear();
       for (const listener of once) listener();
       for (const listener of listeners.get(event) ?? []) listener();
+    },
+    fireCanvasEvent: (type: string, event: unknown) => {
+      for (const listener of canvasListeners.get(type) ?? []) {
+        listener(event);
+      }
     },
   };
 }
@@ -300,6 +315,104 @@ test("adapter end-to-end renders our features into mapbox sources", async () => 
     ).toBeDefined();
     expect(feature.properties?.["pointWidth"], `pointWidth on ${String(feature.id)}`).toBeDefined();
   }
+});
+
+test("terra draw creation workflow finishes lines and polygons with saveable geometry", () => {
+  vi.stubGlobal("requestAnimationFrame", (cb: () => void) => setTimeout(cb, 0));
+  vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
+
+  const createEditor = () => {
+    const map = makeMockMap();
+    const draw = new TerraDraw({
+      adapter: new TerraDrawMapboxGLAdapter({ map: map as never }),
+      modes: [
+        new TerraDrawSelectMode({ flags: MAP_EDIT_SELECT_FLAGS }),
+        new TerraDrawPolygonMode({}),
+        new TerraDrawLineStringMode({}),
+      ],
+      idStrategy: { getId: () => crypto.randomUUID(), isValidId: () => true },
+    });
+    draw.start();
+    const clickAt = (x: number, y: number) => {
+      const target = map.getCanvas();
+      const event = {
+        clientX: x,
+        clientY: y,
+        isPrimary: true,
+        button: 0,
+        target,
+        preventDefault: () => {},
+      };
+      map.fireCanvasEvent("pointerdown", { ...event, type: "pointerdown" });
+      map.fireCanvasEvent("pointerup", { ...event, type: "pointerup" });
+    };
+    const finishWithKeyboard = () => {
+      map.fireCanvasEvent("keyup", { key: "Enter", preventDefault: () => {} });
+    };
+    const currentDrawing = () =>
+      draw.getSnapshot().find((feature) => feature.properties?.["currentlyDrawing"] === true);
+    return { draw, clickAt, finishWithKeyboard, currentDrawing };
+  };
+
+  const lineEditor = createEditor();
+  lineEditor.draw.setMode("linestring");
+  const lineFinishes: (string | number)[] = [];
+  lineEditor.draw.on("finish", (id) => {
+    lineFinishes.push(id);
+  });
+  lineEditor.clickAt(0, 0);
+  expect(mapEditDrawingCanFinish("face", lineEditor.currentDrawing()?.geometry)).toBe(false);
+  lineEditor.clickAt(1, 0);
+  expect(mapEditDrawingCanFinish("face", lineEditor.currentDrawing()?.geometry)).toBe(true);
+  lineEditor.finishWithKeyboard();
+  expect(lineFinishes).toHaveLength(1);
+  const lineGeometry = lineEditor.draw.getSnapshotFeature(lineFinishes[0])?.geometry;
+  expect(lineGeometry).toEqual({
+    type: "LineString",
+    coordinates: [
+      [0, 0],
+      [1, 0],
+    ],
+  });
+  expect(
+    mapEditNewBlockFromGeometry(
+      { blockId: "face-new", type: "face", name: "Oak St" },
+      lineGeometry,
+    ),
+  ).toMatchObject({ id: "face-new", type: "face", name: "Oak St" });
+
+  const polygonEditor = createEditor();
+  polygonEditor.draw.setMode("polygon");
+  const polygonFinishes: (string | number)[] = [];
+  polygonEditor.draw.on("finish", (id) => {
+    polygonFinishes.push(id);
+  });
+  polygonEditor.clickAt(0, 0);
+  polygonEditor.clickAt(1, 0);
+  expect(mapEditDrawingCanFinish("block", polygonEditor.currentDrawing()?.geometry)).toBe(false);
+  polygonEditor.clickAt(1, 1);
+  expect(mapEditDrawingCanFinish("block", polygonEditor.currentDrawing()?.geometry)).toBe(true);
+  polygonEditor.finishWithKeyboard();
+  expect(polygonFinishes).toHaveLength(1);
+  const polygonGeometry = polygonEditor.draw.getSnapshotFeature(polygonFinishes[0])?.geometry;
+  expect(polygonGeometry?.type).toBe("Polygon");
+  const ring =
+    polygonGeometry?.type === "Polygon" ? (polygonGeometry.coordinates[0] as number[][]) : [];
+  expect(ring).toHaveLength(4);
+  expect(ring[0]).toEqual(ring[ring.length - 1]);
+  expect(ring).toEqual(
+    expect.arrayContaining([
+      [0, 0],
+      [1, 0],
+      [1, 1],
+    ]),
+  );
+  expect(
+    mapEditNewBlockFromGeometry(
+      { blockId: "block-new", type: "block", name: "Block 1" },
+      polygonGeometry,
+    ),
+  ).toMatchObject({ id: "block-new", type: "block", name: "Block 1" });
 });
 
 test("drag preview renderer manages layers, data, filters, and cleanup", () => {

@@ -31,8 +31,10 @@ import {
   mapEditDragPreviewFillGeoJSON,
   mapEditDragPreviewStaticGeoJSON,
   mapEditDragPreviewStyle,
+  mapEditDrawingCanFinish,
   mapEditFeatureColor,
   mapEditFeatureId,
+  mapEditNewBlockFromGeometry,
   mapEditVertexDragLine,
   mapEditVerticesToGeoJSON,
   mapMasterRowSchema,
@@ -932,6 +934,82 @@ test("calculates the next overlapping edit feature selection index", () => {
   expect(nextMapEditSelectionIndex(3, 1, true)).toBe(2);
   expect(nextMapEditSelectionIndex(3, 2, true)).toBe(0);
   expect(nextMapEditSelectionIndex(3, 3, true)).toBe(0);
+});
+
+test("converts finished drawings into new blocks and faces", () => {
+  const ring = [
+    [151.0, -33.9],
+    [151.1, -33.9],
+    [151.1, -33.8],
+    [151.0, -33.9],
+  ] as [number, number][];
+  const line = [
+    [151.0, -33.9],
+    [151.1, -33.9],
+  ] as [number, number][];
+
+  expect(
+    mapEditNewBlockFromGeometry(
+      { blockId: "b-new", type: "block", name: "Block 4" },
+      { type: "Polygon", coordinates: [ring] },
+    ),
+  ).toEqual({ id: "b-new", type: "block", name: "Block 4", coordinates: ring });
+  expect(
+    mapEditNewBlockFromGeometry(
+      { blockId: "f-new", type: "face", name: "Oak St" },
+      { type: "LineString", coordinates: line },
+    ),
+  ).toEqual({ id: "f-new", type: "face", name: "Oak St", coordinates: line });
+
+  // Geometry must match the requested feature type and meet the stored shape's
+  // minimum size: a closed ring for blocks and two points for faces.
+  expect(
+    mapEditNewBlockFromGeometry(
+      { blockId: "bad", type: "block", name: "Bad" },
+      { type: "LineString", coordinates: line },
+    ),
+  ).toBe(null);
+  expect(
+    mapEditNewBlockFromGeometry(
+      { blockId: "bad", type: "block", name: "Bad" },
+      { type: "Polygon", coordinates: [ring.slice(0, 3)] },
+    ),
+  ).toBe(null);
+  expect(
+    mapEditNewBlockFromGeometry(
+      { blockId: "bad", type: "face", name: "Bad" },
+      { type: "LineString", coordinates: line.slice(0, 1) },
+    ),
+  ).toBe(null);
+  expect(
+    mapEditNewBlockFromGeometry(
+      { blockId: "bad", type: "face", name: "Bad" },
+      { type: "LineString", coordinates: [["invalid", -33.9], line[1]] },
+    ),
+  ).toBe(null);
+});
+
+test("detects when an in-progress drawing can finish with valid geometry", () => {
+  const point = [151.0, -33.9];
+  const polygon = (length: number) => ({
+    type: "Polygon",
+    coordinates: [Array.from({ length }, () => point)],
+  });
+  const line = (length: number) => ({
+    type: "LineString",
+    coordinates: Array.from({ length }, () => point),
+  });
+
+  // Terra Draw keeps one live/provisional coordinate in the drawing. A block
+  // can finish once five ring positions exist (three committed corners plus
+  // closure/live positions); a face can finish once three line positions exist.
+  expect(mapEditDrawingCanFinish("block", polygon(4))).toBe(false);
+  expect(mapEditDrawingCanFinish("block", polygon(5))).toBe(true);
+  expect(mapEditDrawingCanFinish("face", line(2))).toBe(false);
+  expect(mapEditDrawingCanFinish("face", line(3))).toBe(true);
+  expect(mapEditDrawingCanFinish("block", line(5))).toBe(false);
+  expect(mapEditDrawingCanFinish("face", polygon(3))).toBe(false);
+  expect(mapEditDrawingCanFinish("block", null)).toBe(false);
 });
 
 test("applies edited features back onto map and master rows", () => {

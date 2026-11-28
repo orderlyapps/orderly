@@ -18,7 +18,7 @@ import {
   useIonActionSheet,
   useIonAlert,
 } from "@ionic/react";
-import { createOutline, trashOutline } from "ionicons/icons";
+import { addOutline, createOutline, trashOutline } from "ionicons/icons";
 
 import { useMapPolygons } from "./maps/hooks.ts";
 import {
@@ -33,11 +33,18 @@ import { mapTagAssignmentKey } from "./tags/collection.ts";
 import { useMapTagAssignments, useMapTags } from "./tags/hooks.ts";
 import { findMapTagByName, sortMapTags, type MapTagRow } from "./tags/schema.ts";
 
+export interface MapEditDetailsNewFeature {
+  mapId: string;
+  type: MapBlock["type"];
+  name: string;
+}
+
 export interface MapEditDetailsModalProps {
   isOpen: boolean;
   onDidDismiss: () => void;
   congregationId?: string;
   selectedMap?: string | null;
+  onAddFeature?: (feature: MapEditDetailsNewFeature) => void;
 }
 
 const blockTypeLabel = (block: MapBlock) => (block.type === "face" ? "Face" : "Block");
@@ -47,6 +54,7 @@ export function MapEditDetailsModal({
   onDidDismiss,
   congregationId,
   selectedMap: selectedMapKey = null,
+  onAddFeature,
 }: MapEditDetailsModalProps) {
   const { maps, isLoading, error, collection } = useMapPolygons(congregationId);
   const [presentAlert] = useIonAlert();
@@ -332,10 +340,46 @@ export function MapEditDetailsModal({
     });
   };
 
-  const blockGroup = (row: MapRow, title: string, items: MapBlock[]) => (
+  const promptNewFeature = (row: MapRow, type: MapBlock["type"]) => {
+    const label = type === "face" ? "Face" : "Block";
+    const mapId = row.id;
+    if (!mapId || !onAddFeature) {
+      showSaveFailed(`The ${label.toLowerCase()} could not be created.`);
+      return;
+    }
+    void presentAlert({
+      header: `New ${label}`,
+      inputs: [{ name: "name", type: "text", placeholder: `${label} name` }],
+      buttons: [
+        { text: "Cancel", role: "cancel" },
+        {
+          text: "Draw",
+          handler: (data: Record<string, string>) => {
+            const name = (data.name ?? "").trim();
+            if (!name) {
+              return false;
+            }
+            onDidDismiss();
+            onAddFeature({ mapId, type, name });
+          },
+        },
+      ],
+    });
+  };
+
+  const blockGroup = (row: MapRow, title: string, items: MapBlock[], type: MapBlock["type"]) => (
     <IonItemGroup>
       <IonListHeader>
         <IonLabel>{title}</IonLabel>
+        {onAddFeature ? (
+          <IonButton
+            fill="clear"
+            aria-label={`Add ${type}`}
+            onClick={() => promptNewFeature(row, type)}
+          >
+            <IonIcon slot="icon-only" icon={addOutline} />
+          </IonButton>
+        ) : null}
       </IonListHeader>
       {items.length === 0 ? (
         <IonItem lines="none">
@@ -423,8 +467,8 @@ export function MapEditDetailsModal({
           <IonLabel color="primary">Add Tag</IonLabel>
         </IonItem>
       </IonItemGroup>
-      {blockGroup(map, "Blocks", blocks)}
-      {blockGroup(map, "Faces", faces)}
+      {blockGroup(map, "Blocks", blocks, "block")}
+      {blockGroup(map, "Faces", faces, "face")}
     </>
   ) : null;
 
