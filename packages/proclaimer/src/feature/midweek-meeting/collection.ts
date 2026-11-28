@@ -1,9 +1,11 @@
 import { createSupabaseTableCollection } from "../backend/collections.ts";
+import { getSupabaseClient } from "../backend/supabase.ts";
 import {
   CLAM_OVERSEER_PERMISSION_TABLE,
   MIDWEEK_ASSIGNMENT_TABLE,
   MIDWEEK_MEETING_DATA_TABLE,
   MIDWEEK_PARTICIPATION_TABLE,
+  assignmentIdsIncludingSchoolCascade,
   clamOverseerPermissionSchema,
   midweekMeetingAssignmentSchema,
   midweekMeetingDataSchema,
@@ -36,6 +38,39 @@ export function getMidweekMeetingDataCollection(): MidweekMeetingDataCollection 
   return defaultDataCollection;
 }
 
+async function deleteMidweekAssignmentRows(rows: MidweekMeetingAssignment[]): Promise<void> {
+  const groups = new Map<
+    string,
+    {
+      congregationId: string;
+      weekId: string;
+      assignmentIds: MidweekMeetingAssignment["assignment_id"][];
+    }
+  >();
+  for (const row of rows) {
+    const groupKey = JSON.stringify([row.congregation_id, row.week_id]);
+    const group = groups.get(groupKey) ?? {
+      congregationId: row.congregation_id,
+      weekId: row.week_id,
+      assignmentIds: [],
+    };
+    group.assignmentIds.push(row.assignment_id);
+    groups.set(groupKey, group);
+  }
+
+  for (const group of groups.values()) {
+    const { error } = await getSupabaseClient()
+      .from(MIDWEEK_ASSIGNMENT_TABLE)
+      .delete()
+      .eq("congregation_id", group.congregationId)
+      .eq("week_id", group.weekId)
+      .in("assignment_id", assignmentIdsIncludingSchoolCascade(group.assignmentIds));
+    if (error) {
+      throw error;
+    }
+  }
+}
+
 export function createMidweekAssignmentCollection(congregationId: string) {
   return createSupabaseTableCollection<MidweekMeetingAssignment>({
     table: MIDWEEK_ASSIGNMENT_TABLE,
@@ -43,6 +78,7 @@ export function createMidweekAssignmentCollection(congregationId: string) {
     match: { congregation_id: congregationId },
     keyColumns: ["assignment_id", "congregation_id", "week_id"],
     schema: midweekMeetingAssignmentSchema,
+    onDeleteRows: deleteMidweekAssignmentRows,
   });
 }
 

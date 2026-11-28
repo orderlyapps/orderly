@@ -137,9 +137,13 @@ export function MidweekAssignmentEditor({
   }
 
   function confirmRemove(label: string, name: string, action: () => void) {
+    const counselorSchool =
+      assignmentId === "chairman_2" ? 2 : assignmentId === "chairman_3" ? 3 : null;
     void presentAlert({
-      header: "Remove Assignment",
-      message: `Remove ${name} as ${label}?`,
+      header: counselorSchool ? `Remove School ${counselorSchool}?` : "Remove Assignment",
+      message: counselorSchool
+        ? `Remove ${name} as ${label}? This will also remove the School ${counselorSchool} Bible Reading, student, and assistant assignments for this week.`
+        : `Remove ${name} as ${label}?`,
       buttons: [
         { text: "Cancel", role: "cancel" },
         { text: "Remove", role: "destructive", handler: action },

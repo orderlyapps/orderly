@@ -13,6 +13,7 @@ import {
   currentWeekId,
   MidweekMeetingView,
   parseWeekId,
+  School2Manager,
   usePermissions,
   useSettings,
   weekIdOf,
@@ -20,7 +21,12 @@ import {
 
 const Midweek = () => {
   const { settings } = useSettings();
-  const permissions = usePermissions(settings.congregationId || undefined);
+  const congregationId = settings.congregationId || undefined;
+  const permissions = usePermissions(congregationId);
+  const canManageMidweek =
+    permissions.hasMidweekMeetingOverseer ||
+    permissions.isCongregationAdmin ||
+    permissions.isSuperAdmin;
   const { weekId: weekIdParam } = useParams<{ weekId?: string }>();
   // Meeting data is keyed by Monday, so normalize any valid date to its week id.
   const parsedWeekId = weekIdParam ? parseWeekId(weekIdParam) : null;
@@ -44,14 +50,23 @@ const Midweek = () => {
             <IonBackButton defaultHref="/schedules" />
           </IonButtons>
           <IonTitle>Midweek Meeting</IonTitle>
+          {canManageMidweek && (
+            <IonButtons slot="end">
+              <School2Manager
+                weekId={weekId}
+                congregationId={congregationId}
+                canEdit={canManageMidweek}
+              />
+            </IonButtons>
+          )}
         </IonToolbar>
       </IonHeader>
       <IonContent>
         <MidweekMeetingView
           weekId={weekId}
-          congregationId={settings.congregationId || undefined}
+          congregationId={congregationId}
           onSelectWeek={selectWeek}
-          canEditAssignments={permissions.hasMidweekMeetingOverseer}
+          canEditAssignments={canManageMidweek}
           assignmentBasePath="/schedules/midweek"
         />
         <div style={{ paddingBottom: 96 }} />

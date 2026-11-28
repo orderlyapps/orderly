@@ -25,6 +25,7 @@ import type {
 import { midweekMeetingAssignmentIds } from "../schema.ts";
 import type { MeetingSectionColor } from "../../meeting/types.ts";
 import { assistantAssignmentIdFor, participationTypeMap } from "./assignments.ts";
+import { deleteSchoolAssignments } from "../schoolAssignments.ts";
 
 export interface UseMidweekAssignmentEditorProps {
   weekId: string;
@@ -282,6 +283,15 @@ export function useMidweekAssignmentEditor({
         !congregationId ||
         !midweekMeetingAssignmentIds.includes(targetId as MidweekMeetingAssignmentId)
       ) {
+        return;
+      }
+      if (targetId === "chairman_2" || targetId === "chairman_3") {
+        deleteSchoolAssignments(
+          collection,
+          targetId === "chairman_2" ? 2 : 3,
+          congregationId,
+          weekId,
+        );
         return;
       }
       const key = midweekAssignmentKey(targetId, congregationId, weekId);

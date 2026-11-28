@@ -93,6 +93,36 @@ export const midweekMeetingAssignmentIds = [
 
 export type MidweekMeetingAssignmentId = (typeof midweekMeetingAssignmentIds)[number];
 
+export function schoolAssignmentIds(school: 1 | 2 | 3): MidweekMeetingAssignmentId[] {
+  return [
+    `chairman_${school}`,
+    `school_${school}_bible_reading`,
+    ...Array.from({ length: 4 }, (_, index) => index + 1).flatMap(
+      (index) =>
+        [
+          `school_${school}_apply_${index}`,
+          `school_${school}_assistant_${index}`,
+        ] as MidweekMeetingAssignmentId[],
+    ),
+  ] as MidweekMeetingAssignmentId[];
+}
+
+export const school2AssignmentIds = schoolAssignmentIds(2);
+
+export function assignmentIdsIncludingSchoolCascade(
+  assignmentIds: Iterable<MidweekMeetingAssignmentId>,
+): MidweekMeetingAssignmentId[] {
+  const result = new Set(assignmentIds);
+  for (const school of [2, 3] as const) {
+    if (result.has(`chairman_${school}`)) {
+      for (const assignmentId of schoolAssignmentIds(school)) {
+        result.add(assignmentId);
+      }
+    }
+  }
+  return [...result];
+}
+
 // Mirrors the Supabase "midweek_assignment" table (per-congregation, no primary key)
 export const midweekMeetingAssignmentSchema = z.object({
   participant_id: z.uuid(),

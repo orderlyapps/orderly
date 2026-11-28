@@ -2,15 +2,20 @@ import { expect, test } from "vite-plus/test";
 
 import type { EventRow } from "../src/feature/event/index.ts";
 import {
+  assignmentIdsIncludingSchoolCascade,
   assistantAssignmentIdFor,
   buildMeetingProgram,
   computeAssignmentStats,
+  deleteSchoolAssignments,
   eligiblePublishers,
+  midweekAssignmentKey,
   midweekMeetingAssignmentIds,
   participationAssignmentIds,
   participationTypeMap,
   participationTypesByPublisher,
   partnerAssignmentIdFor,
+  school2AssignmentIds,
+  schoolAssignmentIds,
   sortPublishersByStats,
   statLabelFor,
   type MidweekMeetingAssignment,
@@ -213,20 +218,27 @@ test("buildMeetingProgram resolves assignees, assistants and extra schools", () 
     "Patrick Gough",
   );
 
-  const bibleReading = program.sections[1].blocks[0].items.find(
-    (i) => i.id === "school_1_bible_reading",
+  const bibleReadings = program.sections[1].blocks[0].items.filter((i) =>
+    i.id.includes("bible_reading"),
   );
-  expect(bibleReading?.extraAssignees).toEqual([
-    { label: "Auxiliary Classroom 1", name: "Cher Fisher" },
-  ]);
+  expect(bibleReadings.map((i) => i.id)).toEqual(["school_1_bible_reading"]);
 
   const ministry = program.sections[2];
-  expect(ministry.blocks).toHaveLength(2);
-  expect(ministry.blocks[0].label).toBe("Main Hall");
-  expect(ministry.blocks[1].label).toBe("Auxiliary Classroom 1");
-  expect(ministry.blocks[1].items[0].title).toBe("Counselor");
-  expect(ministry.blocks[1].items[0].assignee).toBe("Patrick Gough");
-  const school2Part = ministry.blocks[1].items.find((i) => i.id === "school_2_apply_1");
+  expect(ministry.blocks).toHaveLength(1);
+
+  const school2 = program.sections[3];
+  expect(school2.id).toBe("school_2");
+  expect(school2.title).toBe("Auxiliary Classroom 1");
+  expect(school2.blocks[0].items.map((i) => i.id)).toEqual([
+    "chairman_2",
+    "school_2_bible_reading",
+    "school_2_apply_1",
+    "school_2_apply_2",
+    "school_2_apply_3",
+  ]);
+  expect(school2.blocks[0].items[0].assignee).toBe("Patrick Gough");
+  expect(school2.blocks[0].items[1].assignee).toBe("Cher Fisher");
+  const school2Part = school2.blocks[0].items.find((i) => i.id === "school_2_apply_1");
   expect(school2Part?.assignee).toBe("Patrick Gough");
 
   const mainPart = ministry.blocks[0].items.find((i) => i.id === "school_1_apply_1");
@@ -252,6 +264,36 @@ test("buildMeetingProgram ignores assignments from other weeks", () => {
   expect(opening.find((i) => i.id === "prayer_1")?.assignee).toBe("Cher Fisher");
   // A stray next-week school assignment must not spawn an extra school block.
   expect(program.sections[2].blocks).toHaveLength(1);
+});
+
+test("buildMeetingProgram only activates school 2 when its counselor is assigned", () => {
+  const withoutCounselor = buildMeetingProgram({
+    weekId: "2025-11-03",
+    meeting,
+    publishers,
+    assignments: [
+      assignment("school_2_bible_reading", "pub-2"),
+      assignment("school_2_apply_1", "pub-1"),
+    ],
+  });
+  expect(withoutCounselor.sections[1].blocks[0].items.map((i) => i.id)).not.toContain(
+    "school_2_bible_reading",
+  );
+  expect(withoutCounselor.sections[2].blocks).toHaveLength(1);
+
+  const withCounselor = buildMeetingProgram({
+    weekId: "2025-11-03",
+    meeting,
+    publishers,
+    assignments: [assignment("chairman_2", "pub-1")],
+  });
+  expect(withCounselor.sections[1].blocks[0].items.map((i) => i.id)).not.toContain(
+    "school_2_bible_reading",
+  );
+  expect(withCounselor.sections[3].id).toBe("school_2");
+  expect(withCounselor.sections[3].blocks[0].items.map((i) => i.id)).toContain(
+    "school_2_bible_reading",
+  );
 });
 
 test("buildMeetingProgram falls back when optional part titles are missing", () => {
@@ -332,6 +374,55 @@ test("buildMeetingProgram handles weeks without meeting data", () => {
   expect(program.hasMeetingData).toBe(false);
   expect(program.bibleReading).toBeUndefined();
   expect(program.sections).toHaveLength(0);
+});
+
+test("schoolAssignmentIds lists every assignment owned by an auxiliary school", () => {
+  expect(schoolAssignmentIds(2)).toEqual([
+    "chairman_2",
+    "school_2_bible_reading",
+    "school_2_apply_1",
+    "school_2_assistant_1",
+    "school_2_apply_2",
+    "school_2_assistant_2",
+    "school_2_apply_3",
+    "school_2_assistant_3",
+    "school_2_apply_4",
+    "school_2_assistant_4",
+  ]);
+  expect(school2AssignmentIds).toEqual(schoolAssignmentIds(2));
+});
+
+test("assignmentIdsIncludingSchoolCascade expands counselor deletes to the full school", () => {
+  expect(assignmentIdsIncludingSchoolCascade(["chairman_2"])).toEqual(school2AssignmentIds);
+  expect(assignmentIdsIncludingSchoolCascade(["school_2_apply_1"])).toEqual(["school_2_apply_1"]);
+
+  const school3Ids = assignmentIdsIncludingSchoolCascade(["school_3_apply_1", "chairman_3"]);
+  expect(new Set(school3Ids)).toEqual(new Set(schoolAssignmentIds(3)));
+  expect(school3Ids).toHaveLength(schoolAssignmentIds(3).length);
+});
+
+test("deleteSchoolAssignments deletes existing school rows in one mutation", () => {
+  const week = "2025-11-03";
+  const existingKeys = new Set([
+    midweekAssignmentKey("chairman_2", congregationId, week),
+    midweekAssignmentKey("school_2_apply_1", congregationId, week),
+  ]);
+  const deletedKeys: string[][] = [];
+  const store = {
+    get: (key: string) => (existingKeys.has(key) ? {} : undefined),
+    delete: (keys: string[] | string) => {
+      deletedKeys.push(Array.isArray(keys) ? keys : [keys]);
+    },
+  };
+
+  deleteSchoolAssignments(store, 2, congregationId, week);
+
+  expect(deletedKeys).toEqual([
+    [
+      midweekAssignmentKey("chairman_2", congregationId, week),
+      midweekAssignmentKey("school_2_apply_1", congregationId, week),
+    ],
+  ]);
 });
 
 test("participationTypeMap maps every assignment id to a participation type", () => {

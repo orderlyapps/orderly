@@ -68,15 +68,8 @@ function publisherName(publisher: Publisher | undefined): string | undefined {
 
 const SCHOOL_COUNT = 3;
 
-function schoolAssignmentPrefix(school: number): string {
-  return `school_${school}_`;
-}
-
-function schoolHasAssignments(assignments: MidweekMeetingAssignment[], school: number): boolean {
-  const prefix = schoolAssignmentPrefix(school);
-  return assignments.some(
-    (a) => a.assignment_id.startsWith(prefix) || a.assignment_id === `chairman_${school}`,
-  );
+function schoolHasChairman(assignments: MidweekMeetingAssignment[], school: number): boolean {
+  return assignments.some((a) => a.assignment_id === `chairman_${school}`);
 }
 
 export function buildMeetingProgram(input: BuildMeetingProgramInput): MeetingProgram {
@@ -119,15 +112,13 @@ export function buildMeetingProgram(input: BuildMeetingProgramInput): MeetingPro
   }
 
   // Which schools actually run this week (school 1 always exists conceptually,
-  // extra schools appear only when they have assignments).
+  // extra schools appear only when they have a counselor/chairman assigned).
   const extraSchools: number[] = [];
   for (let school = 2; school <= SCHOOL_COUNT; school++) {
-    if (schoolHasAssignments(weekAssignments, school)) {
+    if (schoolHasChairman(weekAssignments, school)) {
       extraSchools.push(school);
     }
   }
-  const schoolNumbers = [1, ...extraSchools];
-  const multipleSchools = schoolNumbers.length > 1;
   const schoolLabel = (school: number) =>
     school === 1 ? "Main Hall" : `Auxiliary Classroom ${school - 1}`;
 
@@ -169,20 +160,16 @@ export function buildMeetingProgram(input: BuildMeetingProgramInput): MeetingPro
     });
   }
   const breadTitle = meeting.mwb_tgw_bread_title || (meeting.mwb_tgw_bread ? "Bible Reading" : "");
+  let bibleReadingPart: { partNumber?: number; title: string } | undefined;
   if (breadTitle) {
-    const { partNumber, title } = splitNumberedTitle(breadTitle);
-    const extraAssignees = extraSchools.map((school) => ({
-      label: schoolLabel(school),
-      name: assigneeFor(`school_${school}_bible_reading`),
-    }));
+    bibleReadingPart = splitNumberedTitle(breadTitle);
     treasuresItems.push({
       id: "school_1_bible_reading",
       kind: "part",
-      partNumber,
-      title,
+      partNumber: bibleReadingPart.partNumber,
+      title: bibleReadingPart.title,
       subtitle: meeting.mwb_tgw_bread || undefined,
       assignee: assigneeFor("school_1_bible_reading"),
-      extraAssignees: extraAssignees.length > 0 ? extraAssignees : undefined,
     });
   }
 
@@ -213,30 +200,48 @@ export function buildMeetingProgram(input: BuildMeetingProgramInput): MeetingPro
     });
   }
 
-  const ministryBlocks: MeetingProgramBlock[] = schoolNumbers.map((school) => ({
-    label: multipleSchools ? schoolLabel(school) : undefined,
-    items: [
-      ...(school > 1
-        ? [
-            {
-              id: `chairman_${school}`,
-              kind: "role" as const,
-              title: "Counselor",
-              assignee: assigneeFor(`chairman_${school}`),
-            },
-          ]
-        : []),
-      ...ministryParts.map((part) => ({
-        id: `school_${school}_apply_${part.index}`,
-        kind: "part" as const,
-        partNumber: part.partNumber,
-        title: part.title,
-        subtitle: part.subtitle,
-        minutes: part.minutes,
-        assignee: assigneeFor(`school_${school}_apply_${part.index}`),
-        assistant: assigneeFor(`school_${school}_assistant_${part.index}`),
-        assistantLabel: "Assistant",
-      })),
+  const schoolMinistryItems = (school: number): MeetingProgramItem[] =>
+    ministryParts.map((part) => ({
+      id: `school_${school}_apply_${part.index}`,
+      kind: "part" as const,
+      partNumber: part.partNumber,
+      title: part.title,
+      subtitle: part.subtitle,
+      minutes: part.minutes,
+      assignee: assigneeFor(`school_${school}_apply_${part.index}`),
+      assistant: assigneeFor(`school_${school}_assistant_${part.index}`),
+      assistantLabel: "Assistant",
+    }));
+
+  const ministryBlocks: MeetingProgramBlock[] = [{ items: schoolMinistryItems(1) }];
+  const extraSchoolSections: MeetingProgramSection[] = extraSchools.map((school) => ({
+    id: `school_${school}`,
+    title: schoolLabel(school),
+    color: "jw_brown",
+    blocks: [
+      {
+        items: [
+          {
+            id: `chairman_${school}`,
+            kind: "role",
+            title: "Counselor",
+            assignee: assigneeFor(`chairman_${school}`),
+          },
+          ...(bibleReadingPart
+            ? [
+                {
+                  id: `school_${school}_bible_reading`,
+                  kind: "part" as const,
+                  partNumber: bibleReadingPart.partNumber,
+                  title: bibleReadingPart.title,
+                  subtitle: meeting.mwb_tgw_bread || undefined,
+                  assignee: assigneeFor(`school_${school}_bible_reading`),
+                },
+              ]
+            : []),
+          ...schoolMinistryItems(school),
+        ],
+      },
     ],
   }));
 
@@ -318,6 +323,7 @@ export function buildMeetingProgram(input: BuildMeetingProgramInput): MeetingPro
       color: "jw_brown",
       blocks: ministryBlocks,
     },
+    ...extraSchoolSections,
     {
       id: "living",
       title: "Living as Christians",

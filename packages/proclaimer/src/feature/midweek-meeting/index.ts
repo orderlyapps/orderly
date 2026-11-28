@@ -58,12 +58,15 @@ export {
   MIDWEEK_ASSIGNMENT_TABLE,
   MIDWEEK_MEETING_DATA_TABLE,
   MIDWEEK_PARTICIPATION_TABLE,
+  assignmentIdsIncludingSchoolCascade,
   clamOverseerPermissionSchema,
   midweekMeetingAssignmentIds,
   midweekMeetingAssignmentSchema,
   midweekMeetingDataSchema,
   midweekParticipationIds,
   midweekParticipationSchema,
+  school2AssignmentIds,
+  schoolAssignmentIds,
   type ClamOverseerPermission,
   type MidweekMeetingAssignment,
   type MidweekMeetingAssignmentId,
@@ -72,6 +75,8 @@ export {
   type MidweekParticipationId,
 } from "./schema.ts";
 export { MidweekMeetingView, type MidweekMeetingViewProps } from "./MidweekMeetingView.tsx";
+export { School2Manager, type School2ManagerProps } from "./School2Manager.tsx";
+export { deleteSchoolAssignments } from "./schoolAssignments.ts";
 export { WeekNavigator, type WeekNavigatorProps } from "../meeting/WeekNavigator.tsx";
 export {
   currentWeekId,

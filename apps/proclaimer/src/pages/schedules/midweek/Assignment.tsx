@@ -26,6 +26,10 @@ const Assignment = () => {
   const { weekId, assignmentId } = useParams<{ weekId: string; assignmentId: string }>();
   const congregationId = settings.congregationId || undefined;
   const permissions = usePermissions(congregationId);
+  const canManageMidweek =
+    permissions.hasMidweekMeetingOverseer ||
+    permissions.isCongregationAdmin ||
+    permissions.isSuperAdmin;
 
   // Meeting data is keyed by Monday, so normalize any valid date to its week id.
   const parsedWeekId = weekId ? parseWeekId(weekId) : null;
@@ -65,7 +69,7 @@ const Assignment = () => {
     );
   }
 
-  if (!permissions.hasMidweekMeetingOverseer) {
+  if (!canManageMidweek) {
     return <Navigate to={`/schedules/midweek/${validParams.weekId}`} replace />;
   }
 
@@ -84,7 +88,7 @@ const Assignment = () => {
           weekId={validParams.weekId}
           assignmentId={validParams.assignmentId}
           congregationId={congregationId}
-          canEdit={permissions.hasMidweekMeetingOverseer}
+          canEdit={canManageMidweek}
         />
         <div style={{ paddingBottom: 96 }} />
       </IonContent>

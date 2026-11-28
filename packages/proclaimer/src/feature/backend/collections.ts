@@ -62,6 +62,7 @@ export interface SupabaseTableCollectionOptions<T extends Record<string, unknown
   keyColumns?: (keyof T & string)[];
   queryClient?: QueryClient;
   schema?: z.ZodType<T>;
+  onDeleteRows?: (rows: T[]) => Promise<void>;
 }
 
 export function createSupabaseTableCollection<T extends Record<string, unknown>>(
@@ -158,6 +159,12 @@ export function createSupabaseTableCollection<T extends Record<string, unknown>>
         }
       },
       onDelete: async ({ transaction }) => {
+        if (options.onDeleteRows) {
+          await options.onDeleteRows(
+            transaction.mutations.map((mutation) => mutation.original as T),
+          );
+          return;
+        }
         if (keyColumns.length === 1) {
           const idColumn: string = keyColumns[0];
           const keys = transaction.mutations.map((mutation) => mutation.key);
