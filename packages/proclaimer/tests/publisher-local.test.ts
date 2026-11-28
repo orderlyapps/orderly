@@ -677,7 +677,43 @@ test("buildMissingContactItems omits complete, archived, and removed publishers"
   expect(items).toEqual([]);
 });
 
-test("buildMissingContactItems can include archived publishers", () => {
+test("buildMissingContactItems can include complete publishers", () => {
+  const items = buildMissingContactItems({
+    publishers: [
+      {
+        id: "pub-1",
+        first_name: "Amy",
+        last_name: "Adams",
+        congregation_id: "c1",
+        family_id: "head-1",
+      },
+    ],
+    records: [
+      record({
+        address: [{ id: "a1", label: "Home", street: "Main St", version: version() }],
+        phone: [{ id: "p1", number: "111", label: "Mobile", version: version() }],
+        email: [{ id: "e1", address: "a@b.c", label: "Home", version: version() }],
+        emergency_contact: [
+          {
+            id: "ec1",
+            first_name: "Jane",
+            last_name: "Doe",
+            relationship: "Wife",
+            phone: [],
+            version: version(),
+          },
+        ],
+      }),
+    ],
+    includeComplete: true,
+  });
+
+  expect(items).toHaveLength(1);
+  expect(items[0]?.publisher_id).toBe("pub-1");
+  expect(items[0]?.missing).toEqual([]);
+});
+
+test("buildMissingContactItems can show archived publishers only", () => {
   const input = {
     publishers: [
       {
@@ -703,7 +739,7 @@ test("buildMissingContactItems can include archived publishers", () => {
   expect(buildMissingContactItems(input).map((i) => i.publisher_id)).toEqual(["pub-2"]);
   expect(
     buildMissingContactItems({ ...input, showArchived: true }).map((i) => i.publisher_id),
-  ).toEqual(["pub-1", "pub-2"]);
+  ).toEqual(["pub-1"]);
 });
 
 test("buildMissingContactItems only shows selected publisher types", () => {

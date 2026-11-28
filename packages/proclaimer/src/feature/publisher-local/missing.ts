@@ -36,19 +36,22 @@ export interface BuildMissingContactItemsInput {
   records: PublisherLocal[];
   visibleTypes?: readonly PublisherType[];
   showArchived?: boolean;
+  includeComplete?: boolean;
 }
 
 /**
- * Lists active publishers that are missing details — contact details absent
- * from the on-device record, or no family head assigned. Archived and
- * removed publishers are excluded; a publisher with no record at all is
- * reported as missing every field.
+ * Lists publishers that are missing details — contact details absent
+ * from the on-device record, or no family head assigned. Active publishers
+ * are shown by default, archived publishers are shown instead when
+ * showArchived is true, and removed publishers are always excluded. A
+ * publisher with no record at all is reported as missing every field.
  */
 export function buildMissingContactItems({
   publishers,
   records,
   visibleTypes,
   showArchived = false,
+  includeComplete = false,
 }: BuildMissingContactItemsInput): MissingContactItem[] {
   const visibleTypeSet = visibleTypes ? new Set(visibleTypes) : null;
   const recordMap = new Map(records.map((r) => [r.publisher_id, r]));
@@ -56,7 +59,7 @@ export function buildMissingContactItems({
   for (const publisher of publishers) {
     if (
       !publisher.id ||
-      (!showArchived && isArchived(publisher)) ||
+      showArchived !== isArchived(publisher) ||
       isRemoved(publisher) ||
       (visibleTypeSet && (!publisher.type || !visibleTypeSet.has(publisher.type)))
     ) {
@@ -69,7 +72,7 @@ export function buildMissingContactItems({
     if (!publisher.family_id) {
       missing.push(FAMILY_HEAD_FIELD);
     }
-    if (missing.length === 0) {
+    if (!includeComplete && missing.length === 0) {
       continue;
     }
     items.push({
