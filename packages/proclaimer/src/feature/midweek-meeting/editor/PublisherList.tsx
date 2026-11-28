@@ -57,11 +57,8 @@ export function PublisherList({
     <>
       <IonList inset>
         <IonItem lines="none">
-          <IonLabel>
-            {filtered.length} participants{" "}
-            <span style={{ color: "var(--ion-color-medium)", fontSize: 13 }}>
-              · {publishers.length} total
-            </span>
+          <IonLabel color="medium" style={{ fontWeight: 700 }}>
+            {filtered.length} participants
           </IonLabel>
           <div
             slot="end"

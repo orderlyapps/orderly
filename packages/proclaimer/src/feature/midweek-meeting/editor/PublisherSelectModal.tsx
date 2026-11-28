@@ -80,8 +80,9 @@ export function PublisherSelectModal({
     <IonModal
       isOpen={isOpen}
       onDidDismiss={onDismiss}
-      initialBreakpoint={0.6}
-      breakpoints={[0, 0.6, 0.9]}
+      initialBreakpoint={1}
+      breakpoints={[0, 1]}
+      style={{ "--height": "75vh" }}
     >
       <IonHeader>
         <IonToolbar>
