@@ -36,9 +36,12 @@ export {
 } from "./db.ts";
 export { useSettings, useThemeEffect, type UseSettingsResult } from "./hooks.ts";
 export {
+  LEGACY_MIDWEEK_SELECTOR_SETTINGS_PREFIX,
   LEGACY_SELECTED_CONGREGATION_KEY,
   LEGACY_SELECTED_PUBLISHER_KEY,
+  legacyMidweekSelectorSettingsKey,
   readLegacyCongregationId,
+  readLegacyMidweekSelectorSettings,
   readLegacyPublisher,
   type LegacyPublisherSelection,
 } from "./legacy.ts";
@@ -47,6 +50,8 @@ export {
   CONGREGATION_ID_MAX_LENGTH,
   congregationIdSchema,
   DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+  DEFAULT_MIDWEEK_ANY_STAT_PARTICIPATION_TYPES,
+  DEFAULT_MIDWEEK_SELECTOR_SETTINGS,
   DEFAULT_SETTINGS,
   DEFAULT_SETTINGS_ID,
   emergencyContactsShowArchivedSchema,
@@ -67,8 +72,14 @@ export {
   isThemeMode,
   isValidSettingsId,
   normalizeSettingsDocument,
+  normalizeSettingsUpdatedAt,
   MAP_EDIT_COLOR_SCHEMES,
   mapEditColorSchemeSchema,
+  MIDWEEK_SELECTOR_GENDERS,
+  midweekParticipationIdSchema,
+  midweekSelectorGenderSchema,
+  midweekSelectorSettingsByTypeSchema,
+  midweekSelectorSettingsSchema,
   NOT_AT_HOME_STALE_DAYS_MAX,
   NOT_AT_HOME_VISIBILITIES,
   notAtHomeStaleDaysSchema,
@@ -94,10 +105,14 @@ export {
   toSettingsPatch,
   type EmergencyContactsVisibleTypes,
   type MapEditColorScheme,
+  type MidweekSelectorGender,
+  type MidweekSelectorSettings,
+  type MidweekSelectorSettingsByType,
   type NotAtHomeVisibility,
   type SettingsDocument,
   type SettingsKey,
   type SettingsPatch,
+  type SettingsUpdatedAt,
   type ThemeMode,
 } from "./schema.ts";
 export { SettingsView, type SettingsViewProps } from "./SettingsView.tsx";

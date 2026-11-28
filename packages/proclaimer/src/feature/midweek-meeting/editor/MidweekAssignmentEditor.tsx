@@ -22,7 +22,6 @@ import { getPublisherDisplayName } from "../../publisher/schema.ts";
 import { MeetingProgramLoading } from "../../meeting/components.tsx";
 import type { MeetingSectionColor } from "../../meeting/types.ts";
 import type { MidweekParticipationId } from "../schema.ts";
-import { midweekParticipationIds } from "../schema.ts";
 import {
   computeAssignmentStats,
   midweekParticipationTypeLabels,
@@ -35,6 +34,7 @@ import { PublisherList } from "./PublisherList.tsx";
 import { PublisherSelectModal } from "./PublisherSelectModal.tsx";
 import { useMidweekAssignmentEditor } from "./useMidweekAssignmentEditor.ts";
 import { useSelectorSettings } from "./useSelectorSettings.ts";
+import { DEFAULT_MIDWEEK_ANY_STAT_PARTICIPATION_TYPES } from "../../settings/schema.ts";
 
 const SECTION_COLOR_VARS: Record<MeetingSectionColor, string> = {
   medium: "var(--ion-color-medium)",
@@ -43,7 +43,7 @@ const SECTION_COLOR_VARS: Record<MeetingSectionColor, string> = {
   jw_red: "var(--ion-color-jw_red, var(--ion-color-medium))",
 };
 
-const STAT_TYPE_OPTIONS = midweekParticipationIds.filter((id) => id !== "talk");
+const STAT_TYPE_OPTIONS = DEFAULT_MIDWEEK_ANY_STAT_PARTICIPATION_TYPES;
 
 const GENDER_OPTIONS: { label: string; value: GenderFilter }[] = [
   { label: "Both", value: "all" },
@@ -186,7 +186,6 @@ export function MidweekAssignmentEditor({
             value={activeSettings.settings.gender}
             onIonChange={(event) =>
               activeSettings.setSettings({
-                ...activeSettings.settings,
                 gender: event.detail.value as GenderFilter,
               })
             }
@@ -201,16 +200,15 @@ export function MidweekAssignmentEditor({
       )}
       <IonItem>
         <IonSelect
-          label="Weeks away calculated from"
+          label="Any Stat Calculated From:"
           labelPlacement="stacked"
           interface="popover"
           multiple
           value={activeSettings.settings.statParticipationTypes}
           onIonChange={(event) => {
             const value = event.detail.value as MidweekParticipationId[] | undefined;
-            if (Array.isArray(value) && value.length > 0) {
+            if (Array.isArray(value)) {
               activeSettings.setSettings({
-                ...activeSettings.settings,
                 statParticipationTypes: value,
               });
             }
@@ -353,16 +351,18 @@ export function MidweekAssignmentEditor({
         </div>
       )}
 
-      <IonAccordionGroup>
-        <IonAccordion value="settings">
-          <IonItem slot="header" lines="none">
-            <IonLabel>List options</IonLabel>
-          </IonItem>
-          <div slot="content">
-            <IonList inset>{settingsContent(activeParticipationId)}</IonList>
-          </div>
-        </IonAccordion>
-      </IonAccordionGroup>
+      <IonList inset>
+        <IonAccordionGroup>
+          <IonAccordion value="settings">
+            <IonItem slot="header" lines="none">
+              <IonLabel style={{ fontWeight: 700 }}>List Options</IonLabel>
+            </IonItem>
+            <div slot="content" className="ion-padding-bottom">
+              <IonList>{settingsContent(activeParticipationId)}</IonList>
+            </div>
+          </IonAccordion>
+        </IonAccordionGroup>
+      </IonList>
 
       {listFor(segment)}
 

@@ -1,90 +1,71 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 
 import type { MidweekParticipationId } from "../schema.ts";
-import { midweekParticipationIds } from "../schema.ts";
-import type { GenderFilter } from "./assignments.ts";
-import { getDefaultStorage } from "../../settings/db.ts";
+import { getSettingsStore, type SettingsStore } from "../../settings/db.ts";
+import { useSettings } from "../../settings/hooks.ts";
+import {
+  DEFAULT_MIDWEEK_SELECTOR_SETTINGS,
+  type MidweekSelectorSettings,
+} from "../../settings/schema.ts";
 
-export interface PublisherSelectorSettings {
-  gender: GenderFilter;
-  /** Participation types whose past assignments feed the "weeks away" stat. */
-  statParticipationTypes: MidweekParticipationId[];
-}
+export type PublisherSelectorSettings = MidweekSelectorSettings;
 
-const GENDER_VALUES: GenderFilter[] = ["all", "male", "female"];
-const PARTICIPATION_VALUES = new Set<string>(midweekParticipationIds);
+let selectorSettingsUpdateQueue: Promise<void> = Promise.resolve();
 
-function storageKey(participationId: MidweekParticipationId): string {
-  return `proclaimer:midweekSelectorSettings:${participationId}`;
-}
-
-function defaultSettings(participationId: MidweekParticipationId): PublisherSelectorSettings {
-  return { gender: "all", statParticipationTypes: [participationId] };
-}
-
-function readStoredSettings(participationId: MidweekParticipationId): PublisherSelectorSettings {
-  const defaults = defaultSettings(participationId);
-  let raw: string | null = null;
-  try {
-    raw = getDefaultStorage().getItem(storageKey(participationId));
-  } catch {
-    return defaults;
+export function queueMidweekSelectorSettingsUpdate(
+  participationId: MidweekParticipationId,
+  patch: Partial<PublisherSelectorSettings>,
+  existingStore?: SettingsStore,
+): Promise<void> {
+  if (patch.gender === undefined && patch.statParticipationTypes === undefined) {
+    return Promise.resolve();
   }
-  if (!raw) {
-    return defaults;
-  }
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null) {
-      return defaults;
-    }
-    const p = parsed as Record<string, unknown>;
-    return {
-      gender: GENDER_VALUES.includes(p.gender as GenderFilter)
-        ? (p.gender as GenderFilter)
-        : defaults.gender,
-      statParticipationTypes:
-        Array.isArray(p.statParticipationTypes) &&
-        p.statParticipationTypes.length > 0 &&
-        p.statParticipationTypes.every((t) => PARTICIPATION_VALUES.has(t as string))
-          ? (p.statParticipationTypes as MidweekParticipationId[])
-          : defaults.statParticipationTypes,
-    };
-  } catch {
-    return defaults;
-  }
+  const update = selectorSettingsUpdateQueue
+    .then(async () => {
+      const store = existingStore ?? (await getSettingsStore());
+      const current = await store.getSettings();
+      const existing =
+        current.midweekSelectorSettings[participationId] ?? DEFAULT_MIDWEEK_SELECTOR_SETTINGS;
+      await store.updateSettings({
+        midweekSelectorSettings: {
+          ...current.midweekSelectorSettings,
+          [participationId]: {
+            gender: patch.gender ?? existing.gender,
+            statParticipationTypes: patch.statParticipationTypes
+              ? [...patch.statParticipationTypes]
+              : [...existing.statParticipationTypes],
+          },
+        },
+      });
+    })
+    .catch(() => {
+      // Persisting selector preferences is best-effort
+    });
+  selectorSettingsUpdateQueue = update;
+  return update;
 }
 
 export function useSelectorSettings(participationId: MidweekParticipationId | null) {
-  const [state, setState] = useState<{
-    type: MidweekParticipationId | null;
-    settings: PublisherSelectorSettings;
-  }>(() => ({
-    type: participationId,
-    settings: participationId ? readStoredSettings(participationId) : defaultSettings("prayer"),
-  }));
+  const settingsApi = useSettings();
 
-  if (state.type !== participationId) {
-    setState({
-      type: participationId,
-      settings: participationId ? readStoredSettings(participationId) : defaultSettings("prayer"),
-    });
-  }
+  const settings = participationId
+    ? (settingsApi.settings.midweekSelectorSettings[participationId] ??
+      DEFAULT_MIDWEEK_SELECTOR_SETTINGS)
+    : DEFAULT_MIDWEEK_SELECTOR_SETTINGS;
 
   const setSettings = useCallback(
-    (next: PublisherSelectorSettings) => {
+    (patch: Partial<PublisherSelectorSettings>) => {
       if (!participationId) {
         return;
       }
-      try {
-        getDefaultStorage().setItem(storageKey(participationId), JSON.stringify(next));
-      } catch {
-        // Persisting selector preferences is best-effort
-      }
-      setState({ type: participationId, settings: next });
+      void queueMidweekSelectorSettingsUpdate(
+        participationId,
+        patch,
+        settingsApi.store ?? undefined,
+      );
     },
-    [participationId],
+    [participationId, settingsApi.store],
   );
 
-  return { settings: state.settings, setSettings };
+  return { settings, setSettings };
 }

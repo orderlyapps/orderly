@@ -22,6 +22,8 @@ import {
   type MidweekMeetingData,
 } from "../src/feature/midweek-meeting/index.ts";
 import type { Publisher } from "../src/feature/publisher/index.ts";
+import { queueMidweekSelectorSettingsUpdate } from "../src/feature/midweek-meeting/editor/useSelectorSettings.ts";
+import { createSettingsStore } from "../src/feature/settings/index.ts";
 import {
   currentWeekId,
   dateRangeOverlapsWeek,
@@ -551,4 +553,26 @@ test("sortPublishersByStats orders longest-away first with fallbacks", () => {
   expect(statLabelFor("pub-2", stats)).toBe("22w");
   expect(statLabelFor("overseer-1", stats)).toBe("1w");
   expect(statLabelFor("pub-1", stats)).toBeUndefined();
+});
+
+test("serializes concurrent midweek selector settings updates", async () => {
+  const store = await createSettingsStore({
+    name: `proclaimer_selector_test_${Date.now()}_${Math.random()}`,
+  });
+
+  try {
+    await Promise.all([
+      queueMidweekSelectorSettingsUpdate("apply", { gender: "male" }, store),
+      queueMidweekSelectorSettingsUpdate("apply", { statParticipationTypes: ["apply"] }, store),
+      queueMidweekSelectorSettingsUpdate("living", { gender: "female" }, store),
+      queueMidweekSelectorSettingsUpdate("living", { statParticipationTypes: ["living"] }, store),
+    ]);
+
+    expect((await store.getSettings()).midweekSelectorSettings).toEqual({
+      apply: { gender: "male", statParticipationTypes: ["apply"] },
+      living: { gender: "female", statParticipationTypes: ["living"] },
+    });
+  } finally {
+    await store.close();
+  }
 });

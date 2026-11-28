@@ -1,7 +1,13 @@
 import type { StorageApi } from "@tanstack/react-db";
 import { z } from "zod";
 
-import { isCongregationId, isPublisherId } from "./schema.ts";
+import { midweekParticipationIds, type MidweekParticipationId } from "../midweek-meeting/schema.ts";
+import {
+  isCongregationId,
+  isPublisherId,
+  midweekSelectorSettingsSchema,
+  type MidweekSelectorSettingsByType,
+} from "./schema.ts";
 
 // The previous proclaimer app stored the selected congregation as a JSON object under
 // this localStorage key; migrate its id into settings when the key is present.
@@ -63,4 +69,31 @@ export function readLegacyPublisher(storage: StorageApi): LegacyPublisherSelecti
   } catch {
     return null;
   }
+}
+
+export const LEGACY_MIDWEEK_SELECTOR_SETTINGS_PREFIX = "proclaimer:midweekSelectorSettings:";
+
+export function legacyMidweekSelectorSettingsKey(participationId: MidweekParticipationId): string {
+  return `${LEGACY_MIDWEEK_SELECTOR_SETTINGS_PREFIX}${participationId}`;
+}
+
+export function readLegacyMidweekSelectorSettings(
+  storage: StorageApi,
+): MidweekSelectorSettingsByType {
+  const settings: MidweekSelectorSettingsByType = {};
+  for (const participationId of midweekParticipationIds) {
+    try {
+      const raw = storage.getItem(legacyMidweekSelectorSettingsKey(participationId));
+      if (!raw) {
+        continue;
+      }
+      const parsed = midweekSelectorSettingsSchema.safeParse(JSON.parse(raw));
+      if (parsed.success) {
+        settings[participationId] = parsed.data;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return settings;
 }

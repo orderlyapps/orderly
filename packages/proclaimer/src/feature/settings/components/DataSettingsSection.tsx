@@ -4,7 +4,6 @@ import { IonItem, IonLabel } from "@ionic/react";
 
 import { downloadSettingsBinary, importSettingsBinaryFile } from "../binary.ts";
 import type { SettingsStore } from "../db.ts";
-import { THEME_LABELS } from "../theme.ts";
 import { SettingsSection } from "./SettingsSection.tsx";
 
 export interface DataSettingsSectionProps {
@@ -40,8 +39,8 @@ export const DataSettingsSection = ({
       return;
     }
     try {
-      const imported = await importSettingsBinaryFile(file, store);
-      onStatusChange?.(`Imported theme: ${THEME_LABELS[imported.theme]}`);
+      await importSettingsBinaryFile(file, store);
+      onStatusChange?.("Settings imported. The most recently updated values were kept.");
     } catch (error) {
       onStatusChange?.(error instanceof Error ? error.message : "Import failed");
     }

@@ -4,10 +4,12 @@ import {
   isSettingsDocument,
   isValidSettingsId,
   normalizeSettingsDocument,
+  normalizeSettingsUpdatedAt,
   SETTINGS_KEYS,
   settingsPatchSchema,
   type SettingsDocument,
   type SettingsPatch,
+  type SettingsUpdatedAt,
 } from "./schema.ts";
 
 const BINARY_MAGIC = new Uint8Array([
@@ -32,11 +34,17 @@ export function createSettingsBinaryFilename(date: Date = new Date()): string {
   return `${SETTINGS_BINARY_BASENAME}-${year}-${month}-${day}_${hours}-${minutes}-${seconds}${SETTINGS_BINARY_EXTENSION}`;
 }
 
-export function encodeSettingsBinary(settings: SettingsDocument): Uint8Array<ArrayBuffer> {
+export function encodeSettingsBinary(
+  settings: SettingsDocument,
+  updatedAt: SettingsUpdatedAt = {},
+): Uint8Array<ArrayBuffer> {
   if (!isSettingsDocument(settings)) {
     throw new Error("Invalid settings document");
   }
-  const payload = JSON.stringify(normalizeSettingsDocument(settings));
+  const payload = JSON.stringify({
+    ...normalizeSettingsDocument(settings),
+    updatedAt: normalizeSettingsUpdatedAt(updatedAt),
+  });
   const payloadBytes = new TextEncoder().encode(payload);
   const output = new Uint8Array(BINARY_MAGIC.length + payloadBytes.length);
   output.set(BINARY_MAGIC, 0);
@@ -47,6 +55,7 @@ export function encodeSettingsBinary(settings: SettingsDocument): Uint8Array<Arr
 function parseSettingsBinaryRecord(input: Uint8Array | ArrayBuffer): {
   id: string;
   patch: SettingsPatch;
+  updatedAt: SettingsUpdatedAt;
 } {
   const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
   if (bytes.byteLength <= BINARY_MAGIC.length) {
@@ -87,7 +96,7 @@ function parseSettingsBinaryRecord(input: Uint8Array | ArrayBuffer): {
   }
 
   const id = isValidSettingsId(record.id) ? record.id : DEFAULT_SETTINGS_ID;
-  return { id, patch };
+  return { id, patch, updatedAt: normalizeSettingsUpdatedAt(record.updatedAt) };
 }
 
 export function decodeSettingsBinary(input: Uint8Array | ArrayBuffer): SettingsDocument {
@@ -99,17 +108,20 @@ export async function exportSettingsBinary(
   store?: SettingsStore,
 ): Promise<Uint8Array<ArrayBuffer>> {
   const resolvedStore = store ?? (await getSettingsStore());
-  const settings = await resolvedStore.getSettings();
-  return encodeSettingsBinary(settings);
+  const [settings, updatedAt] = await Promise.all([
+    resolvedStore.getSettings(),
+    resolvedStore.getSettingsUpdatedAt(),
+  ]);
+  return encodeSettingsBinary(settings, updatedAt);
 }
 
 export async function importSettingsBinary(
   input: Uint8Array | ArrayBuffer,
   store?: SettingsStore,
 ): Promise<SettingsDocument> {
-  const { patch } = parseSettingsBinaryRecord(input);
+  const { patch, updatedAt } = parseSettingsBinaryRecord(input);
   const resolvedStore = store ?? (await getSettingsStore());
-  return resolvedStore.updateSettings(patch);
+  return resolvedStore.mergeImportedSettings(patch, updatedAt);
 }
 
 export async function downloadSettingsBinary(

@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { expect, test } from "vite-plus/test";
+import { expect, test, vi } from "vite-plus/test";
 
 import { createCollection, localStorageCollectionOptions } from "@tanstack/react-db";
 
@@ -14,6 +14,8 @@ import {
   DARK_PALETTE_CLASS,
   DataSettingsSection,
   DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
+  DEFAULT_MIDWEEK_ANY_STAT_PARTICIPATION_TYPES,
+  DEFAULT_MIDWEEK_SELECTOR_SETTINGS,
   decodeSettingsBinary,
   DEFAULT_SETTINGS_ID,
   downloadSettingsBinary,
@@ -36,6 +38,9 @@ import {
   isSettingsDocument,
   isThemeMode,
   isValidSettingsId,
+  LEGACY_SELECTED_CONGREGATION_KEY,
+  legacyMidweekSelectorSettingsKey,
+  midweekSelectorSettingsSchema,
   normalizeSettingsDocument,
   PublisherSettingsSection,
   RECENT_MAP_COUNT_CHOICES,
@@ -83,7 +88,28 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     "mapEditColorScheme",
     "emergencyContactsVisibleTypes",
     "emergencyContactsShowArchived",
+    "midweekSelectorSettings",
   ]);
+  expect(DEFAULT_MIDWEEK_ANY_STAT_PARTICIPATION_TYPES).toEqual([
+    "chairman",
+    "prayer",
+    "treasures",
+    "gems",
+    "bible_reading",
+    "apply",
+    "assistant",
+    "counselor",
+    "living",
+    "cbs_conductor",
+    "cbs_reader",
+  ]);
+  expect(DEFAULT_MIDWEEK_SELECTOR_SETTINGS).toEqual({
+    gender: "all",
+    statParticipationTypes: DEFAULT_MIDWEEK_ANY_STAT_PARTICIPATION_TYPES,
+  });
+  expect(
+    midweekSelectorSettingsSchema.safeParse({ gender: "all", statParticipationTypes: [] }).success,
+  ).toBe(true);
   expect(THEME_LABELS).toEqual({ light: "Light", dark: "Dark", system: "System" });
   expect(THEME_OPTIONS).toEqual([
     { value: "light", label: "Light" },
@@ -109,6 +135,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     mapEditColorScheme: "multicolored",
     emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
     emergencyContactsShowArchived: false,
+    midweekSelectorSettings: {},
   });
   expect(normalizeSettingsDocument({ id: "", theme: "dark" })).toEqual({
     id: DEFAULT_SETTINGS_ID,
@@ -123,6 +150,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     mapEditColorScheme: "multicolored",
     emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
     emergencyContactsShowArchived: false,
+    midweekSelectorSettings: {},
   });
   const overlongId = "a".repeat(SETTINGS_ID_MAX_LENGTH + 1);
   expect(isValidSettingsId(DEFAULT_SETTINGS_ID)).toBe(true);
@@ -210,6 +238,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
       mapEditColorScheme: "multicolored",
       emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
       emergencyContactsShowArchived: false,
+      midweekSelectorSettings: {},
     }),
   ).toBe(true);
   expect(isSettingsDocument({ id: DEFAULT_SETTINGS_ID, theme: "dark", congregationId: "  " })).toBe(
@@ -229,6 +258,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     mapEditColorScheme: "multicolored",
     emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
     emergencyContactsShowArchived: false,
+    midweekSelectorSettings: {},
   });
   expect(toSettingsPatch({ id: "custom", theme: "light" })).toEqual({ theme: "light" });
   expect(
@@ -246,6 +276,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         mapEditColorScheme: "multicolored",
         emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
         emergencyContactsShowArchived: false,
+        midweekSelectorSettings: {},
       },
       {
         id: DEFAULT_SETTINGS_ID,
@@ -260,6 +291,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         mapEditColorScheme: "multicolored",
         emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
         emergencyContactsShowArchived: false,
+        midweekSelectorSettings: {},
       },
     ),
   ).toBe(true);
@@ -278,6 +310,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         mapEditColorScheme: "multicolored",
         emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
         emergencyContactsShowArchived: false,
+        midweekSelectorSettings: {},
       },
       {
         id: DEFAULT_SETTINGS_ID,
@@ -292,6 +325,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         mapEditColorScheme: "multicolored",
         emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
         emergencyContactsShowArchived: false,
+        midweekSelectorSettings: {},
       },
     ),
   ).toBe(false);
@@ -310,6 +344,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         mapEditColorScheme: "multicolored",
         emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
         emergencyContactsShowArchived: false,
+        midweekSelectorSettings: {},
       },
       {
         id: DEFAULT_SETTINGS_ID,
@@ -324,6 +359,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         mapEditColorScheme: "multicolored",
         emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
         emergencyContactsShowArchived: false,
+        midweekSelectorSettings: {},
       },
     ),
   ).toBe(true);
@@ -342,6 +378,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         mapEditColorScheme: "multicolored",
         emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
         emergencyContactsShowArchived: false,
+        midweekSelectorSettings: {},
       },
       {
         id: DEFAULT_SETTINGS_ID,
@@ -356,6 +393,7 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
         mapEditColorScheme: "multicolored",
         emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
         emergencyContactsShowArchived: false,
+        midweekSelectorSettings: {},
       },
     ),
   ).toBe(false);
@@ -456,6 +494,7 @@ test("initializes LocalStorage Collection store with default system theme and up
       mapEditColorScheme: "multicolored",
       emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
       emergencyContactsShowArchived: false,
+      midweekSelectorSettings: {},
     });
     expect(store.collection.get(DEFAULT_SETTINGS_ID)?.theme).toBe("system");
 
@@ -476,6 +515,9 @@ test("initializes LocalStorage Collection store with default system theme and up
     const peerStore = await createSettingsStore({ name: storeName, storage: store.storage });
     try {
       expect((await peerStore.getSettings()).theme).toBe("dark");
+      expect((await peerStore.getSettingsUpdatedAt()).theme).toBe(
+        (await store.getSettingsUpdatedAt()).theme,
+      );
     } finally {
       await peerStore.close();
     }
@@ -495,6 +537,87 @@ test("initializes LocalStorage Collection store with default system theme and up
   }
 });
 
+test("migrates legacy midweek selector settings into the settings store", async () => {
+  const storageMap = new Map<string, string>();
+  const storage: StorageApi = {
+    getItem: (key) => storageMap.get(key) ?? null,
+    setItem: (key, value) => {
+      storageMap.set(key, value);
+    },
+    removeItem: (key) => {
+      storageMap.delete(key);
+    },
+  };
+  storageMap.set(
+    legacyMidweekSelectorSettingsKey("apply"),
+    JSON.stringify({ gender: "female", statParticipationTypes: ["bible_reading", "apply"] }),
+  );
+  storageMap.set(legacyMidweekSelectorSettingsKey("prayer"), "not-json");
+
+  const store = await createSettingsStore({ name: nextStoreName(), storage });
+  try {
+    const settings = await store.getSettings();
+    expect(settings.midweekSelectorSettings).toEqual({
+      apply: { gender: "female", statParticipationTypes: ["bible_reading", "apply"] },
+    });
+  } finally {
+    await store.close();
+  }
+});
+
+test("does not treat legacy migration time as a settings edit timestamp", async () => {
+  const storageMap = new Map<string, string>();
+  const storage: StorageApi = {
+    getItem: (key) => storageMap.get(key) ?? null,
+    setItem: (key, value) => {
+      storageMap.set(key, value);
+    },
+    removeItem: (key) => {
+      storageMap.delete(key);
+    },
+  };
+  storageMap.set(LEGACY_SELECTED_CONGREGATION_KEY, JSON.stringify({ id: "legacy-congregation" }));
+  storageMap.set(
+    legacyMidweekSelectorSettingsKey("apply"),
+    JSON.stringify({ gender: "female", statParticipationTypes: ["apply"] }),
+  );
+
+  const sourceStore = await createSettingsStore({ name: nextStoreName() });
+  const now = vi.spyOn(Date, "now");
+  let targetStore: Awaited<ReturnType<typeof createSettingsStore>> | undefined;
+
+  try {
+    now.mockReturnValue(3_000);
+    await sourceStore.updateSettings({
+      congregationId: "imported-congregation",
+      midweekSelectorSettings: {
+        apply: { gender: "male", statParticipationTypes: ["living"] },
+      },
+    });
+    const binary = await exportSettingsBinary(sourceStore);
+
+    now.mockReturnValue(5_000);
+    targetStore = await createSettingsStore({ name: nextStoreName(), storage });
+    expect((await targetStore.getSettings()).congregationId).toBe("legacy-congregation");
+    expect((await targetStore.getSettingsUpdatedAt()).congregationId).toBeUndefined();
+    expect((await targetStore.getSettingsUpdatedAt()).midweekSelectorSettings).toBeUndefined();
+
+    const imported = await importSettingsBinary(binary, targetStore);
+    expect(imported.congregationId).toBe("imported-congregation");
+    expect(imported.midweekSelectorSettings).toEqual({
+      apply: { gender: "male", statParticipationTypes: ["living"] },
+    });
+
+    const updatedAt = await targetStore.getSettingsUpdatedAt();
+    expect(updatedAt.congregationId).toBe(3_000);
+    expect(updatedAt.midweekSelectorSettings?.apply).toBe(3_000);
+  } finally {
+    now.mockRestore();
+    await sourceStore.close();
+    await targetStore?.close();
+  }
+});
+
 test("exports settings to a binary Uint8Array and imports into another store", async () => {
   const sourceStore = await createSettingsStore({ name: nextStoreName() });
   const targetStore = await createSettingsStore({ name: nextStoreName() });
@@ -507,6 +630,9 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       mapEditColorScheme: "multicolored",
       emergencyContactsVisibleTypes: ["publisher", "inactive"],
       emergencyContactsShowArchived: true,
+      midweekSelectorSettings: {
+        apply: { gender: "male", statParticipationTypes: ["apply", "assistant"] },
+      },
     });
     const binary = await exportSettingsBinary(sourceStore);
     expect(binary).toBeInstanceOf(Uint8Array);
@@ -526,6 +652,9 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       mapEditColorScheme: "multicolored",
       emergencyContactsVisibleTypes: ["publisher", "inactive"],
       emergencyContactsShowArchived: true,
+      midweekSelectorSettings: {
+        apply: { gender: "male", statParticipationTypes: ["apply", "assistant"] },
+      },
     });
 
     const imported = await importSettingsBinary(binary, targetStore);
@@ -542,6 +671,9 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       mapEditColorScheme: "multicolored",
       emergencyContactsVisibleTypes: ["publisher", "inactive"],
       emergencyContactsShowArchived: true,
+      midweekSelectorSettings: {
+        apply: { gender: "male", statParticipationTypes: ["apply", "assistant"] },
+      },
     });
     expect((await targetStore.getSettings()).theme).toBe("dark");
 
@@ -552,6 +684,7 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       recentSelectedMaps: {},
       emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
       emergencyContactsShowArchived: false,
+      midweekSelectorSettings: {},
     });
     const lightBinary = await exportSettingsBinary(sourceStore);
     const lightBlob = new Blob([lightBinary], { type: "application/octet-stream" });
@@ -575,8 +708,162 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       mapEditColorScheme: "multicolored",
       emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
       emergencyContactsShowArchived: false,
+      midweekSelectorSettings: {},
     });
   } finally {
+    await sourceStore.close();
+    await targetStore.close();
+  }
+});
+
+test("merges imported settings by per-setting update timestamps", async () => {
+  const sourceStore = await createSettingsStore({ name: nextStoreName() });
+  const targetStore = await createSettingsStore({ name: nextStoreName() });
+  const now = vi.spyOn(Date, "now");
+
+  try {
+    now.mockReturnValue(1_000);
+    await sourceStore.setSetting("theme", "dark");
+    now.mockReturnValue(2_000);
+    await sourceStore.setSetting("recentMapCount", 3);
+    const binary = await exportSettingsBinary(sourceStore);
+
+    now.mockReturnValue(3_000);
+    await targetStore.setSetting("theme", "light");
+    now.mockReturnValue(500);
+    await targetStore.setSetting("recentMapCount", 5);
+
+    const imported = await importSettingsBinary(binary, targetStore);
+    expect(imported.theme).toBe("light");
+    expect(imported.recentMapCount).toBe(3);
+
+    const updatedAt = await targetStore.getSettingsUpdatedAt();
+    expect(updatedAt.theme).toBe(3_000);
+    expect(updatedAt.recentMapCount).toBe(2_000);
+  } finally {
+    now.mockRestore();
+    await sourceStore.close();
+    await targetStore.close();
+  }
+});
+
+test("preserves timestamps for unchanged record entries during local updates", async () => {
+  const store = await createSettingsStore({ name: nextStoreName() });
+  const now = vi.spyOn(Date, "now");
+
+  try {
+    now.mockReturnValue(1_000);
+    await store.setSetting("selectedMaps", {
+      congregation1: "map-1",
+      congregation2: "map-2",
+    });
+    now.mockReturnValue(2_000);
+    await store.setSetting("selectedMaps", {
+      congregation1: "map-1-updated",
+      congregation2: "map-2",
+    });
+
+    expect((await store.getSettingsUpdatedAt()).selectedMaps).toEqual({
+      congregation1: 2_000,
+      congregation2: 1_000,
+    });
+  } finally {
+    now.mockRestore();
+    await store.close();
+  }
+});
+
+test("merges record-valued settings entries independently", async () => {
+  const sourceStore = await createSettingsStore({ name: nextStoreName() });
+  const targetStore = await createSettingsStore({ name: nextStoreName() });
+  const now = vi.spyOn(Date, "now");
+
+  try {
+    now.mockReturnValue(1_000);
+    await sourceStore.updateSettings({
+      selectedMaps: { congregation1: "map-source", shared: "map-source" },
+      midweekSelectorSettings: {
+        apply: { gender: "male", statParticipationTypes: ["apply"] },
+      },
+    });
+    const binary = await exportSettingsBinary(sourceStore);
+
+    now.mockReturnValue(2_000);
+    await targetStore.updateSettings({
+      selectedMaps: { congregation2: "map-target", shared: "map-target" },
+      midweekSelectorSettings: {
+        living: { gender: "female", statParticipationTypes: ["living"] },
+      },
+    });
+
+    const imported = await importSettingsBinary(binary, targetStore);
+    expect(imported.selectedMaps).toEqual({
+      congregation1: "map-source",
+      congregation2: "map-target",
+      shared: "map-target",
+    });
+    expect(imported.midweekSelectorSettings).toEqual({
+      apply: { gender: "male", statParticipationTypes: ["apply"] },
+      living: { gender: "female", statParticipationTypes: ["living"] },
+    });
+
+    const updatedAt = await targetStore.getSettingsUpdatedAt();
+    expect(updatedAt.selectedMaps?.congregation1).toBe(1_000);
+    expect(updatedAt.selectedMaps?.congregation2).toBe(2_000);
+    expect(updatedAt.selectedMaps?.shared).toBe(2_000);
+    expect(updatedAt.midweekSelectorSettings?.apply).toBe(1_000);
+    expect(updatedAt.midweekSelectorSettings?.living).toBe(2_000);
+  } finally {
+    now.mockRestore();
+    await sourceStore.close();
+    await targetStore.close();
+  }
+});
+
+test("propagates newer record entry deletions on import", async () => {
+  const sourceStore = await createSettingsStore({ name: nextStoreName() });
+  const targetStore = await createSettingsStore({ name: nextStoreName() });
+  const now = vi.spyOn(Date, "now");
+
+  try {
+    now.mockReturnValue(1_000);
+    await sourceStore.setSetting("selectedMaps", { congregation1: "map-source" });
+    now.mockReturnValue(2_000);
+    await sourceStore.setSetting("selectedMaps", {});
+    const binary = await exportSettingsBinary(sourceStore);
+
+    now.mockReturnValue(1_500);
+    await targetStore.setSetting("selectedMaps", { congregation1: "map-target" });
+
+    const imported = await importSettingsBinary(binary, targetStore);
+    expect(imported.selectedMaps).toEqual({});
+    expect((await targetStore.getSettingsUpdatedAt()).selectedMaps?.congregation1).toBe(2_000);
+  } finally {
+    now.mockRestore();
+    await sourceStore.close();
+    await targetStore.close();
+  }
+});
+
+test("keeps local settings when every imported setting is older", async () => {
+  const sourceStore = await createSettingsStore({ name: nextStoreName() });
+  const targetStore = await createSettingsStore({ name: nextStoreName() });
+  const now = vi.spyOn(Date, "now");
+
+  try {
+    now.mockReturnValue(1_000);
+    await sourceStore.setSetting("theme", "dark");
+    const binary = await exportSettingsBinary(sourceStore);
+
+    now.mockReturnValue(2_000);
+    await targetStore.setSetting("theme", "light");
+    const imported = await importSettingsBinary(binary, targetStore);
+
+    expect(imported.theme).toBe("light");
+    expect((await targetStore.getSettings()).theme).toBe("light");
+    expect((await targetStore.getSettingsUpdatedAt()).theme).toBe(2_000);
+  } finally {
+    now.mockRestore();
     await sourceStore.close();
     await targetStore.close();
   }
@@ -603,6 +890,7 @@ test("rejects invalid binary payloads", () => {
     mapEditColorScheme: "multicolored",
     emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
     emergencyContactsShowArchived: false,
+    midweekSelectorSettings: {},
   });
   const corrupted = new Uint8Array(valid);
   corrupted[corrupted.length - 1] = 0x00;
@@ -648,6 +936,7 @@ test("rejects invalid binary payloads", () => {
     mapEditColorScheme: "multicolored",
     emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
     emergencyContactsShowArchived: false,
+    midweekSelectorSettings: {},
   });
 });
 
@@ -832,6 +1121,7 @@ test("recovers from malformed or corrupt data in storage and falls back to defau
         mapEditColorScheme: "multicolored",
         emergencyContactsVisibleTypes: DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES,
         emergencyContactsShowArchived: false,
+        midweekSelectorSettings: {},
       });
     } finally {
       await store.close();

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { midweekParticipationIds, type MidweekParticipationId } from "../midweek-meeting/schema.ts";
 import { publisherTypeSchema, type PublisherType } from "../publisher/index.ts";
 
 export const THEME_MODES = ["light", "dark", "system"] as const;
@@ -61,6 +62,37 @@ export const DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES: EmergencyContactsVisibleT
   ...publisherTypeSchema.options,
 ];
 
+export const MIDWEEK_SELECTOR_GENDERS = ["all", "male", "female"] as const;
+
+export const midweekSelectorGenderSchema = z.enum(MIDWEEK_SELECTOR_GENDERS);
+
+export type MidweekSelectorGender = z.infer<typeof midweekSelectorGenderSchema>;
+
+export const midweekParticipationIdSchema = z.enum(midweekParticipationIds);
+
+export const midweekSelectorSettingsSchema = z.object({
+  gender: midweekSelectorGenderSchema,
+  /** Participation types whose past assignments feed the "weeks away" stat. */
+  statParticipationTypes: z.array(midweekParticipationIdSchema),
+});
+
+export type MidweekSelectorSettings = z.infer<typeof midweekSelectorSettingsSchema>;
+
+export const midweekSelectorSettingsByTypeSchema = z.partialRecord(
+  midweekParticipationIdSchema,
+  midweekSelectorSettingsSchema,
+);
+
+export type MidweekSelectorSettingsByType = z.infer<typeof midweekSelectorSettingsByTypeSchema>;
+
+export const DEFAULT_MIDWEEK_ANY_STAT_PARTICIPATION_TYPES: MidweekParticipationId[] =
+  midweekParticipationIds.filter((id) => id !== "talk");
+
+export const DEFAULT_MIDWEEK_SELECTOR_SETTINGS: MidweekSelectorSettings = {
+  gender: "all",
+  statParticipationTypes: [...DEFAULT_MIDWEEK_ANY_STAT_PARTICIPATION_TYPES],
+};
+
 export const NOT_AT_HOME_STALE_DAYS_MAX = 365;
 
 export const notAtHomeStaleDaysSchema = z.number().int().min(0).max(NOT_AT_HOME_STALE_DAYS_MAX);
@@ -90,6 +122,7 @@ const SETTINGS_FIELD_SCHEMAS = {
   mapEditColorScheme: mapEditColorSchemeSchema,
   emergencyContactsVisibleTypes: emergencyContactsVisibleTypesSchema,
   emergencyContactsShowArchived: emergencyContactsShowArchivedSchema,
+  midweekSelectorSettings: midweekSelectorSettingsByTypeSchema,
 } as const;
 
 export const settingsDocumentSchema = z.object({
@@ -102,6 +135,16 @@ export const settingsPatchSchema = z.object(SETTINGS_FIELD_SCHEMAS).partial();
 export type SettingsDocument = z.infer<typeof settingsDocumentSchema>;
 
 export type SettingsKey = Exclude<keyof SettingsDocument, "id">;
+
+export type RecordSettingsKey = "selectedMaps" | "recentSelectedMaps" | "midweekSelectorSettings";
+
+export type ScalarSettingsKey = Exclude<SettingsKey, RecordSettingsKey>;
+
+export type SettingsUpdatedAt = Partial<Record<ScalarSettingsKey, number>> & {
+  selectedMaps?: Record<string, number>;
+  recentSelectedMaps?: Record<string, number>;
+  midweekSelectorSettings?: Partial<Record<MidweekParticipationId, number>>;
+};
 
 export type SettingsPatch = z.infer<typeof settingsPatchSchema>;
 
@@ -120,6 +163,7 @@ export const DEFAULT_SETTINGS: SettingsDocument = {
   mapEditColorScheme: "multicolored",
   emergencyContactsVisibleTypes: [...DEFAULT_EMERGENCY_CONTACTS_VISIBLE_TYPES],
   emergencyContactsShowArchived: false,
+  midweekSelectorSettings: {},
 };
 
 export function isThemeMode(value: unknown): value is ThemeMode {
@@ -197,6 +241,69 @@ export const SETTINGS_KEYS: readonly SettingsKey[] = Object.freeze(
   Object.keys(SETTINGS_FIELD_SCHEMAS) as SettingsKey[],
 );
 
+export function isRecordSettingsKey(key: SettingsKey): key is RecordSettingsKey {
+  return (
+    key === "selectedMaps" || key === "recentSelectedMaps" || key === "midweekSelectorSettings"
+  );
+}
+
+function isValidTimestamp(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function normalizeEntryTimestamps(
+  value: unknown,
+  isValidEntryKey: (key: string) => boolean,
+): Record<string, number> {
+  const normalized: Record<string, number> = {};
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return normalized;
+  }
+  for (const [key, timestamp] of Object.entries(value)) {
+    if (isValidEntryKey(key) && isValidTimestamp(timestamp)) {
+      normalized[key] = timestamp;
+    }
+  }
+  return normalized;
+}
+
+function isValidSettingsEntryKey(key: string): boolean {
+  return key.length > 0 && key.length <= CONGREGATION_ID_MAX_LENGTH;
+}
+
+export function normalizeSettingsUpdatedAt(value: unknown): SettingsUpdatedAt {
+  const normalized: SettingsUpdatedAt = {};
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return normalized;
+  }
+  const record = value as Record<string, unknown>;
+  for (const key of SETTINGS_KEYS) {
+    const timestamp = record[key];
+    if (isRecordSettingsKey(key)) {
+      const isValidEntryKey =
+        key === "midweekSelectorSettings"
+          ? (entryKey: string) =>
+              midweekParticipationIds.includes(entryKey as MidweekParticipationId)
+          : isValidSettingsEntryKey;
+      const entryTimestamps = normalizeEntryTimestamps(timestamp, isValidEntryKey);
+      if (Object.keys(entryTimestamps).length > 0) {
+        if (key === "midweekSelectorSettings") {
+          normalized.midweekSelectorSettings = entryTimestamps as Partial<
+            Record<MidweekParticipationId, number>
+          >;
+        } else if (key === "selectedMaps") {
+          normalized.selectedMaps = entryTimestamps;
+        } else {
+          normalized.recentSelectedMaps = entryTimestamps;
+        }
+      }
+    } else if (isValidTimestamp(timestamp)) {
+      (normalized as Partial<Record<SettingsKey, number>>)[key] = timestamp;
+    }
+  }
+  return normalized;
+}
+
 export function isSettingValue<K extends SettingsKey>(
   key: K,
   value: unknown,
@@ -264,6 +371,66 @@ function areRecentSelectedMapsEqual(
   );
 }
 
+function areMidweekSelectorSettingValuesEqual(
+  a: MidweekSelectorSettings | undefined,
+  b: MidweekSelectorSettings | undefined,
+): boolean {
+  if (!a || !b) {
+    return a === b;
+  }
+  return (
+    a.gender === b.gender &&
+    areStringArraysEqual(a.statParticipationTypes, b.statParticipationTypes)
+  );
+}
+
+export function areSettingsRecordEntriesEqual(
+  key: RecordSettingsKey,
+  a: unknown,
+  b: unknown,
+): boolean {
+  if (a === undefined || b === undefined) {
+    return a === b;
+  }
+  if (key === "selectedMaps") {
+    return a === b;
+  }
+  if (key === "recentSelectedMaps") {
+    return (
+      Array.isArray(a) && Array.isArray(b) && areStringArraysEqual(a as string[], b as string[])
+    );
+  }
+  const parsedA = midweekSelectorSettingsSchema.safeParse(a);
+  const parsedB = midweekSelectorSettingsSchema.safeParse(b);
+  return (
+    parsedA.success &&
+    parsedB.success &&
+    areMidweekSelectorSettingValuesEqual(parsedA.data, parsedB.data)
+  );
+}
+
+function areMidweekSelectorSettingsEqual(
+  a: MidweekSelectorSettingsByType,
+  b: MidweekSelectorSettingsByType,
+): boolean {
+  const aKeys = Object.keys(a) as MidweekParticipationId[];
+  const bKeys = Object.keys(b) as MidweekParticipationId[];
+  return (
+    aKeys.length === bKeys.length &&
+    aKeys.every((key) => {
+      const aValue = a[key];
+      const bValue = b[key];
+      if (!aValue || !bValue) {
+        return aValue === bValue;
+      }
+      return (
+        aValue.gender === bValue.gender &&
+        areStringArraysEqual(aValue.statParticipationTypes, bValue.statParticipationTypes)
+      );
+    })
+  );
+}
+
 export function areSettingsEqual(a: SettingsDocument, b: SettingsDocument): boolean {
   if (a.id !== b.id) {
     return false;
@@ -277,6 +444,9 @@ export function areSettingsEqual(a: SettingsDocument, b: SettingsDocument): bool
     }
     if (key === "emergencyContactsVisibleTypes") {
       return areStringArraysEqual(a[key], b[key]);
+    }
+    if (key === "midweekSelectorSettings") {
+      return areMidweekSelectorSettingsEqual(a[key], b[key]);
     }
     return a[key] === b[key];
   });
