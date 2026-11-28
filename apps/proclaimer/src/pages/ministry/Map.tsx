@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   IonBackButton,
@@ -51,6 +51,7 @@ const Map = () => {
     key: string;
   } | null>(null);
   const [presentAlert] = useIonAlert();
+  const pendingCreatedMapRef = useRef<string | null>(null);
   const { settings, updateSettings } = useSettings();
   const congregationId = settings.congregationId.trim();
   const persistedSelectedMap = settings.selectedMaps[congregationId] || null;
@@ -100,7 +101,38 @@ const Map = () => {
     });
   };
 
+  const startNewMapCreation = () => {
+    void presentAlert({
+      header: "New Map",
+      inputs: [{ name: "name", type: "text", placeholder: "Map name" }],
+      buttons: [
+        { text: "Cancel", role: "cancel" },
+        {
+          text: "Draw",
+          handler: (data: Record<string, string>) => {
+            const name = (data.name ?? "").trim();
+            if (!name) {
+              return false;
+            }
+            setMapsOpen(false);
+            setMapEditDetailsOpen(false);
+            setEditing(true);
+            const mapId = crypto.randomUUID();
+            pendingCreatedMapRef.current = mapId;
+            setCreateFeature({
+              key: crypto.randomUUID(),
+              mapId,
+              type: "map",
+              name,
+            });
+          },
+        },
+      ],
+    });
+  };
+
   const selectMap = (key: string) => {
+    pendingCreatedMapRef.current = null;
     setMapsOpen(false);
     setCreateFeature(null);
     if (!congregationId) {
@@ -127,6 +159,14 @@ const Map = () => {
         buttons: ["OK"],
       });
     });
+  };
+
+  const selectCreatedMap = (key: string) => {
+    if (pendingCreatedMapRef.current !== key) {
+      return;
+    }
+    pendingCreatedMapRef.current = null;
+    selectMap(key);
   };
 
   return (
@@ -178,6 +218,7 @@ const Map = () => {
               colorScheme={settings.mapEditColorScheme}
               createFeature={createFeature}
               onCreateFeatureEnd={() => setCreateFeature(null)}
+              onCreateMap={selectCreatedMap}
               onError={showSaveFailed}
             />
           ) : null}
@@ -205,6 +246,11 @@ const Map = () => {
           recentMapKeys={settings.recentSelectedMaps[congregationId] ?? []}
           recentMapCount={settings.recentMapCount}
           onSelect={selectMap}
+          onAddMap={
+            congregationId.length > 0 && canEditMap && !createFeature
+              ? startNewMapCreation
+              : undefined
+          }
         />
         {editing ? (
           <MapEditDetailsModal

@@ -16,7 +16,7 @@ import {
   IonTitle,
   IonToolbar,
 } from "@ionic/react";
-import { checkmarkOutline, imageOutline, mapOutline } from "ionicons/icons";
+import { addOutline, checkmarkOutline, imageOutline, mapOutline } from "ionicons/icons";
 
 import { MonthHeader } from "../../../components/MonthHeader.tsx";
 import { useMapPolygons } from "./hooks.ts";
@@ -27,6 +27,7 @@ export interface MapsListModalProps {
   isOpen: boolean;
   onDidDismiss: () => void;
   onSelect: (mapKey: string) => void;
+  onAddMap?: () => void;
   congregationId?: string;
   selectedMap?: string | null;
   recentMapKeys?: readonly string[];
@@ -37,6 +38,7 @@ export function MapsListModal({
   isOpen,
   onDidDismiss,
   onSelect,
+  onAddMap,
   congregationId,
   selectedMap = null,
   recentMapKeys = [],
@@ -94,6 +96,11 @@ export function MapsListModal({
           <IonToolbar>
             <IonTitle>Select Map</IonTitle>
             <IonButtons slot="end">
+              {onAddMap ? (
+                <IonButton onClick={onAddMap} aria-label="Add map">
+                  <IonIcon slot="icon-only" icon={addOutline} />
+                </IonButton>
+              ) : null}
               <IonButton onClick={handleDidDismiss}>Close</IonButton>
             </IonButtons>
           </IonToolbar>

@@ -35,6 +35,7 @@ import {
   mapEditFeatureColor,
   mapEditFeatureId,
   mapEditNewBlockFromGeometry,
+  mapEditNewMapFromGeometry,
   mapEditVertexDragLine,
   mapEditVerticesToGeoJSON,
   mapMasterRowSchema,
@@ -936,7 +937,7 @@ test("calculates the next overlapping edit feature selection index", () => {
   expect(nextMapEditSelectionIndex(3, 3, true)).toBe(0);
 });
 
-test("converts finished drawings into new blocks and faces", () => {
+test("converts finished drawings into new blocks, faces, and maps", () => {
   const ring = [
     [151.0, -33.9],
     [151.1, -33.9],
@@ -960,6 +961,37 @@ test("converts finished drawings into new blocks and faces", () => {
       { type: "LineString", coordinates: line },
     ),
   ).toEqual({ id: "f-new", type: "face", name: "Oak St", coordinates: line });
+
+  expect(
+    mapEditNewMapFromGeometry({ mapId: "map-new", name: "Map 4" }, "cong-1", {
+      type: "Polygon",
+      coordinates: [ring],
+    }),
+  ).toEqual({
+    id: "map-new",
+    congregation_id: "cong-1",
+    name: "Map 4",
+    boundary: ring,
+    blocks: [],
+  });
+  expect(
+    mapEditNewMapFromGeometry({ mapId: "bad", name: "Bad" }, "cong-1", {
+      type: "LineString",
+      coordinates: line,
+    }),
+  ).toBe(null);
+  expect(
+    mapEditNewMapFromGeometry({ mapId: "bad", name: "Bad" }, "cong-1", {
+      type: "Polygon",
+      coordinates: [ring.slice(0, 3)],
+    }),
+  ).toBe(null);
+  expect(
+    mapEditNewMapFromGeometry({ mapId: "bad", name: "Bad" }, " ", {
+      type: "Polygon",
+      coordinates: [ring],
+    }),
+  ).toBe(null);
 
   // Geometry must match the requested feature type and meet the stored shape's
   // minimum size: a closed ring for blocks and two points for faces.
@@ -1005,6 +1037,9 @@ test("detects when an in-progress drawing can finish with valid geometry", () =>
   // closure/live positions); a face can finish once three line positions exist.
   expect(mapEditDrawingCanFinish("block", polygon(4))).toBe(false);
   expect(mapEditDrawingCanFinish("block", polygon(5))).toBe(true);
+  expect(mapEditDrawingCanFinish("map", polygon(4))).toBe(false);
+  expect(mapEditDrawingCanFinish("map", polygon(5))).toBe(true);
+  expect(mapEditDrawingCanFinish("map", line(5))).toBe(false);
   expect(mapEditDrawingCanFinish("face", line(2))).toBe(false);
   expect(mapEditDrawingCanFinish("face", line(3))).toBe(true);
   expect(mapEditDrawingCanFinish("block", line(5))).toBe(false);

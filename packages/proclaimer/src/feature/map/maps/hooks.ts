@@ -13,6 +13,7 @@ import {
 } from "./schema.ts";
 
 export interface UseMapPolygonsResult {
+  congregationId: string;
   maps: MapRow[];
   geojson: MapPolygonsGeoJSON;
   bounds: MapBounds | null;
@@ -22,6 +23,7 @@ export interface UseMapPolygonsResult {
 }
 
 interface ResolvedCollection {
+  id: string;
   collection: MapCollection | null;
   error: Error | null;
 }
@@ -36,12 +38,12 @@ function toError(value: unknown): Error {
 
 function resolveCollection(congregationId: string): ResolvedCollection {
   if (!congregationId) {
-    return { collection: null, error: null };
+    return { id: congregationId, collection: null, error: null };
   }
   try {
-    return { collection: getMapCollection(congregationId), error: null };
+    return { id: congregationId, collection: getMapCollection(congregationId), error: null };
   } catch (err) {
-    return { collection: null, error: toError(err) };
+    return { id: congregationId, collection: null, error: toError(err) };
   }
 }
 
@@ -53,7 +55,9 @@ export function useMapPolygons(congregationId?: string): UseMapPolygonsResult {
   useEffect(() => {
     const next = resolveCollection(resolvedId);
     setResolved((prev) =>
-      prev.collection === next.collection && prev.error === next.error ? prev : next,
+      prev.id === next.id && prev.collection === next.collection && prev.error === next.error
+        ? prev
+        : next,
     );
   }, [resolvedId]);
 
@@ -71,6 +75,7 @@ export function useMapPolygons(congregationId?: string): UseMapPolygonsResult {
       : null;
 
   return {
+    congregationId: resolved.id,
     maps,
     geojson,
     bounds,

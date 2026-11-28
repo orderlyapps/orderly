@@ -22,6 +22,7 @@ import {
   mapEditDragPreviewStyle,
   mapEditDrawingCanFinish,
   mapEditNewBlockFromGeometry,
+  mapEditNewMapFromGeometry,
   splitMapEditVertexDragGeometry,
   type MapEditFeature,
 } from "../src/feature/map/edit/schema.ts";
@@ -392,6 +393,7 @@ test("terra draw creation workflow finishes lines and polygons with saveable geo
   expect(mapEditDrawingCanFinish("block", polygonEditor.currentDrawing()?.geometry)).toBe(false);
   polygonEditor.clickAt(1, 1);
   expect(mapEditDrawingCanFinish("block", polygonEditor.currentDrawing()?.geometry)).toBe(true);
+  expect(mapEditDrawingCanFinish("map", polygonEditor.currentDrawing()?.geometry)).toBe(true);
   polygonEditor.finishWithKeyboard();
   expect(polygonFinishes).toHaveLength(1);
   const polygonGeometry = polygonEditor.draw.getSnapshotFeature(polygonFinishes[0])?.geometry;
@@ -413,6 +415,15 @@ test("terra draw creation workflow finishes lines and polygons with saveable geo
       polygonGeometry,
     ),
   ).toMatchObject({ id: "block-new", type: "block", name: "Block 1" });
+  expect(
+    mapEditNewMapFromGeometry({ mapId: "map-new", name: "Map 2" }, "cong-1", polygonGeometry),
+  ).toMatchObject({
+    id: "map-new",
+    congregation_id: "cong-1",
+    name: "Map 2",
+    boundary: ring,
+    blocks: [],
+  });
 });
 
 test("drag preview renderer manages layers, data, filters, and cleanup", () => {

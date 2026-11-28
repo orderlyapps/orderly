@@ -52,6 +52,7 @@ import {
   mapEditDrawingCanFinish,
   mapEditFeatureColor,
   mapEditNewBlockFromGeometry,
+  mapEditNewMapFromGeometry,
   mapEditVerticesToGeoJSON,
   nextMapEditSelectionIndex,
   removeMapEditVertex,
@@ -73,6 +74,7 @@ export interface MapEditLayerProps {
   colorScheme?: MapEditColorScheme;
   createFeature?: MapEditCreateFeatureRequest | null;
   onCreateFeatureEnd?: () => void;
+  onCreateMap?: (mapId: string) => void;
   onError?: (message: string) => void;
 }
 
@@ -266,11 +268,13 @@ function moveVertexOverlayToTop(map: MapboxMap) {
 }
 
 interface EditContext {
+  congregationId?: string;
   maps: MapRow[];
   collection: MapCollection | null;
   master: MapMasterRow | null;
   masterCollection: MapMasterCollection | null;
   onCreateFeatureEnd?: () => void;
+  onCreateMap?: (mapId: string) => void;
   onError?: (message: string) => void;
 }
 
@@ -428,22 +432,38 @@ export function MapEditLayer({
   colorScheme = "standard",
   createFeature = null,
   onCreateFeatureEnd,
+  onCreateMap,
   onError,
 }: MapEditLayerProps) {
   const { current: mapRef } = useMap();
-  const { maps, collection } = useMapPolygons(congregationId);
+  const {
+    maps,
+    collection,
+    congregationId: resolvedCongregationId,
+  } = useMapPolygons(congregationId);
   const { master, collection: masterCollection } = useMasterMap(congregationId);
   const [draw, setDraw] = useState<TerraDraw | null>(null);
   const [vertices, setVertices] = useState<MapEditVertexCollection>(EMPTY_VERTICES);
   const contextRef = useRef<EditContext>({
+    congregationId: resolvedCongregationId,
     maps,
     collection,
     master,
     masterCollection,
     onCreateFeatureEnd,
+    onCreateMap,
     onError,
   });
-  contextRef.current = { maps, collection, master, masterCollection, onCreateFeatureEnd, onError };
+  contextRef.current = {
+    congregationId: resolvedCongregationId,
+    maps,
+    collection,
+    master,
+    masterCollection,
+    onCreateFeatureEnd,
+    onCreateMap,
+    onError,
+  };
   const selectedMapRef = useRef(selectedMap);
   selectedMapRef.current = selectedMap;
   const skippedRowsRef = useRef<Set<string>>(new Set());
@@ -475,6 +495,8 @@ export function MapEditLayer({
   const [activeCreateFeature, setActiveCreateFeature] =
     useState<MapEditCreateFeatureRequest | null>(null);
   const activeCreateFeatureRef = useRef<MapEditCreateFeatureRequest | null>(null);
+  const createFeatureRequestRef = useRef(createFeature);
+  createFeatureRequestRef.current = createFeature;
   const [canFinishCreateFeature, setCanFinishCreateFeature] = useState(false);
 
   const cancelActiveDrag = () => {
@@ -503,10 +525,14 @@ export function MapEditLayer({
     }
   };
 
-  const clearActiveCreateFeature = () => {
+  const resetActiveCreateFeature = () => {
     activeCreateFeatureRef.current = null;
     setActiveCreateFeature(null);
     setCanFinishCreateFeature(false);
+  };
+
+  const clearActiveCreateFeature = () => {
+    resetActiveCreateFeature();
     contextRef.current.onCreateFeatureEnd?.();
   };
 
@@ -515,10 +541,9 @@ export function MapEditLayer({
     if (!request) {
       return;
     }
-    const label = request.type === "face" ? "face" : "block";
+    const label = request.type === "map" ? "map" : request.type;
     const failureMessage = `The new ${label} could not be saved.`;
     const feature = instance.getSnapshotFeature(id);
-    const block = mapEditNewBlockFromGeometry(request, feature?.geometry);
     try {
       instance.removeFeatures([id]);
     } catch (error) {
@@ -526,18 +551,44 @@ export function MapEditLayer({
     }
 
     const { maps, collection } = contextRef.current;
-    const row = maps.find((entry) => entry.id === request.mapId);
-    if (!block || !collection || !row?.id) {
-      contextRef.current.onError?.(failureMessage);
-    } else {
-      try {
-        const tx = collection.update(row.id, (draft) => {
-          draft.blocks = [...(draft.blocks ?? []), block];
-        });
-        void tx.isPersisted.promise.catch(() => contextRef.current.onError?.(failureMessage));
-      } catch (error) {
-        console.error(`MapEditLayer: failed to save new ${label}`, error);
+    if (request.type === "map") {
+      const row = mapEditNewMapFromGeometry(
+        request,
+        contextRef.current.congregationId ?? "",
+        feature?.geometry,
+      );
+      if (!row || !collection) {
         contextRef.current.onError?.(failureMessage);
+      } else {
+        try {
+          const tx = collection.insert(row, { optimistic: false });
+          void tx.isPersisted.promise
+            .then(() => {
+              if (row.id) {
+                contextRef.current.onCreateMap?.(row.id);
+              }
+            })
+            .catch(() => contextRef.current.onError?.(failureMessage));
+        } catch (error) {
+          console.error("MapEditLayer: failed to save new map", error);
+          contextRef.current.onError?.(failureMessage);
+        }
+      }
+    } else {
+      const block = mapEditNewBlockFromGeometry(request, feature?.geometry);
+      const row = maps.find((entry) => entry.id === request.mapId);
+      if (!block || !collection || !row?.id) {
+        contextRef.current.onError?.(failureMessage);
+      } else {
+        try {
+          const tx = collection.update(row.id, (draft) => {
+            draft.blocks = [...(draft.blocks ?? []), block];
+          });
+          void tx.isPersisted.promise.catch(() => contextRef.current.onError?.(failureMessage));
+        } catch (error) {
+          console.error(`MapEditLayer: failed to save new ${label}`, error);
+          contextRef.current.onError?.(failureMessage);
+        }
       }
     }
 
@@ -794,7 +845,7 @@ export function MapEditLayer({
       // preview, or a half-drawn new feature from the previous editor instance.
       cancelActiveDrag();
       if (activeCreateFeatureRef.current) {
-        clearActiveCreateFeature();
+        resetActiveCreateFeature();
       }
       previewRenderer.destroy();
       // A style swap drops the adapter's sources, so rebuild from scratch.
@@ -837,7 +888,7 @@ export function MapEditLayer({
           const createRequest = activeCreateFeatureRef.current;
           if (createRequest) {
             const createMode =
-              createRequest.type === "block" ? MAP_EDIT_POLYGON_MODE : MAP_EDIT_LINE_MODE;
+              createRequest.type === "face" ? MAP_EDIT_LINE_MODE : MAP_EDIT_POLYGON_MODE;
             const drawing = snapshot.find(
               (feature) =>
                 feature.properties?.["mode"] === createMode &&
@@ -897,6 +948,10 @@ export function MapEditLayer({
         create();
         return;
       }
+      if (createFeatureRequestRef.current || activeCreateFeatureRef.current) {
+        rebuildAttempts = 0;
+        return;
+      }
       if (inst.getSnapshot().length > 0) {
         rebuildAttempts = 0;
         return;
@@ -945,11 +1000,16 @@ export function MapEditLayer({
     if (activeCreateFeatureRef.current?.key === createFeature.key) {
       return;
     }
+    if (createFeature.type === "map" && !resolvedCongregationId) {
+      contextRef.current.onError?.("A congregation must be selected before a map can be created.");
+      contextRef.current.onCreateFeatureEnd?.();
+      return;
+    }
     cancelActiveDrag();
     armedVertexRef.current = null;
     setArmedVertex(null);
     try {
-      draw.setMode(createFeature.type === "block" ? MAP_EDIT_POLYGON_MODE : MAP_EDIT_LINE_MODE);
+      draw.setMode(createFeature.type === "face" ? MAP_EDIT_LINE_MODE : MAP_EDIT_POLYGON_MODE);
       activeCreateFeatureRef.current = createFeature;
       setActiveCreateFeature(createFeature);
       setCanFinishCreateFeature(false);
@@ -961,7 +1021,7 @@ export function MapEditLayer({
       contextRef.current.onError?.("Feature drawing could not be started.");
       contextRef.current.onCreateFeatureEnd?.();
     }
-  }, [draw, createFeature]);
+  }, [draw, createFeature, resolvedCongregationId]);
 
   useEffect(() => {
     if (!draw) {
@@ -1403,9 +1463,9 @@ export function MapEditLayer({
               New {activeCreateFeature.type}: {activeCreateFeature.name}
             </strong>
             <span>
-              {activeCreateFeature.type === "block"
-                ? "Tap the map to add corners, then finish the shape."
-                : "Tap the map to add points, then finish the line."}
+              {activeCreateFeature.type === "face"
+                ? "Tap the map to add points, then finish the line."
+                : "Tap the map to add corners, then finish the shape."}
             </span>
           </div>
           <button
