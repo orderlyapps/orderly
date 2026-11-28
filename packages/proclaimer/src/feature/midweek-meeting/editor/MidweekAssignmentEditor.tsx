@@ -34,7 +34,10 @@ import { PublisherList } from "./PublisherList.tsx";
 import { PublisherSelectModal } from "./PublisherSelectModal.tsx";
 import { useMidweekAssignmentEditor } from "./useMidweekAssignmentEditor.ts";
 import { useSelectorSettings } from "./useSelectorSettings.ts";
-import { DEFAULT_MIDWEEK_ANY_STAT_PARTICIPATION_TYPES } from "../../settings/schema.ts";
+import {
+  DEFAULT_MIDWEEK_ANY_STAT_PARTICIPATION_TYPES,
+  type MidweekSelectorSort,
+} from "../../settings/schema.ts";
 
 const SECTION_COLOR_VARS: Record<MeetingSectionColor, string> = {
   medium: "var(--ion-color-medium)",
@@ -49,6 +52,11 @@ const GENDER_OPTIONS: { label: string; value: GenderFilter }[] = [
   { label: "Both", value: "all" },
   { label: "Male", value: "male" },
   { label: "Female", value: "female" },
+];
+
+const SORT_BY_OPTIONS: { label: string; value: MidweekSelectorSort }[] = [
+  { label: "This", value: "same_type" },
+  { label: "Any", value: "any" },
 ];
 
 export interface MidweekAssignmentEditorProps {
@@ -200,6 +208,25 @@ export function MidweekAssignmentEditor({
       )}
       <IonItem>
         <IonSelect
+          label="Sort By"
+          labelPlacement="stacked"
+          interface="popover"
+          value={activeSettings.settings.sortBy}
+          onIonChange={(event) =>
+            activeSettings.setSettings({
+              sortBy: event.detail.value as MidweekSelectorSort,
+            })
+          }
+        >
+          {SORT_BY_OPTIONS.map((option) => (
+            <IonSelectOption key={option.value} value={option.value}>
+              {option.label}
+            </IonSelectOption>
+          ))}
+        </IonSelect>
+      </IonItem>
+      <IonItem>
+        <IonSelect
           label="Any Stat Calculated From:"
           labelPlacement="stacked"
           interface="popover"
@@ -243,6 +270,7 @@ export function MidweekAssignmentEditor({
         participationId={type}
         participationTypes={participationTypes}
         weekAssignmentIds={weekAssignmentIds}
+        sortBy={settings.settings.sortBy}
       />
     );
   };

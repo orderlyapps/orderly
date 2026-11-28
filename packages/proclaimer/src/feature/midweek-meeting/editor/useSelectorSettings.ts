@@ -17,7 +17,11 @@ export function queueMidweekSelectorSettingsUpdate(
   patch: Partial<PublisherSelectorSettings>,
   existingStore?: SettingsStore,
 ): Promise<void> {
-  if (patch.gender === undefined && patch.statParticipationTypes === undefined) {
+  if (
+    patch.gender === undefined &&
+    patch.statParticipationTypes === undefined &&
+    patch.sortBy === undefined
+  ) {
     return Promise.resolve();
   }
   const update = selectorSettingsUpdateQueue
@@ -34,6 +38,7 @@ export function queueMidweekSelectorSettingsUpdate(
             statParticipationTypes: patch.statParticipationTypes
               ? [...patch.statParticipationTypes]
               : [...existing.statParticipationTypes],
+            sortBy: patch.sortBy ?? existing.sortBy,
           },
         },
       });

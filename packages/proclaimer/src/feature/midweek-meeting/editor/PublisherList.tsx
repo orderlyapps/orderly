@@ -3,6 +3,7 @@ import { IonItem, IonLabel, IonList } from "@ionic/react";
 import type { Publisher } from "../../publisher/schema.ts";
 import { getPublisherDisplayName } from "../../publisher/schema.ts";
 import type { MidweekParticipationId } from "../schema.ts";
+import type { MidweekSelectorSort } from "../../settings/schema.ts";
 import type { GenderFilter, PublisherAssignmentStats } from "./assignments.ts";
 import {
   eligiblePublishers,
@@ -20,6 +21,7 @@ export interface PublisherListProps {
   participationId: MidweekParticipationId;
   participationTypes: Map<string, Set<MidweekParticipationId>>;
   weekAssignmentIds?: Set<string>;
+  sortBy?: MidweekSelectorSort;
 }
 
 const statsGridStyle = {
@@ -38,6 +40,7 @@ export function PublisherList({
   participationId,
   participationTypes,
   weekAssignmentIds,
+  sortBy,
 }: PublisherListProps) {
   const filtered = eligiblePublishers(publishers, participationTypes, participationId, gender);
 
@@ -51,7 +54,7 @@ export function PublisherList({
     );
   }
 
-  const sorted = sortPublishersByStats(filtered, stats);
+  const sorted = sortPublishersByStats(filtered, stats, sortBy);
 
   return (
     <>

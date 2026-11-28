@@ -6,6 +6,7 @@ import type {
 import { midweekParticipationIds } from "../schema.ts";
 import type { Publisher } from "../../publisher/schema.ts";
 import { getPublisherDisplayName } from "../../publisher/schema.ts";
+import type { MidweekSelectorSort } from "../../settings/schema.ts";
 import { weeksBetween } from "../../../util/week.ts";
 
 export const midweekParticipationTypeLabels: Record<MidweekParticipationId, string> = {
@@ -264,14 +265,16 @@ export function eligiblePublishers(
   });
 }
 
-/** Longest time since the tracked assignment first, then alphabetically. */
+/** Longest time since the selected assignment stat first, then alphabetically. */
 export function sortPublishersByStats(
   publishers: Publisher[],
   stats: Map<string, PublisherAssignmentStats>,
+  sortBy: MidweekSelectorSort = "any",
 ): Publisher[] {
+  const statKey = sortBy === "same_type" ? "weeksAwaySameType" : "weeksAwayClosest";
   return [...publishers].sort((a, b) => {
-    const va = (a.id ? stats.get(a.id)?.weeksAwayClosest : null) ?? -1;
-    const vb = (b.id ? stats.get(b.id)?.weeksAwayClosest : null) ?? -1;
+    const va = (a.id ? stats.get(a.id)?.[statKey] : null) ?? -1;
+    const vb = (b.id ? stats.get(b.id)?.[statKey] : null) ?? -1;
     if (va === -1 && vb === -1) {
       return getPublisherDisplayName(a).localeCompare(getPublisherDisplayName(b));
     }

@@ -68,12 +68,19 @@ export const midweekSelectorGenderSchema = z.enum(MIDWEEK_SELECTOR_GENDERS);
 
 export type MidweekSelectorGender = z.infer<typeof midweekSelectorGenderSchema>;
 
+export const MIDWEEK_SELECTOR_SORTS = ["same_type", "any"] as const;
+
+export const midweekSelectorSortSchema = z.enum(MIDWEEK_SELECTOR_SORTS);
+
+export type MidweekSelectorSort = z.infer<typeof midweekSelectorSortSchema>;
+
 export const midweekParticipationIdSchema = z.enum(midweekParticipationIds);
 
 export const midweekSelectorSettingsSchema = z.object({
   gender: midweekSelectorGenderSchema,
   /** Participation types whose past assignments feed the "weeks away" stat. */
   statParticipationTypes: z.array(midweekParticipationIdSchema),
+  sortBy: midweekSelectorSortSchema.default("any"),
 });
 
 export type MidweekSelectorSettings = z.infer<typeof midweekSelectorSettingsSchema>;
@@ -91,6 +98,7 @@ export const DEFAULT_MIDWEEK_ANY_STAT_PARTICIPATION_TYPES: MidweekParticipationI
 export const DEFAULT_MIDWEEK_SELECTOR_SETTINGS: MidweekSelectorSettings = {
   gender: "all",
   statParticipationTypes: [...DEFAULT_MIDWEEK_ANY_STAT_PARTICIPATION_TYPES],
+  sortBy: "any",
 };
 
 export const NOT_AT_HOME_STALE_DAYS_MAX = 365;
@@ -316,9 +324,9 @@ function copyValidSetting<K extends SettingsKey>(
   target: Partial<SettingsDocument>,
   key: K,
 ): void {
-  const candidate = source[key];
-  if (isSettingValue(key, candidate)) {
-    target[key] = candidate;
+  const parsed = SETTINGS_FIELD_SCHEMAS[key].safeParse(source[key]);
+  if (parsed.success) {
+    (target as Partial<Record<SettingsKey, unknown>>)[key] = parsed.data;
   }
 }
 
@@ -380,6 +388,7 @@ function areMidweekSelectorSettingValuesEqual(
   }
   return (
     a.gender === b.gender &&
+    a.sortBy === b.sortBy &&
     areStringArraysEqual(a.statParticipationTypes, b.statParticipationTypes)
   );
 }
@@ -425,6 +434,7 @@ function areMidweekSelectorSettingsEqual(
       }
       return (
         aValue.gender === bValue.gender &&
+        aValue.sortBy === bValue.sortBy &&
         areStringArraysEqual(aValue.statParticipationTypes, bValue.statParticipationTypes)
       );
     })

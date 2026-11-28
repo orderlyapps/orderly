@@ -555,6 +555,31 @@ test("sortPublishersByStats orders longest-away first with fallbacks", () => {
   expect(statLabelFor("pub-1", stats)).toBeUndefined();
 });
 
+test("sortPublishersByStats can order by same-type or any-assignment stats", () => {
+  const roster: Publisher[] = [publishers[0], publishers[1], publishers[2]];
+  const stats = computeAssignmentStats(
+    [
+      { ...assignment("treasures", "pub-2"), week_id: "2025-10-20" },
+      { ...assignment("treasures", "overseer-1"), week_id: "2025-09-22" },
+      { ...assignment("living_1", "overseer-1"), week_id: "2025-10-27" },
+    ],
+    ["treasures", "living"],
+    "2025-11-03",
+    "treasures",
+  );
+
+  expect(sortPublishersByStats(roster, stats, "any").map((p) => p.id)).toEqual([
+    "pub-1",
+    "pub-2",
+    "overseer-1",
+  ]);
+  expect(sortPublishersByStats(roster, stats, "same_type").map((p) => p.id)).toEqual([
+    "pub-1",
+    "overseer-1",
+    "pub-2",
+  ]);
+});
+
 test("serializes concurrent midweek selector settings updates", async () => {
   const store = await createSettingsStore({
     name: `proclaimer_selector_test_${Date.now()}_${Math.random()}`,
@@ -564,13 +589,14 @@ test("serializes concurrent midweek selector settings updates", async () => {
     await Promise.all([
       queueMidweekSelectorSettingsUpdate("apply", { gender: "male" }, store),
       queueMidweekSelectorSettingsUpdate("apply", { statParticipationTypes: ["apply"] }, store),
+      queueMidweekSelectorSettingsUpdate("apply", { sortBy: "same_type" }, store),
       queueMidweekSelectorSettingsUpdate("living", { gender: "female" }, store),
       queueMidweekSelectorSettingsUpdate("living", { statParticipationTypes: ["living"] }, store),
     ]);
 
     expect((await store.getSettings()).midweekSelectorSettings).toEqual({
-      apply: { gender: "male", statParticipationTypes: ["apply"] },
-      living: { gender: "female", statParticipationTypes: ["living"] },
+      apply: { gender: "male", statParticipationTypes: ["apply"], sortBy: "same_type" },
+      living: { gender: "female", statParticipationTypes: ["living"], sortBy: "any" },
     });
   } finally {
     await store.close();

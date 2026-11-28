@@ -59,6 +59,7 @@ import {
   THEME_OPTIONS,
   toSettingsPatch,
   useSettings,
+  type SettingsDocument,
   type SettingsPatch,
   type StorageApi,
 } from "../src/feature/settings/index.ts";
@@ -106,9 +107,17 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
   expect(DEFAULT_MIDWEEK_SELECTOR_SETTINGS).toEqual({
     gender: "all",
     statParticipationTypes: DEFAULT_MIDWEEK_ANY_STAT_PARTICIPATION_TYPES,
+    sortBy: "any",
   });
   expect(
-    midweekSelectorSettingsSchema.safeParse({ gender: "all", statParticipationTypes: [] }).success,
+    midweekSelectorSettingsSchema.parse({ gender: "all", statParticipationTypes: [] }),
+  ).toEqual({ gender: "all", statParticipationTypes: [], sortBy: "any" });
+  expect(
+    midweekSelectorSettingsSchema.safeParse({
+      gender: "all",
+      statParticipationTypes: [],
+      sortBy: "same_type",
+    }).success,
   ).toBe(true);
   expect(THEME_LABELS).toEqual({ light: "Light", dark: "Dark", system: "System" });
   expect(THEME_OPTIONS).toEqual([
@@ -152,6 +161,13 @@ test("validates theme modes, schema helpers, and binary filename formatting", ()
     emergencyContactsShowArchived: false,
     midweekSelectorSettings: {},
   });
+  expect(
+    normalizeSettingsDocument({
+      midweekSelectorSettings: {
+        apply: { gender: "female", statParticipationTypes: ["apply"] },
+      } as unknown as SettingsDocument["midweekSelectorSettings"],
+    }).midweekSelectorSettings.apply,
+  ).toEqual({ gender: "female", statParticipationTypes: ["apply"], sortBy: "any" });
   const overlongId = "a".repeat(SETTINGS_ID_MAX_LENGTH + 1);
   expect(isValidSettingsId(DEFAULT_SETTINGS_ID)).toBe(true);
   expect(isValidSettingsId("")).toBe(false);
@@ -558,7 +574,11 @@ test("migrates legacy midweek selector settings into the settings store", async 
   try {
     const settings = await store.getSettings();
     expect(settings.midweekSelectorSettings).toEqual({
-      apply: { gender: "female", statParticipationTypes: ["bible_reading", "apply"] },
+      apply: {
+        gender: "female",
+        statParticipationTypes: ["bible_reading", "apply"],
+        sortBy: "any",
+      },
     });
   } finally {
     await store.close();
@@ -591,7 +611,7 @@ test("does not treat legacy migration time as a settings edit timestamp", async 
     await sourceStore.updateSettings({
       congregationId: "imported-congregation",
       midweekSelectorSettings: {
-        apply: { gender: "male", statParticipationTypes: ["living"] },
+        apply: { gender: "male", statParticipationTypes: ["living"], sortBy: "same_type" },
       },
     });
     const binary = await exportSettingsBinary(sourceStore);
@@ -605,7 +625,7 @@ test("does not treat legacy migration time as a settings edit timestamp", async 
     const imported = await importSettingsBinary(binary, targetStore);
     expect(imported.congregationId).toBe("imported-congregation");
     expect(imported.midweekSelectorSettings).toEqual({
-      apply: { gender: "male", statParticipationTypes: ["living"] },
+      apply: { gender: "male", statParticipationTypes: ["living"], sortBy: "same_type" },
     });
 
     const updatedAt = await targetStore.getSettingsUpdatedAt();
@@ -631,7 +651,11 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       emergencyContactsVisibleTypes: ["publisher", "inactive"],
       emergencyContactsShowArchived: true,
       midweekSelectorSettings: {
-        apply: { gender: "male", statParticipationTypes: ["apply", "assistant"] },
+        apply: {
+          gender: "male",
+          statParticipationTypes: ["apply", "assistant"],
+          sortBy: "same_type",
+        },
       },
     });
     const binary = await exportSettingsBinary(sourceStore);
@@ -653,7 +677,11 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       emergencyContactsVisibleTypes: ["publisher", "inactive"],
       emergencyContactsShowArchived: true,
       midweekSelectorSettings: {
-        apply: { gender: "male", statParticipationTypes: ["apply", "assistant"] },
+        apply: {
+          gender: "male",
+          statParticipationTypes: ["apply", "assistant"],
+          sortBy: "same_type",
+        },
       },
     });
 
@@ -672,7 +700,11 @@ test("exports settings to a binary Uint8Array and imports into another store", a
       emergencyContactsVisibleTypes: ["publisher", "inactive"],
       emergencyContactsShowArchived: true,
       midweekSelectorSettings: {
-        apply: { gender: "male", statParticipationTypes: ["apply", "assistant"] },
+        apply: {
+          gender: "male",
+          statParticipationTypes: ["apply", "assistant"],
+          sortBy: "same_type",
+        },
       },
     });
     expect((await targetStore.getSettings()).theme).toBe("dark");
@@ -783,7 +815,7 @@ test("merges record-valued settings entries independently", async () => {
     await sourceStore.updateSettings({
       selectedMaps: { congregation1: "map-source", shared: "map-source" },
       midweekSelectorSettings: {
-        apply: { gender: "male", statParticipationTypes: ["apply"] },
+        apply: { gender: "male", statParticipationTypes: ["apply"], sortBy: "same_type" },
       },
     });
     const binary = await exportSettingsBinary(sourceStore);
@@ -792,7 +824,7 @@ test("merges record-valued settings entries independently", async () => {
     await targetStore.updateSettings({
       selectedMaps: { congregation2: "map-target", shared: "map-target" },
       midweekSelectorSettings: {
-        living: { gender: "female", statParticipationTypes: ["living"] },
+        living: { gender: "female", statParticipationTypes: ["living"], sortBy: "any" },
       },
     });
 
@@ -803,8 +835,8 @@ test("merges record-valued settings entries independently", async () => {
       shared: "map-target",
     });
     expect(imported.midweekSelectorSettings).toEqual({
-      apply: { gender: "male", statParticipationTypes: ["apply"] },
-      living: { gender: "female", statParticipationTypes: ["living"] },
+      apply: { gender: "male", statParticipationTypes: ["apply"], sortBy: "same_type" },
+      living: { gender: "female", statParticipationTypes: ["living"], sortBy: "any" },
     });
 
     const updatedAt = await targetStore.getSettingsUpdatedAt();
