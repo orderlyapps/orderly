@@ -25,6 +25,7 @@ export interface MapsLayerProps {
   fallbackBounds?: MapBounds | null;
   /** Key (id or name) of the map to highlight and zoom to. */
   selectedMap?: string | null;
+  selectedMapFitKey?: string | number;
 }
 
 export function MapsLayer({
@@ -33,6 +34,7 @@ export function MapsLayer({
   fitBoundsPadding = 60,
   fallbackBounds = null,
   selectedMap = null,
+  selectedMapFitKey = 0,
 }: MapsLayerProps) {
   const { geojson, bounds, maps } = useMapPolygons(congregationId);
   const { current: map } = useMap();
@@ -62,7 +64,8 @@ export function MapsLayer({
       selectedFittedForRef.current = null;
       return;
     }
-    if (selectedFittedForRef.current === selectedMap) {
+    const fitId = `${selectedMap}:${selectedMapFitKey}`;
+    if (selectedFittedForRef.current === fitId) {
       return;
     }
     const row = maps.find((entry) => mapRowKey(entry) === selectedMap);
@@ -70,10 +73,10 @@ export function MapsLayer({
     if (selectedBounds) {
       // Only mark after a real fit so a selection made before the rows load
       // still zooms once the data arrives.
-      selectedFittedForRef.current = selectedMap;
+      selectedFittedForRef.current = fitId;
       map.fitBounds(selectedBounds, { padding: fitBoundsPadding, animate: true });
     }
-  }, [selectedMap, maps, map, fitBoundsPadding]);
+  }, [selectedMap, selectedMapFitKey, maps, map, fitBoundsPadding]);
 
   const featureKey: Expression = ["coalesce", ["get", "id"], ["get", "name"]];
   const isSelected: Expression = selectedMap ? ["==", featureKey, selectedMap] : ["literal", false];

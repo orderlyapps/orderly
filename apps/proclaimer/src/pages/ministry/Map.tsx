@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   IonBackButton,
@@ -39,17 +39,63 @@ const Map = () => {
   const [mapsOpen, setMapsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [selectedMapFitKey, setSelectedMapFitKey] = useState(0);
+  const [optimisticSelectedMap, setOptimisticSelectedMap] = useState<{
+    congregationId: string;
+    key: string;
+  } | null>(null);
   const [presentAlert] = useIonAlert();
   const { settings, updateSettings } = useSettings();
   const congregationId = settings.congregationId.trim();
-  const selectedMap = settings.selectedMaps[congregationId] || null;
+  const persistedSelectedMap = settings.selectedMaps[congregationId] || null;
+  const selectedMap =
+    optimisticSelectedMap && optimisticSelectedMap.congregationId === congregationId
+      ? optimisticSelectedMap.key
+      : persistedSelectedMap;
   const { bounds: masterBounds } = useMasterMap(congregationId);
   const permissions = usePermissions(congregationId || undefined);
   const canEditMap =
     permissions.hasServiceOverseer || permissions.isCongregationAdmin || permissions.isSuperAdmin;
 
+  useEffect(() => {
+    if (
+      optimisticSelectedMap &&
+      settings.selectedMaps[optimisticSelectedMap.congregationId] === optimisticSelectedMap.key
+    ) {
+      setOptimisticSelectedMap(null);
+    }
+  }, [optimisticSelectedMap, settings.selectedMaps]);
+
   const showSaveFailed = (message: string) => {
     void presentAlert({ header: "Save Failed", message, buttons: ["OK"] });
+  };
+
+  const selectMap = (key: string) => {
+    setMapsOpen(false);
+    if (!congregationId) {
+      return;
+    }
+    setOptimisticSelectedMap({ congregationId, key });
+    setSelectedMapFitKey((current) => current + 1);
+    void updateSettings({
+      selectedMaps: {
+        ...settings.selectedMaps,
+        [congregationId]: key,
+      },
+      recentSelectedMaps: recordRecentMapSelection(
+        settings.recentSelectedMaps,
+        congregationId,
+        key,
+        selectedMap,
+      ),
+    }).catch((error: unknown) => {
+      console.warn("Failed to persist selected map", error);
+      void presentAlert({
+        header: "Selection Save Failed",
+        message: "The map is selected for now, but the selection could not be saved.",
+        buttons: ["OK"],
+      });
+    });
   };
 
   return (
@@ -93,6 +139,7 @@ const Map = () => {
             autoFitBounds={!hasSavedView()}
             fallbackBounds={masterBounds}
             selectedMap={selectedMap}
+            selectedMapFitKey={selectedMapFitKey}
           />
           <NotAtHomesLayer />
           {editing ? (
@@ -115,6 +162,10 @@ const Map = () => {
             isOpen={mapsOpen}
             onDidDismiss={() => setMapsOpen(false)}
             congregationId={congregationId}
+            selectedMap={selectedMap}
+            recentMapKeys={settings.recentSelectedMaps[congregationId] ?? []}
+            recentMapCount={settings.recentMapCount}
+            onSelect={selectMap}
           />
         ) : (
           <MapsListModal
@@ -124,26 +175,7 @@ const Map = () => {
             selectedMap={selectedMap}
             recentMapKeys={settings.recentSelectedMaps[congregationId] ?? []}
             recentMapCount={settings.recentMapCount}
-            onSelect={(key) => {
-              setMapsOpen(false);
-              if (!congregationId) {
-                return;
-              }
-              void updateSettings({
-                selectedMaps: {
-                  ...settings.selectedMaps,
-                  [congregationId]: key,
-                },
-                recentSelectedMaps: recordRecentMapSelection(
-                  settings.recentSelectedMaps,
-                  congregationId,
-                  key,
-                  selectedMap,
-                ),
-              }).catch((error: unknown) => {
-                console.warn("Failed to persist selected map", error);
-              });
-            }}
+            onSelect={selectMap}
           />
         )}
       </IonContent>

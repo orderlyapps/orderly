@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 
 import {
+  IonAccordion,
+  IonAccordionGroup,
   IonButton,
   IonButtons,
   IonContent,
@@ -20,11 +22,19 @@ import {
   useIonActionSheet,
   useIonAlert,
 } from "@ionic/react";
-import { chevronBackOutline, createOutline, mapOutline, trashOutline } from "ionicons/icons";
-
-import { useMapPolygons } from "./maps/hooks.ts";
 import {
-  filterMapRows,
+  checkmarkOutline,
+  createOutline,
+  imageOutline,
+  mapOutline,
+  trashOutline,
+} from "ionicons/icons";
+
+import { MonthHeader } from "../../components/MonthHeader.tsx";
+import { useMapPolygons } from "./maps/hooks.ts";
+import { MapImageModal } from "./maps/MapImageModal.tsx";
+import {
+  buildMapRowListSections,
   mapRowKey,
   removeMapBlock,
   renameMapBlock,
@@ -39,31 +49,51 @@ import { findMapTagByName, sortMapTags, type MapTagRow } from "./tags/schema.ts"
 export interface MapEditModalProps {
   isOpen: boolean;
   onDidDismiss: () => void;
+  onSelect: (mapKey: string) => void;
   congregationId?: string;
+  selectedMap?: string | null;
+  recentMapKeys?: readonly string[];
+  recentMapCount?: number;
 }
 
 const blockTypeLabel = (block: MapBlock) => (block.type === "face" ? "Face" : "Block");
 
-export function MapEditModal({ isOpen, onDidDismiss, congregationId }: MapEditModalProps) {
+export function MapEditModal({
+  isOpen,
+  onDidDismiss,
+  onSelect,
+  congregationId,
+  selectedMap: selectedMapKey = null,
+  recentMapKeys = [],
+  recentMapCount = 0,
+}: MapEditModalProps) {
   const { maps, isLoading, error, collection } = useMapPolygons(congregationId);
   const [presentAlert] = useIonAlert();
   const [presentActionSheet] = useIonActionSheet();
   const [query, setQuery] = useState("");
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [viewingMap, setViewingMap] = useState<MapRow | null>(null);
 
-  const visibleMaps = useMemo(() => filterMapRows(maps, query), [maps, query]);
-  const selectedMap = maps.find((map) => mapRowKey(map) === selectedKey) ?? null;
+  const effectiveRecentMapKeys = useMemo(
+    () => (recentMapKeys.length > 0 ? recentMapKeys : selectedMapKey ? [selectedMapKey] : []),
+    [recentMapKeys, selectedMapKey],
+  );
+  const sections = useMemo(
+    () => buildMapRowListSections(maps, query, effectiveRecentMapKeys, recentMapCount),
+    [maps, query, effectiveRecentMapKeys, recentMapCount],
+  );
+  const openMap = maps.find((map) => mapRowKey(map) === openKey) ?? null;
   const { tags, collection: tagCollection } = useMapTags(congregationId);
   const { assignments, collection: assignmentCollection } = useMapTagAssignments(
-    selectedMap?.id ?? null,
+    openMap?.id ?? null,
   );
   const blocks = useMemo(
-    () => sortMapBlocks(selectedMap?.blocks?.filter((block) => block.type === "block")),
-    [selectedMap],
+    () => sortMapBlocks(openMap?.blocks?.filter((block) => block.type === "block")),
+    [openMap],
   );
   const faces = useMemo(
-    () => sortMapBlocks(selectedMap?.blocks?.filter((block) => block.type === "face")),
-    [selectedMap],
+    () => sortMapBlocks(openMap?.blocks?.filter((block) => block.type === "face")),
+    [openMap],
   );
   const assignedTagIds = useMemo(
     () => new Set(assignments.map((assignment) => assignment.tag_id)),
@@ -76,7 +106,8 @@ export function MapEditModal({ isOpen, onDidDismiss, congregationId }: MapEditMo
 
   const handleDidDismiss = () => {
     setQuery("");
-    setSelectedKey(null);
+    setOpenKey(null);
+    setViewingMap(null);
     onDidDismiss();
   };
 
@@ -375,23 +406,109 @@ export function MapEditModal({ isOpen, onDidDismiss, congregationId }: MapEditMo
     </IonItemGroup>
   );
 
+  const renderMapInputs = (map: MapRow) => (
+    <>
+      <div style={{ padding: "1rem 1rem 0" }}>
+        <IonButton expand="block" onClick={() => onSelect(mapRowKey(map))}>
+          Select Map
+        </IonButton>
+      </div>
+      <IonItemGroup>
+        <IonListHeader>
+          <IonLabel>Map</IonLabel>
+        </IonListHeader>
+        <IonItem>
+          <IonLabel>
+            <h2>Name</h2>
+            <p>{map.name}</p>
+          </IonLabel>
+          <IonButton
+            slot="end"
+            fill="clear"
+            aria-label={`Rename ${map.name}`}
+            onClick={() => promptRenameMap(map)}
+          >
+            <IonIcon slot="icon-only" icon={createOutline} />
+          </IonButton>
+        </IonItem>
+        <IonItem>
+          <IonLabel>
+            <h2>Details</h2>
+            <p>{map.details?.trim() ? map.details : "None"}</p>
+          </IonLabel>
+          <IonButton
+            slot="end"
+            fill="clear"
+            aria-label={`Edit ${map.name} details`}
+            onClick={() => promptEditDetails(map)}
+          >
+            <IonIcon slot="icon-only" icon={createOutline} />
+          </IonButton>
+        </IonItem>
+      </IonItemGroup>
+      <IonItemGroup>
+        <IonListHeader>
+          <IonLabel>Tags</IonLabel>
+        </IonListHeader>
+        {assignedTags.map((tag) => (
+          <IonItem key={tag.id}>
+            <IonLabel>{tag.name}</IonLabel>
+            <IonButton
+              slot="end"
+              fill="clear"
+              aria-label={`Remove ${tag.name}`}
+              onClick={() => confirmRemoveTag(map, tag)}
+            >
+              <IonIcon slot="icon-only" icon={trashOutline} color="danger" />
+            </IonButton>
+          </IonItem>
+        ))}
+        <IonItem button detail={false} onClick={() => promptAddTag(map)}>
+          <IonLabel color="primary">Add Tag</IonLabel>
+        </IonItem>
+      </IonItemGroup>
+      {blockGroup(map, "Blocks", blocks)}
+      {blockGroup(map, "Faces", faces)}
+    </>
+  );
+
+  const renderRecentMapItem = (map: MapRow, index: number) => {
+    const key = mapRowKey(map);
+    return (
+      <IonItem key={`${key}:${index}`} button detail={false} onClick={() => onSelect(key)}>
+        <IonLabel>
+          <h2>{map.name}</h2>
+          {map.details ? <p>{map.details}</p> : null}
+        </IonLabel>
+        {key === selectedMapKey ? <IonIcon slot="end" icon={checkmarkOutline} /> : null}
+        {map.url ? (
+          <IonButton
+            slot="end"
+            fill="clear"
+            aria-label={`View ${map.name} image`}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setViewingMap(map);
+            }}
+          >
+            <IonIcon slot="icon-only" icon={imageOutline} />
+          </IonButton>
+        ) : null}
+      </IonItem>
+    );
+  };
+
   return (
-    <IonModal isOpen={isOpen} onDidDismiss={handleDidDismiss}>
-      <IonHeader>
-        <IonToolbar>
-          {selectedMap ? (
-            <IonButtons slot="start">
-              <IonButton onClick={() => setSelectedKey(null)} aria-label="Back to maps">
-                <IonIcon slot="icon-only" icon={chevronBackOutline} />
-              </IonButton>
+    <>
+      <IonModal isOpen={isOpen} onDidDismiss={handleDidDismiss}>
+        <IonHeader>
+          <IonToolbar>
+            <IonTitle>Edit Map</IonTitle>
+            <IonButtons slot="end">
+              <IonButton onClick={handleDidDismiss}>Close</IonButton>
             </IonButtons>
-          ) : null}
-          <IonTitle>{selectedMap ? selectedMap.name : "Edit Map"}</IonTitle>
-          <IonButtons slot="end">
-            <IonButton onClick={handleDidDismiss}>Close</IonButton>
-          </IonButtons>
-        </IonToolbar>
-        {selectedMap ? null : (
+          </IonToolbar>
           <IonToolbar>
             <IonSearchbar
               value={query}
@@ -401,115 +518,100 @@ export function MapEditModal({ isOpen, onDidDismiss, congregationId }: MapEditMo
               }}
             />
           </IonToolbar>
-        )}
-      </IonHeader>
-      <IonContent>
-        {selectedMap ? (
-          <>
-            <IonItemGroup>
-              <IonListHeader>
-                <IonLabel>Map</IonLabel>
-              </IonListHeader>
-              <IonItem>
-                <IonLabel>
-                  <h2>Name</h2>
-                  <p>{selectedMap.name}</p>
-                </IonLabel>
-                <IonButton
-                  slot="end"
-                  fill="clear"
-                  aria-label={`Rename ${selectedMap.name}`}
-                  onClick={() => promptRenameMap(selectedMap)}
+        </IonHeader>
+        <IonContent>
+          {maps.length === 0 && isLoading ? (
+            <div style={{ display: "flex", justifyContent: "center", padding: "48px 16px" }}>
+              <IonSpinner />
+            </div>
+          ) : maps.length === 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 8,
+                padding: "48px 16px",
+              }}
+            >
+              <IonIcon icon={mapOutline} style={{ fontSize: 32, opacity: 0.4 }} />
+              {error ? (
+                <IonNote color="danger">{error.message}</IonNote>
+              ) : (
+                <IonNote color="medium">No maps available</IonNote>
+              )}
+            </div>
+          ) : (
+            <>
+              {sections.recentRows.length > 0 ? (
+                <>
+                  <MonthHeader label="Recent Maps" />
+                  <IonList style={{ marginTop: 4 }}>
+                    {sections.recentRows.map(renderRecentMapItem)}
+                  </IonList>
+                </>
+              ) : null}
+              <MonthHeader label="All Maps" />
+              {sections.allRows.length === 0 ? (
+                <IonList style={{ marginTop: 4 }}>
+                  <IonItem lines="none">
+                    <IonNote>No maps found</IonNote>
+                  </IonItem>
+                </IonList>
+              ) : (
+                <IonAccordionGroup
+                  onIonChange={(event) => {
+                    const value = event.detail.value;
+                    setOpenKey(typeof value === "string" ? value : null);
+                  }}
                 >
-                  <IonIcon slot="icon-only" icon={createOutline} />
-                </IonButton>
-              </IonItem>
-              <IonItem>
-                <IonLabel>
-                  <h2>Details</h2>
-                  <p>{selectedMap.details?.trim() ? selectedMap.details : "None"}</p>
-                </IonLabel>
-                <IonButton
-                  slot="end"
-                  fill="clear"
-                  aria-label={`Edit ${selectedMap.name} details`}
-                  onClick={() => promptEditDetails(selectedMap)}
-                >
-                  <IonIcon slot="icon-only" icon={createOutline} />
-                </IonButton>
-              </IonItem>
-            </IonItemGroup>
-            <IonItemGroup>
-              <IonListHeader>
-                <IonLabel>Tags</IonLabel>
-              </IonListHeader>
-              {assignedTags.map((tag) => (
-                <IonItem key={tag.id}>
-                  <IonLabel>{tag.name}</IonLabel>
-                  <IonButton
-                    slot="end"
-                    fill="clear"
-                    aria-label={`Remove ${tag.name}`}
-                    onClick={() => confirmRemoveTag(selectedMap, tag)}
-                  >
-                    <IonIcon slot="icon-only" icon={trashOutline} color="danger" />
-                  </IonButton>
-                </IonItem>
-              ))}
-              <IonItem button detail={false} onClick={() => promptAddTag(selectedMap)}>
-                <IonLabel color="primary">Add Tag</IonLabel>
-              </IonItem>
-            </IonItemGroup>
-            {blockGroup(selectedMap, "Blocks", blocks)}
-            {blockGroup(selectedMap, "Faces", faces)}
-          </>
-        ) : maps.length === 0 && isLoading ? (
-          <div style={{ display: "flex", justifyContent: "center", padding: "48px 16px" }}>
-            <IonSpinner />
-          </div>
-        ) : maps.length === 0 ? (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 8,
-              padding: "48px 16px",
-            }}
-          >
-            <IonIcon icon={mapOutline} style={{ fontSize: 32, opacity: 0.4 }} />
-            {error ? (
-              <IonNote color="danger">{error.message}</IonNote>
-            ) : (
-              <IonNote color="medium">No maps available</IonNote>
-            )}
-          </div>
-        ) : (
-          <IonList>
-            {visibleMaps.length === 0 ? (
-              <IonItem lines="none">
-                <IonNote>No maps found</IonNote>
-              </IonItem>
-            ) : null}
-            {visibleMaps.map((map, index) => {
-              const key = mapRowKey(map);
-              return (
-                <IonItem
-                  key={`${key}:${index}`}
-                  button
-                  detail={false}
-                  onClick={() => setSelectedKey(key)}
-                >
-                  <IonLabel>
-                    <h2>{map.name}</h2>
-                    {map.details ? <p>{map.details}</p> : null}
-                  </IonLabel>
-                </IonItem>
-              );
-            })}
-          </IonList>
-        )}
-      </IonContent>
-    </IonModal>
+                  {sections.allRows.map((map, index) => {
+                    const key = mapRowKey(map);
+                    return (
+                      <IonAccordion key={`${key}:${index}`} value={key}>
+                        <IonItem slot="header">
+                          <IonLabel className="ion-text-wrap">
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                              }}
+                            >
+                              <span
+                                style={
+                                  key === openKey
+                                    ? { fontWeight: "bold", fontSize: "1.1rem" }
+                                    : undefined
+                                }
+                              >
+                                {map.name}
+                              </span>
+                              {key === selectedMapKey ? (
+                                <IonIcon icon={checkmarkOutline} style={{ marginInlineEnd: 8 }} />
+                              ) : null}
+                            </div>
+                            {map.details ? <p>{map.details}</p> : null}
+                          </IonLabel>
+                        </IonItem>
+                        <div slot="content" style={{ paddingBottom: "2.5rem" }}>
+                          {key === openKey ? renderMapInputs(map) : null}
+                        </div>
+                      </IonAccordion>
+                    );
+                  })}
+                </IonAccordionGroup>
+              )}
+            </>
+          )}
+        </IonContent>
+      </IonModal>
+      <MapImageModal
+        isOpen={viewingMap !== null}
+        onDidDismiss={() => setViewingMap(null)}
+        url={viewingMap?.url ?? null}
+        title={viewingMap?.name}
+      />
+    </>
   );
 }
