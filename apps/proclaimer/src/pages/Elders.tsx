@@ -3,6 +3,9 @@ import {
   IonButtons,
   IonContent,
   IonHeader,
+  IonItem,
+  IonLabel,
+  IonList,
   IonPage,
   IonSpinner,
   IonTitle,
@@ -41,7 +44,21 @@ const Elders = () => {
           <div style={{ display: "flex", justifyContent: "center", paddingTop: 64 }}>
             <IonSpinner name="crescent" />
           </div>
-        ) : null}
+        ) : (
+          <>
+            <div className="ion-padding-top" />
+            <IonList>
+              <IonItem routerLink="/secretary/branch-report" detail>
+                <IonLabel
+                  style={{ color: "var(--ion-color-primary)", fontSize: "1.125rem" }}
+                  className="ion-padding-vertical"
+                >
+                  Branch Report
+                </IonLabel>
+              </IonItem>
+            </IonList>
+          </>
+        )}
         <div style={{ paddingBottom: 48 }} />
       </IonContent>
     </IonPage>

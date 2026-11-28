@@ -34,10 +34,11 @@ const PublisherReport = () => {
       ? monthIdParam
       : latest;
 
-  const canUseSecretary = permissions.hasSecretary || permissions.isSuperAdmin;
+  const canUseBranchReport =
+    permissions.hasElder || permissions.hasSecretary || permissions.isSuperAdmin;
   const isLoading = settingsLoading || !permissions.isLoaded;
 
-  if (!isLoading && !canUseSecretary) {
+  if (!isLoading && !canUseBranchReport) {
     return <Navigate to="/home" replace />;
   }
 
@@ -61,6 +62,12 @@ const PublisherReport = () => {
             monthId={monthId}
             publisherId={publisherId}
             congregationId={settings.congregationId || undefined}
+            editAccess={{
+              hasSecretary: permissions.hasSecretary,
+              isCongregationAdmin: permissions.isCongregationAdmin,
+              isSuperAdmin: permissions.isSuperAdmin,
+              reportEditGroupIds: permissions.reportEditGroupIds,
+            }}
           />
         )}
         <div style={{ paddingBottom: 128 }} />

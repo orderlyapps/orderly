@@ -7,17 +7,21 @@ import {
   elderPermissionSchema,
   hasClamOverseerPermission,
   hasElderPermission,
+  hasReportEditPermission,
+  hasReportReadPermission,
   hasSecretaryPermission,
   hasServiceOverseerPermission,
   isCongregationAdminUser,
   isSuperAdminUser,
   midweekParticipationSchema,
+  reportPermissionSchema,
   secretaryPermissionSchema,
   serviceOverseerPermissionSchema,
   type AuthUser,
   type ClamOverseerPermission,
   type CongregationAdmin,
   type ElderPermission,
+  type ReportPermission,
   type SecretaryPermission,
   type ServiceOverseerPermission,
 } from "../src/feature/index.ts";
@@ -26,6 +30,8 @@ const authUserId = "7b15d4e5-d4fa-4eb4-a276-3790b7c4897b";
 const otherUserId = "99f4d4e5-d4fa-4eb4-a276-3790b7c40000";
 const congregationId = "1c74d4e5-d4fa-4eb4-a276-3790b7c41111";
 const otherCongregationId = "2c74d4e5-d4fa-4eb4-a276-3790b7c42222";
+const groupId = "3c74d4e5-d4fa-4eb4-a276-3790b7c43333";
+const otherGroupId = "4c74d4e5-d4fa-4eb4-a276-3790b7c44444";
 
 function permission(overrides: Partial<ClamOverseerPermission>): ClamOverseerPermission {
   return {
@@ -194,6 +200,42 @@ test("hasServiceOverseerPermission requires can_edit", () => {
   ];
   expect(hasServiceOverseerPermission(rows, authUserId, congregationId)).toBe(false);
   expect(hasServiceOverseerPermission(rows, authUserId, otherCongregationId)).toBe(true);
+});
+
+function reportPermission(overrides: Partial<ReportPermission>): ReportPermission {
+  return {
+    id: "5c74d4e5-d4fa-4eb4-a276-3790b7c45555",
+    auth_user_id: authUserId,
+    group_id: groupId,
+    can_read: true,
+    can_edit: true,
+    ...overrides,
+  };
+}
+
+test("reportPermissionSchema mirrors the table shape", () => {
+  const row = reportPermission({});
+  expect(reportPermissionSchema.safeParse(row).success).toBe(true);
+  expect(reportPermissionSchema.safeParse({ ...row, can_edit: "yes" }).success).toBe(false);
+  expect(reportPermissionSchema.safeParse({ ...row, auth_user_id: "x" }).success).toBe(false);
+  expect(reportPermissionSchema.safeParse({ ...row, group_id: "x" }).success).toBe(false);
+});
+
+test("report permission checks require a matching user, group, and flag", () => {
+  const rows = [reportPermission({})];
+  expect(hasReportReadPermission(rows, authUserId, groupId)).toBe(true);
+  expect(hasReportEditPermission(rows, authUserId, groupId)).toBe(true);
+  expect(hasReportReadPermission(rows, otherUserId, groupId)).toBe(false);
+  expect(hasReportReadPermission(rows, authUserId, otherGroupId)).toBe(false);
+  expect(hasReportReadPermission(rows, undefined, groupId)).toBe(false);
+  expect(hasReportReadPermission(rows, authUserId, undefined)).toBe(false);
+  expect(hasReportReadPermission(undefined, authUserId, groupId)).toBe(false);
+  expect(
+    hasReportEditPermission([reportPermission({ can_edit: false })], authUserId, groupId),
+  ).toBe(false);
+  expect(
+    hasReportReadPermission([reportPermission({ can_read: false })], authUserId, groupId),
+  ).toBe(false);
 });
 
 function congregationAdmin(overrides: Partial<CongregationAdmin>): CongregationAdmin {

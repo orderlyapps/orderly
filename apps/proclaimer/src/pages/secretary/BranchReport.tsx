@@ -39,10 +39,11 @@ const BranchReport = () => {
     window.history.replaceState(null, "", `/secretary/branch-report/${nextMonthId}`);
   };
 
-  const canUseSecretary = permissions.hasSecretary || permissions.isSuperAdmin;
+  const canUseBranchReport =
+    permissions.hasElder || permissions.hasSecretary || permissions.isSuperAdmin;
   const isLoading = settingsLoading || !permissions.isLoaded;
 
-  if (!isLoading && !canUseSecretary) {
+  if (!isLoading && !canUseBranchReport) {
     return <Navigate to="/home" replace />;
   }
 

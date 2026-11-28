@@ -4,7 +4,7 @@ import { REPORT_TABLE, reportSchema, type Report } from "./schema.ts";
 import { ACTIVE_PUBLISHER_WINDOW_MONTHS, PUBLISHER_REPORT_WINDOW_MONTHS } from "./stats.ts";
 
 const REPORT_SELECT =
-  "confidential_id,congregation_id,date,active,hours,bible_studies,credit_hours,aux_pio,reg_pio,spe_pio,reported_elsewhere";
+  "confidential_id,congregation_id,group_id,date,active,hours,bible_studies,credit_hours,aux_pio,reg_pio,spe_pio,reported_elsewhere";
 
 const REPORT_KEY_COLUMNS: (keyof Report)[] = ["confidential_id", "congregation_id", "date"];
 

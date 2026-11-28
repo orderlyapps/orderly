@@ -16,6 +16,7 @@ import { usePublishers } from "../publisher/hooks.ts";
 import { getPublisherDisplayName } from "../publisher/schema.ts";
 import { reportKey } from "./collection.ts";
 import { usePublisherReports } from "./hooks.ts";
+import { canEditPublisherReport, type ReportGroupEditAccess } from "./permissions.ts";
 import { ReportEditModal, type ReportDraft } from "./ReportEditModal.tsx";
 import type { Report } from "./schema.ts";
 import {
@@ -35,6 +36,8 @@ export interface PublisherReportViewProps {
   monthId: string;
   publisherId?: string | null;
   congregationId?: string | null;
+  /** Group-scoped report edit access for the signed-in user. */
+  editAccess: ReportGroupEditAccess;
 }
 
 /** The September–August service year a month belongs to, e.g. "2025–2026". */
@@ -98,6 +101,7 @@ export function PublisherReportView({
   monthId,
   publisherId,
   congregationId,
+  editAccess,
 }: PublisherReportViewProps) {
   const { publishers, isLoading: publishersLoading } = usePublishers(congregationId);
   const { records: localRecords, isLoading: localLoading } = usePublisherLocalRecords();
@@ -152,12 +156,13 @@ export function PublisherReportView({
       const tx = collection.insert({
         confidential_id: insertConfidentialId,
         congregation_id: congregationId,
+        group_id: publisher?.group_id ?? null,
         date: `${editingMonth}-01`,
         ...draft,
       });
       await tx.isPersisted.promise;
     },
-    [collection, editingMonthId, byMonth, congregationId, insertConfidentialId],
+    [collection, editingMonthId, byMonth, congregationId, insertConfidentialId, publisher],
   );
   const serviceYears = useMemo(() => {
     const groups: { year: string; monthIds: string[] }[] = [];
@@ -235,11 +240,14 @@ export function PublisherReportView({
               const report = byMonth.get(id);
               const flags = report ? reportFlags(report, publisher?.type) : [];
               const credits = report ? creditHourLines(report.credit_hours) : [];
-              // Reports filed under another congregation can't be saved here —
-              // report RLS requires edit rights on report.congregation_id.
-              const editable =
-                collection != null &&
-                (report != null ? report.congregation_id === congregationId : canCreate);
+              const editable = canEditPublisherReport({
+                access: editAccess,
+                collectionAvailable: collection != null,
+                congregationId,
+                canCreate,
+                report: report ?? null,
+                publisherGroupId: publisher?.group_id,
+              });
               return (
                 <IonItem
                   key={id}

@@ -751,6 +751,8 @@ function permissions(overrides: Partial<PermissionsResult>): PermissionsResult {
     hasSecretary: false,
     hasElder: false,
     hasServiceOverseer: false,
+    reportReadGroupIds: [],
+    reportEditGroupIds: [],
     isCongregationAdmin: false,
     isSuperAdmin: false,
     isAuthenticated: true,

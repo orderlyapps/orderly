@@ -12,11 +12,13 @@ import {
   getAuthUserCollection,
   getCongregationAdminCollection,
   getElderPermissionCollection,
+  getReportPermissionCollection,
   getSecretaryPermissionCollection,
   getServiceOverseerPermissionCollection,
   type AuthUserCollection,
   type CongregationAdminCollection,
   type ElderPermissionCollection,
+  type ReportPermissionCollection,
   type SecretaryPermissionCollection,
   type ServiceOverseerPermissionCollection,
 } from "./collection.ts";
@@ -24,6 +26,7 @@ import type {
   AuthUser,
   CongregationAdmin,
   ElderPermission,
+  ReportPermission,
   SecretaryPermission,
   ServiceOverseerPermission,
 } from "./schema.ts";
@@ -37,6 +40,10 @@ export interface PermissionsResult {
   hasElder: boolean;
   /** User may edit service overseer data (e.g. territory maps) for the congregation. */
   hasServiceOverseer: boolean;
+  /** Field service group ids whose reports the user may read. */
+  reportReadGroupIds: string[];
+  /** Field service group ids whose reports the user may edit. */
+  reportEditGroupIds: string[];
   /** User is an administrator of the congregation. */
   isCongregationAdmin: boolean;
   isSuperAdmin: boolean;
@@ -97,6 +104,36 @@ export function hasServiceOverseerPermission(
   return hasCongregationEditPermission(rows, authUserId, congregationId);
 }
 
+function hasReportPermission(
+  rows: ReportPermission[] | undefined,
+  authUserId: string | null | undefined,
+  groupId: string | null | undefined,
+  permission: "can_read" | "can_edit",
+): boolean {
+  if (!authUserId || !groupId) {
+    return false;
+  }
+  return (rows ?? []).some(
+    (row) => row.auth_user_id === authUserId && row.group_id === groupId && row[permission],
+  );
+}
+
+export function hasReportReadPermission(
+  rows: ReportPermission[] | undefined,
+  authUserId: string | null | undefined,
+  groupId: string | null | undefined,
+): boolean {
+  return hasReportPermission(rows, authUserId, groupId, "can_read");
+}
+
+export function hasReportEditPermission(
+  rows: ReportPermission[] | undefined,
+  authUserId: string | null | undefined,
+  groupId: string | null | undefined,
+): boolean {
+  return hasReportPermission(rows, authUserId, groupId, "can_edit");
+}
+
 export function isCongregationAdminUser(
   rows: CongregationAdmin[] | undefined,
   authUserId: string | null | undefined,
@@ -125,6 +162,7 @@ interface ResolvedCollections {
   secretary: SecretaryPermissionCollection | null;
   elder: ElderPermissionCollection | null;
   serviceOverseer: ServiceOverseerPermissionCollection | null;
+  report: ReportPermissionCollection | null;
   congregationAdmin: CongregationAdminCollection | null;
   authUser: AuthUserCollection | null;
 }
@@ -146,6 +184,7 @@ function resolveCollections(
     secretary: congregationId ? tryResolve(getSecretaryPermissionCollection) : null,
     elder: congregationId ? tryResolve(getElderPermissionCollection) : null,
     serviceOverseer: congregationId ? tryResolve(getServiceOverseerPermissionCollection) : null,
+    report: authUserId ? tryResolve(getReportPermissionCollection) : null,
     congregationAdmin: congregationId ? tryResolve(getCongregationAdminCollection) : null,
     authUser: authUserId ? tryResolve(getAuthUserCollection) : null,
   };
@@ -203,6 +242,13 @@ export function usePermissions(congregationId?: string | null): PermissionsResul
         : undefined,
   });
 
+  const { data: reportRows, isLoading: reportLoading } = useLiveQuery({
+    query: (q) =>
+      resolved.report && authUserId
+        ? q.from({ p: resolved.report }).where(({ p }) => eq(p.auth_user_id, authUserId))
+        : undefined,
+  });
+
   const { data: congregationAdminRows, isLoading: congregationAdminLoading } = useLiveQuery({
     query: (q) =>
       resolved.congregationAdmin && authUserId && congregationId
@@ -230,6 +276,8 @@ export function usePermissions(congregationId?: string | null): PermissionsResul
       authUserId,
       congregationId,
     ),
+    reportReadGroupIds: (reportRows ?? []).filter((row) => row.can_read).map((row) => row.group_id),
+    reportEditGroupIds: (reportRows ?? []).filter((row) => row.can_edit).map((row) => row.group_id),
     isCongregationAdmin: isCongregationAdminUser(congregationAdminRows, authUserId, congregationId),
     isSuperAdmin: isSuperAdminUser(authUserRows, authUserId),
     isAuthenticated: Boolean(authUserId),
@@ -239,6 +287,7 @@ export function usePermissions(congregationId?: string | null): PermissionsResul
       !(resolved.secretary !== null && secretaryLoading) &&
       !(resolved.elder !== null && elderLoading) &&
       !(resolved.serviceOverseer !== null && serviceOverseerLoading) &&
+      !(resolved.report !== null && reportLoading) &&
       !(resolved.congregationAdmin !== null && congregationAdminLoading) &&
       !(resolved.authUser !== null && authUserLoading),
   };

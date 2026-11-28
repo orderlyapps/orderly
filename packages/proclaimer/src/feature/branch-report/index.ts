@@ -16,6 +16,12 @@ export { usePublisherReports, useReports, type UseReportsResult } from "./hooks.
 export { MonthNavigator, type MonthNavigatorProps } from "./MonthNavigator.tsx";
 export { PublisherReportView, type PublisherReportViewProps } from "./PublisherReportView.tsx";
 export {
+  canEditPublisherReport,
+  canEditReportGroup,
+  type PublisherReportEditInput,
+  type ReportGroupEditAccess,
+} from "./permissions.ts";
+export {
   PublisherReportsModal,
   type PublisherReportsModalProps,
 } from "./PublisherReportsModal.tsx";

@@ -3,16 +3,19 @@ import {
   AUTH_USER_TABLE,
   CONGREGATION_ADMIN_TABLE,
   ELDER_PERMISSION_TABLE,
+  REPORT_PERMISSION_TABLE,
   SECRETARY_PERMISSION_TABLE,
   SERVICE_OVERSEER_PERMISSION_TABLE,
   authUserSchema,
   congregationAdminSchema,
   elderPermissionSchema,
+  reportPermissionSchema,
   secretaryPermissionSchema,
   serviceOverseerPermissionSchema,
   type AuthUser,
   type CongregationAdmin,
   type ElderPermission,
+  type ReportPermission,
   type SecretaryPermission,
   type ServiceOverseerPermission,
 } from "./schema.ts";
@@ -79,6 +82,25 @@ export function getServiceOverseerPermissionCollection(): ServiceOverseerPermiss
   return defaultServiceOverseerPermissionCollection;
 }
 
+export function createReportPermissionCollection() {
+  return createSupabaseTableCollection<ReportPermission>({
+    table: REPORT_PERMISSION_TABLE,
+    id: REPORT_PERMISSION_TABLE,
+    schema: reportPermissionSchema,
+  });
+}
+
+export type ReportPermissionCollection = ReturnType<typeof createReportPermissionCollection>;
+
+let defaultReportPermissionCollection: ReportPermissionCollection | null = null;
+
+export function getReportPermissionCollection(): ReportPermissionCollection {
+  if (!defaultReportPermissionCollection) {
+    defaultReportPermissionCollection = createReportPermissionCollection();
+  }
+  return defaultReportPermissionCollection;
+}
+
 export function createCongregationAdminCollection() {
   return createSupabaseTableCollection<CongregationAdmin>({
     table: CONGREGATION_ADMIN_TABLE,
@@ -124,12 +146,14 @@ export async function resetPermissionCollectionsForTesting(): Promise<void> {
     defaultSecretaryPermissionCollection,
     defaultElderPermissionCollection,
     defaultServiceOverseerPermissionCollection,
+    defaultReportPermissionCollection,
     defaultCongregationAdminCollection,
     defaultAuthUserCollection,
   ];
   defaultSecretaryPermissionCollection = null;
   defaultElderPermissionCollection = null;
   defaultServiceOverseerPermissionCollection = null;
+  defaultReportPermissionCollection = null;
   defaultCongregationAdminCollection = null;
   defaultAuthUserCollection = null;
   await Promise.all(

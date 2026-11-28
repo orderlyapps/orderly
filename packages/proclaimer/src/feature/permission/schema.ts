@@ -3,6 +3,7 @@ import { z } from "zod";
 export const SECRETARY_PERMISSION_TABLE = "secretary_permission";
 export const ELDER_PERMISSION_TABLE = "elder_permission";
 export const SERVICE_OVERSEER_PERMISSION_TABLE = "service_overseer_permission";
+export const REPORT_PERMISSION_TABLE = "report_permission";
 export const CONGREGATION_ADMIN_TABLE = "congregation_admin";
 export const AUTH_USER_TABLE = "auth_user";
 
@@ -45,6 +46,21 @@ export const serviceOverseerPermissionSchema = z.object({
 });
 
 export type ServiceOverseerPermission = z.infer<typeof serviceOverseerPermissionSchema>;
+
+// Mirrors the Supabase "report_permission" table: grants a signed-in
+// user (auth_user_id) read or edit access to reports for a field service group
+export const reportPermissionSchema = z.object({
+  id: z.uuid(),
+  auth_user_id: z.uuid(),
+  group_id: z.uuid(),
+  can_read: z.boolean(),
+  can_edit: z.boolean(),
+  granted_by: z.uuid().nullable().optional(),
+  created_at: z.string().nullable().optional(),
+  updated_at: z.string().nullable().optional(),
+});
+
+export type ReportPermission = z.infer<typeof reportPermissionSchema>;
 
 // Mirrors the Supabase "congregation_admin" table: a row marks a
 // signed-in user (auth_user_id) as an administrator of a congregation

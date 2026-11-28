@@ -44,6 +44,7 @@ export const CREDIT_HOUR_LABELS: Record<string, string> = Object.fromEntries(
 export const reportSchema = z.object({
   confidential_id: z.uuid(),
   congregation_id: z.uuid(),
+  group_id: z.uuid().nullable().default(null),
   date: z.string(),
   active: z.boolean(),
   hours: z.number().nullable().default(null),

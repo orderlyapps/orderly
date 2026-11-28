@@ -2,6 +2,8 @@ import { expect, test } from "vite-plus/test";
 
 import {
   activePublisherIds,
+  canEditPublisherReport,
+  canEditReportGroup,
   monthReportStats,
   PUBLISHER_REPORT_WINDOW_MONTHS,
   publisherConfidentialIds,
@@ -94,6 +96,7 @@ function report(
   return {
     confidential_id: publisherId,
     congregation_id: congregationId,
+    group_id: null,
     date,
     active,
     hours: null,
@@ -106,6 +109,89 @@ function report(
     ...overrides,
   };
 }
+
+const groupId = "00000000-0000-0000-0000-0000000000aa";
+const otherGroupId = "00000000-0000-0000-0000-0000000000bb";
+
+const elderWithoutReportEdit = {
+  hasSecretary: false,
+  isCongregationAdmin: false,
+  isSuperAdmin: false,
+  reportEditGroupIds: [],
+};
+
+test("canEditReportGroup requires group-scoped report edit permission", () => {
+  const access = { ...elderWithoutReportEdit, reportEditGroupIds: [groupId] };
+  expect(canEditReportGroup(access, groupId)).toBe(true);
+  expect(canEditReportGroup(access, otherGroupId)).toBe(false);
+  expect(canEditReportGroup(elderWithoutReportEdit, groupId)).toBe(false);
+  expect(canEditReportGroup(elderWithoutReportEdit, null)).toBe(false);
+  expect(canEditReportGroup({ ...elderWithoutReportEdit, isCongregationAdmin: true }, null)).toBe(
+    true,
+  );
+  expect(canEditReportGroup({ ...elderWithoutReportEdit, isSuperAdmin: true }, null)).toBe(true);
+  expect(canEditReportGroup({ ...elderWithoutReportEdit, hasSecretary: true }, otherGroupId)).toBe(
+    true,
+  );
+});
+
+test("canEditPublisherReport gates existing reports by the report group", () => {
+  const existing = report("00000000-0000-0000-0000-00000000000c", "2025-11-01", true, {
+    group_id: groupId,
+  });
+  const input = {
+    collectionAvailable: true,
+    congregationId,
+    canCreate: true,
+    report: existing,
+    publisherGroupId: otherGroupId,
+  };
+  expect(
+    canEditPublisherReport({
+      ...input,
+      access: { ...elderWithoutReportEdit, reportEditGroupIds: [groupId] },
+    }),
+  ).toBe(true);
+  expect(canEditPublisherReport({ ...input, access: elderWithoutReportEdit })).toBe(false);
+  // The stored report group controls edit access; the publisher may since have moved groups.
+  expect(
+    canEditPublisherReport({
+      ...input,
+      access: { ...elderWithoutReportEdit, reportEditGroupIds: [otherGroupId] },
+    }),
+  ).toBe(false);
+});
+
+test("canEditPublisherReport gates new reports by the publisher group", () => {
+  const input = {
+    collectionAvailable: true,
+    congregationId,
+    canCreate: true,
+    report: null,
+    publisherGroupId: groupId,
+  };
+  expect(
+    canEditPublisherReport({
+      ...input,
+      access: { ...elderWithoutReportEdit, reportEditGroupIds: [groupId] },
+    }),
+  ).toBe(true);
+  expect(canEditPublisherReport({ ...input, access: elderWithoutReportEdit })).toBe(false);
+  expect(
+    canEditPublisherReport({
+      ...input,
+      access: { ...elderWithoutReportEdit, reportEditGroupIds: [groupId] },
+      collectionAvailable: false,
+    }),
+  ).toBe(false);
+  expect(
+    canEditPublisherReport({
+      ...input,
+      access: { ...elderWithoutReportEdit, reportEditGroupIds: [groupId] },
+      canCreate: false,
+    }),
+  ).toBe(false);
+});
 
 test("activePublisherIds counts a publisher once when active in any month of the window", () => {
   const a = "00000000-0000-0000-0000-00000000000a";
