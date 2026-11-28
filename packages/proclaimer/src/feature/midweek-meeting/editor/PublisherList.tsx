@@ -61,13 +61,15 @@ export function PublisherList({
               button
               detail={false}
               lines={index === sorted.length - 1 ? "none" : "inset"}
-              color={selected ? "primary" : undefined}
               onClick={() => onSelect(publisherId)}
             >
-              <IonLabel color={!selected && hasWeekAssignment ? "warning" : undefined}>
+              <IonLabel
+                color={selected ? "primary" : hasWeekAssignment ? "warning" : undefined}
+                style={selected ? { fontSize: 17, fontWeight: 700 } : undefined}
+              >
                 {getPublisherDisplayName(publisher)}
               </IonLabel>
-              {statLabel && <IonChip color={selected ? "primary" : "medium"}>{statLabel}</IonChip>}
+              {statLabel && <IonChip color="medium">{statLabel}</IonChip>}
             </IonItem>
           );
         })}
